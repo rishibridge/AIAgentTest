@@ -1,0 +1,4 @@
+ddgs
+google-genai
+python-dotenv
+rich

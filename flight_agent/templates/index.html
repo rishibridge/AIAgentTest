@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Finder</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+
+<body>
+    <div class="container">
+        <header class="hero">
+            <h1>Find your flight.</h1>
+        </header>
+
+        <form id="search-form" class="search-card">
+            <!-- Sentence 1: Route -->
+            <p class="sentence">
+                I want to fly from
+                <input type="text" id="origin" placeholder="Dallas" class="inline-input" required>
+                to
+                <input type="text" id="destination" placeholder="London" class="inline-input" required>.
+            </p>
+
+            <!-- Sentence 2: Departure Window -->
+            <p class="sentence">
+                I can leave anytime between
+                <input type="date" id="dep_start" class="inline-date" required>
+                and
+                <input type="date" id="dep_end" class="inline-date" required>.
+            </p>
+
+            <!-- Sentence 3: Duration OR Return (Toggle) -->
+            <div class="mode-toggle">
+                <label class="toggle-option">
+                    <input type="radio" name="mode" value="duration" checked onchange="toggleMode()">
+                    <span>Duration</span>
+                </label>
+                <label class="toggle-option">
+                    <input type="radio" name="mode" value="return" onchange="toggleMode()">
+                    <span>Return window</span>
+                </label>
+            </div>
+
+            <p class="sentence" id="duration-sentence">
+                I'd like to stay for
+                <input type="number" id="dur_min" value="7" min="1" max="30" class="inline-num">
+                to
+                <input type="number" id="dur_max" value="10" min="1" max="30" class="inline-num">
+                days.
+            </p>
+
+            <p class="sentence hidden" id="return-sentence">
+                I need to return between
+                <input type="date" id="ret_start" class="inline-date">
+                and
+                <input type="date" id="ret_end" class="inline-date">.
+            </p>
+
+            <!-- Source Picker -->
+            <p class="sentence">
+                Search on
+                <select id="source" class="inline-select">
+                    <option value="google">Google Flights</option>
+                    <option value="kayak">Kayak</option>
+                    <option value="skyscanner">Skyscanner</option>
+                </select>
+            </p>
+
+            <!-- Submit -->
+            <button type="submit" class="search-btn">Find the Best Deal</button>
+
+            <!-- Email -->
+            <input type="email" id="email" placeholder="Email me when done (optional)" class="email-input">
+        </form>
+
+        <!-- Loading -->
+        <div id="loading" class="loading hidden">
+            <div class="progress-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <p id="loading-text">Searching...</p>
+        </div>
+
+        <!-- Results -->
+        <div id="results" class="results hidden">
+            <div class="best-result">
+                <div class="price-block">
+                    <span class="price" id="best-price">$412</span>
+                    <span class="label">roundtrip</span>
+                </div>
+                <div class="details">
+                    <div id="best-airline">American Airlines</div>
+                    <div id="best-dates">Feb 25 → Mar 4</div>
+                    <div id="best-times">6:25 am - 2:30 pm</div>
+                    <div id="best-meta">1 stop</div>
+                    <div id="best-flight-num" class="flight-num"></div>
+                    <div id="best-layover" class="layover-info"></div>
+                </div>
+                <a id="best-link" href="#" target="_blank" class="book-btn">Book →</a>
+            </div>
+            <div id="alternatives" class="alternatives">
+                <p class="alt-label">Other options:</p>
+                <div id="alt-list"></div>
+            </div>
+        </div>
+
+        <details class="log-section">
+            <summary>Log</summary>
+            <div id="log" class="log"></div>
+        </details>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+
+</html>
