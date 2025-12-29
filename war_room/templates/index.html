@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>VERDICT - AI Debate Arena</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@500&family=Cinzel:wght@700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="app-wrapper">
+        <header class="main-header">
+            <div class="logo-area">
+                <img src="/static/logo.png" alt="Debate & Verdict" class="header-logo">
+                <p class="subtitle">Pick a topic. Watch AI Agents Debate. See Who Wins.</p>
+            </div>
+            <div class="search-section">
+                <input type="text" id="topic-input" placeholder="Topic of inquiry: NVIDIA, Buddhism, Climate Change..."
+                    onkeypress="if(event.key==='Enter') startDebate()">
+                <select id="advocate-tone" class="tone-dropdown" title="Advocate Style">
+                    <option value="casual" selected>Adv: Casual</option>
+                    <option value="scholar">Adv: Scholar</option>
+                    <option value="simple">Adv: Simple</option>
+                    <option value="witty">Adv: Witty</option>
+                    <option value="ab-initio">Adv: Ab-Initio</option>
+                    <option value="rofl">Adv: ROFL</option>
+                    <option value="spicy">Adv: Spicy 🌶️</option>
+                    <option value="satirical">Adv: Satirical</option>
+                </select>
+                <select id="skeptic-tone" class="tone-dropdown" title="Skeptic Style">
+                    <option value="casual">Skeptic: Casual</option>
+                    <option value="scholar" selected>Skeptic: Scholar</option> <!-- Default contrast -->
+                    <option value="simple">Skeptic: Simple</option>
+                    <option value="witty">Skeptic: Witty</option>
+                    <option value="ab-initio">Skeptic: Ab-Initio</option>
+                    <option value="rofl">Skeptic: ROFL</option>
+                    <option value="spicy">Skeptic: Spicy 🌶️</option>
+                    <option value="satirical">Skeptic: Satirical</option>
+                </select>
+
+                <button id="sound-toggle" class="sound-btn" onclick="toggleSound()" title="Toggle audio">🔇</button>
+                <button onclick="startDebate()">DEBATE</button>
+            </div>
+        </header>
+
+        <main class="discussion-container" id="main-discussion">
+            <div id="discussion-stream">
+                <!-- Messages will append here in a single stream -->
+            </div>
+            <div id="anchor"></div>
+        </main>
+        <footer class="copyright-footer">
+            <span>© 2025 Rishi Khullar / Unusual Insights Inc. All Rights Reserved. | v1.34</span>
+            <div class="model-selectors">
+                <select id="advocate-model" class="model-dropdown" title="Advocate Model">
+                    <option value="gemini" selected>Advocate: Gemini 🇺🇸</option>
+                    <option value="deepseek">Advocate: DeepSeek 🇨🇳</option>
+                    <option value="kimi">Advocate: Kimi K2 🇨🇳</option>
+                </select>
+                <select id="skeptic-model" class="model-dropdown" title="Skeptic Model">
+                    <option value="gemini">Skeptic: Gemini 🇺🇸</option>
+                    <option value="deepseek">Skeptic: DeepSeek 🇨🇳</option>
+                    <option value="kimi" selected>Skeptic: Kimi K2 🇨🇳</option>
+                </select>
+                <select id="judge-model" class="model-dropdown" title="Judge Model">
+                    <option value="gemini">Judge: Gemini 🇺🇸</option>
+                    <option value="deepseek" selected>Judge: DeepSeek 🇨🇳</option>
+                    <option value="kimi">Judge: Kimi K2 🇨🇳</option>
+                </select>
+            </div>
+        </footer>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+
+</html>

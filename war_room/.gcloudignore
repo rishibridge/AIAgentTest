@@ -1,0 +1,12 @@
+.gcloudignore
+.git
+.gitignore
+.env
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.gemini/
+.vscode/
+node_modules/
