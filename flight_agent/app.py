@@ -4,7 +4,7 @@ import json
 import threading
 import queue
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(override=True)
 from agent import run_search_thread
 
 app = Flask(__name__)

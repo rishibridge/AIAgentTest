@@ -19,10 +19,16 @@ def dump_google_html():
         page.goto(url, wait_until="networkidle", timeout=30000)
         
         # Dump HTML
+        import os
+        output_dir = "_output"
+        os.makedirs(output_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{output_dir}/google_debug_{timestamp}.html"
+        
         content = page.content()
-        with open("google_debug.html", "w", encoding="utf-8") as f:
+        with open(filename, "w", encoding="utf-8") as f:
             f.write(content)
-        print(f"Dumped {len(content)} bytes to google_debug.html")
+        print(f"Dumped {len(content)} bytes to {filename}")
         
         browser.close()
 

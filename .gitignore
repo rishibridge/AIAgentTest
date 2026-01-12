@@ -47,3 +47,5 @@ Dockerfile
 # Editors
 .vscode/
 .idea/
+_output/
+*.log

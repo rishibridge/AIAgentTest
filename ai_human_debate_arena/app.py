@@ -218,7 +218,6 @@ def get_persona_base(persona_type, tone):
     FOR FINAL VERDICT:
     - Evaluate the ENTIRE DEBATE on the ORIGINAL TOPIC
     - Ignore tangents and analogies. Focus on the core question.
-    - "Verdict: [Advocate/Skeptic] prevails on [TOPIC]. [1-2 sentences why]."
     
     BE BRIEF. 1-2 sentences max unless delivering final verdict.
     You MUST pick a winner at the end. A tie is illogical."""
@@ -346,20 +345,44 @@ def get_llm_turn(persona_type, topic, role_data, conversation_history, category,
     domain_guide = domain_guidelines.get(category, '') if tone == "scholar" else ""
     
     if is_final:
-        goal = """FINAL VERDICT REQUIRED.
-        Structure your verdict exactly like this:
-        1. SUMMARY: Briefly summarize the core clash. Where did the judge stand on the arguments presented? (2-3 sentences)
-        2. DECISION: State clearly 'THE ADVOCATE WINS' or 'THE SKEPTIC WINS'.
-        3. EXPLANATION: Explain WHY this side won based on the debate performance. Cite specific decisive arguments."""
+        goal = """FINAL VERDICT.
+        
+        You are the Judge. Deliver the verdict in a NATURAL, CONVERSATIONAL tone.
+        
+        Your verdict must organically cover these 5 elements (but DO NOT use numbers or headers):
+        - The question that was debated
+        - Your direct answer to that question
+        - A brief summary of the core clash
+        - Who won (clearly state "The Advocate wins" or "The Skeptic wins")
+        - Why they won, citing specific arguments from the debate
+        
+        Write it as a flowing paragraph or two, like a real judge speaking in court. No bullet points. No numbered lists.
+        
+        EXAMPLE: "The question before us was whether dogs are good for people. Having reviewed the arguments, I find in favor of the Skeptic. The core clash centered on emotional benefits versus environmental costs. While the Advocate made heartfelt arguments about companionship, the Skeptic's data on carbon footprint and healthcare costs went largely unchallenged. The Skeptic wins."
+        
+        Keep it under 100 words."""
     elif is_evaluation:
-        goal = """JUDGE EVALUATION - Decide if debate should continue or end:
+        goal = """JUDGE CHECK-IN.
         
-        Evaluate the last exchange and decide:
-        1. If one side has clearly WON with superior logic/evidence → Say 'THE ADVOCATE WINS' or 'THE SKEPTIC WINS' + brief reason
-        2. If arguments are going in circles with no new points → Say 'DEADLOCK' + brief reason why neither can convince the other
-        3. If debate is still productive with new arguments being made → Give brief observation and let them continue
+        Briefly evaluate this exchange. You have 3 choices:
         
-        Be decisive. Don't let debates drag on forever. If you've seen the same arguments repeated 2-3 times, call it."""
+        A) If one side clearly won, give the final verdict NOW (see below).
+        B) If it's a DEADLOCK (going in circles), say so: "This debate has reached a stalemate."
+        C) If the debate is still productive, give a SHORT (1-2 sentence) comment on the state of play and say "Continue."
+        
+        FOR VERDICT (Option A):
+        Announce the winner conversationally: "Based on this exchange, the Advocate wins because [reason]." or "The Skeptic takes it due to [reason]."
+        No numbered lists. No headers. Just speak like a human judge.
+        
+        SCORING (MANDATORY):
+        You MUST end your response with a score shift for the Advocate.
+        Format: || SCORE_DELTA: [number from -5 to +5]
+        +5 = Advocate crushed it. +3 = Strong point. +1 = Slight edge. 0 = Even. Negatives for Skeptic.
+        
+        Example Output:
+        "The Skeptic made a compelling point about economic impact that the Advocate failed to address. Continue. || SCORE_DELTA: -2"
+        
+        Keep your commentary SHORT (under 50 words before the score)."""
     elif is_reaction:
         goal = "Drop a quick 1-sentence thought on how this chat is going." if tone == "casual" else "Offer a brief 1-sentence analytical observation on the current line of reasoning."
     elif is_opening:
@@ -578,6 +601,100 @@ def get_llm_turn(persona_type, topic, role_data, conversation_history, category,
         return f"... analyzing the intellectual friction. ({str(e)})"
 
 
+@app.route('/api/init_debate', methods=['POST'])
+def init_debate():
+    """Initialize debate: Analyze topic, check debatability, and fetch preliminary context."""
+    data = request.json
+    topic = data.get('topic', '')
+    
+    category = categorize_topic(topic)
+    is_debatable_topic = is_debatable(topic)
+    
+    if not is_debatable_topic:
+        # Get factual answer immediately
+        answer = get_factual_answer(topic, "scholar")
+        return json.dumps({
+            "is_debatable": False,
+            "category": category,
+            "factual_answer": answer
+        })
+    
+    # Research topic
+    # For now, we still fake the "scrape" or rely on LLM grounding, but let's return placeholders 
+    # so the client knows what rounds to initialize.
+    # In V2, this would actually return the scraped text chunks.
+    return json.dumps({
+        "is_debatable": True,
+        "category": category,
+        "for_data": scrape_intel(topic, "for", category),
+        "against_data": scrape_intel(topic, "against", category)
+    })
+
+@app.route('/api/chaos_topic', methods=['GET'])
+def chaos_topic():
+    """Return a random high-conflict topic for Chaos Mode."""
+    topics = [
+        "Is Taxation Theft?",
+        "AI Art is Real Art",
+        "Mandatory National Service for All 18-Year-Olds",
+        "Ban Private Schools",
+        "The Internet Was a Mistake",
+        "Crypto is a scam",
+        "Meat eating is unethical",
+        "Nuclear energy is the only green solution",
+        "Video games cause violence",
+        "Social media does more harm than good",
+        "Space exploration is a waste of money",
+        "Universal Basic Income is necessary",
+        "Billionaires should not exist",
+        "Remote work ruins culture",
+        "College is a scam"
+    ]
+    import random
+    return json.dumps({"topic": random.choice(topics)})
+
+@app.route('/api/turn', methods=['POST'])
+def generate_turn():
+    """Generate a single turn for a specific role."""
+    data = request.json
+    role = data.get('role')
+    topic = data.get('topic')
+    history = data.get('history', [])
+    context_data = data.get('context_data', [])
+    model_provider = data.get('model_provider', 'gemini')
+    tone = data.get('tone', 'casual')
+    category = data.get('category', 'SOCIOPOLITICAL')
+    
+    # Flags
+    is_opening = data.get('is_opening', False)
+    is_final = data.get('is_final', False)
+    is_evaluation = data.get('is_evaluation', False)
+    
+    # Map roles to persona types
+    persona_map = {
+        "advocate": "advocate",
+        "skeptic": "skeptic",
+        "judge": "judge"
+    }
+    
+    response_text = get_llm_turn(
+        persona_type=persona_map.get(role, "judge"),
+        topic=topic,
+        role_data=context_data,
+        conversation_history="\n".join(history),
+        category=category,
+        tone=tone,
+        is_opening=is_opening,
+        is_final=is_final,
+        is_evaluation=is_evaluation,
+        model_provider=model_provider
+    )
+    
+    return json.dumps({
+        "role": role,
+        "text": response_text
+    })
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -702,7 +819,7 @@ def debate():
 
 if __name__ == '__main__':
     # Cloud Run provides the port in the PORT environment variable
-    port = int(os.environ.get('PORT', 8080))
+    port = int(os.environ.get('PORT', 8081))
     app.run(debug=True, host='0.0.0.0', port=port)
 
 

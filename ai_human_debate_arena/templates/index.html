@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>AI Human Debate Arena</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@500&family=Cinzel:wght@700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="app-wrapper">
+        <header class="main-header">
+            <div class="logo-area">
+                <img src="/static/logo.png" alt="AI Human Debate Arena" class="header-logo">
+                <p class="subtitle" id="tagline">Pick a topic. Watch AI Agents Debate. See Who Wins.</p>
+            </div>
+            <div class="search-section">
+                <input type="text" id="topic-input" placeholder="Enter a controversial topic..." autocomplete="off">
+                <button onclick="triggerChaos()" class="chaos-btn" title="Random Hot Topic">🔥</button>
+                <select id="advocate-tone" class="tone-dropdown" title="Advocate Style">
+                    <option value="casual" selected>Adv: Casual</option>
+                    <option value="scholar">Adv: Scholar</option>
+                    <option value="simple">Adv: Simple</option>
+                    <option value="witty">Adv: Witty</option>
+                    <option value="ab-initio">Adv: Ab-Initio</option>
+                    <option value="rofl">Adv: ROFL</option>
+                    <option value="spicy">Adv: Spicy 🌶️</option>
+                    <option value="satirical">Adv: Satirical</option>
+                </select>
+                <select id="skeptic-tone" class="tone-dropdown" title="Skeptic Style">
+                    <option value="casual">Skeptic: Casual</option>
+                    <option value="scholar" selected>Skeptic: Scholar</option> <!-- Default contrast -->
+                    <option value="simple">Skeptic: Simple</option>
+                    <option value="witty">Skeptic: Witty</option>
+                    <option value="ab-initio">Skeptic: Ab-Initio</option>
+                    <option value="rofl">Skeptic: ROFL</option>
+                    <option value="spicy">Skeptic: Spicy 🌶️</option>
+                    <option value="satirical">Skeptic: Satirical</option>
+                </select>
+
+                <button id="sound-toggle" class="sound-btn" onclick="toggleSound()" title="Toggle audio">🔇</button>
+                <button onclick="startDebate()">DEBATE</button>
+            </div>
+            <!-- Score Bar (inline in header) -->
+            <div id="score-container" class="score-container" style="display: none;">
+                <div class="score-row advocate">
+                    <span id="crown-advocate" class="crown" style="display: none;">👑</span>
+                    <span class="side-label advocate">Advocate</span>
+                    <span id="score-advocate" class="score-value advocate">0</span>
+                </div>
+                <div class="score-row skeptic">
+                    <span id="score-skeptic" class="score-value skeptic">0</span>
+                    <span class="side-label skeptic">Skeptic</span>
+                    <span id="crown-skeptic" class="crown" style="display: none;">👑</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="discussion-container" id="main-discussion">
+            <div id="discussion-stream">
+                <!-- Messages will append here in a single stream -->
+            </div>
+            <div id="anchor"></div>
+
+            <!-- "The Glass Voice" Input (Ive Style) -->
+            <div id="user-input-container" class="ive-input-dock hidden">
+                <div class="input-pill">
+                    <textarea id="human-argument" placeholder="Reply..." rows="1"></textarea>
+                    <button id="submit-argument" onclick="submitHumanTurn()">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </main>
+        <footer class="copyright-footer">
+            <span>© 2025 Rishi Khullar / Unusual Insights Inc. | v1.34</span>
+            <a href="#" onclick="showHistory()"
+                style="color: var(--accent-blue); text-decoration: none; font-size: 0.7rem;">History</a>
+            <div class="model-selectors">
+                <select id="advocate-model" class="model-dropdown" title="Advocate Model">
+                    <option value="gemini" selected>Advocate: Gemini 🇺🇸</option>
+                    <option value="deepseek">Advocate: DeepSeek 🇨🇳</option>
+                    <option value="kimi">Advocate: Kimi K2 🇨🇳</option>
+                    <option value="human">Advocate: Human (Me) 👤</option>
+                </select>
+                <select id="skeptic-model" class="model-dropdown" title="Skeptic Model">
+                    <option value="gemini">Skeptic: Gemini 🇺🇸</option>
+                    <option value="deepseek">Skeptic: DeepSeek 🇨🇳</option>
+                    <option value="kimi" selected>Skeptic: Kimi K2 🇨🇳</option>
+                    <option value="human">Skeptic: Human (Me) 👤</option>
+                </select>
+                <select id="judge-model" class="model-dropdown" title="Judge Model">
+                    <option value="gemini">Judge: Gemini 🇺🇸</option>
+                    <option value="deepseek" selected>Judge: DeepSeek 🇨🇳</option>
+                    <option value="kimi">Judge: Kimi K2 🇨🇳</option>
+                </select>
+            </div>
+            <!-- History Modal -->
+            <div id="history-modal" class="modal hidden">
+                <div class="modal-content glass-panel">
+                    <div class="modal-header">
+                        <h2>Debate History</h2>
+                        <button onclick="closeHistory()" class="close-btn">&times;</button>
+                    </div>
+                    <div id="history-list" class="history-list">
+                        <!-- History items injected here -->
+                    </div>
+                    <button onclick="clearHistory()" class="clear-history-btn">Clear History</button>
+                </div>
+        </footer>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="/static/script.js?v=6"></script>
+</body>
+
+</html>
