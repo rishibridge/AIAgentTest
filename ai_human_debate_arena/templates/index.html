@@ -86,11 +86,21 @@
             <div id="judge-input-container" class="judge-input-dock hidden">
                 <div class="judge-panel">
                     <div class="judge-header">⚖️ Your Judgment</div>
-                    <div class="score-slider-row">
+                    <!-- Normal scoring slider (hidden in verdict mode) -->
+                    <div id="score-section" class="score-slider-row">
                         <span class="slider-label skeptic">Skeptic</span>
                         <input type="range" id="judge-score" min="-5" max="5" value="0" class="score-slider">
                         <span class="slider-label advocate">Advocate</span>
                         <span id="score-display" class="score-display">0</span>
+                    </div>
+                    <!-- Binary verdict buttons (shown only in verdict mode) -->
+                    <div id="verdict-section" class="verdict-buttons" style="display: none;">
+                        <button class="verdict-btn skeptic-wins" onclick="submitVerdict('skeptic')">
+                            🔴 SKEPTIC WINS
+                        </button>
+                        <button class="verdict-btn advocate-wins" onclick="submitVerdict('advocate')">
+                            🟢 ADVOCATE WINS
+                        </button>
                     </div>
                     <textarea id="judge-comment" placeholder="Why? (optional)" rows="2"></textarea>
                     <div class="judge-actions">
@@ -141,7 +151,7 @@
         </footer>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <script src="/static/script.js?v=6"></script>
+    <script src="/static/script.js?v=8"></script>
 </body>
 
 </html>

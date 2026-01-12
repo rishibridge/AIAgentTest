@@ -312,6 +312,36 @@ let debateState = {
     resolveJudgeInput: null  // Function to resolve the Promise when human judge submits
 };
 
+// Enable/disable controls that can't change during an active debate
+function setDebateControlsEnabled(enabled) {
+    const controls = [
+        'topic-input',
+        'advocate-tone', 'skeptic-tone',
+        'advocate-model', 'skeptic-model', 'judge-model'
+    ];
+
+    controls.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !enabled;
+    });
+
+    // Debate button - change text and behavior
+    const debateBtn = document.querySelector('.controls button[onclick="startDebate()"]');
+    if (debateBtn) {
+        if (enabled) {
+            debateBtn.textContent = 'DEBATE';
+            debateBtn.disabled = false;
+        } else {
+            debateBtn.textContent = 'STOP';
+            debateBtn.disabled = false; // Keep enabled for stopping (future feature)
+        }
+    }
+
+    // Fire button (random topic)
+    const fireBtn = document.querySelector('.fire-btn');
+    if (fireBtn) fireBtn.disabled = !enabled;
+}
+
 async function startDebate() {
     console.log("Starting debate..."); // Debug Log
     const topicInput = document.getElementById('topic-input');
@@ -336,6 +366,9 @@ async function startDebate() {
     speechQueue = [];
     isSpeaking = false;
     nextMessageTime = 0;
+
+    // Disable controls that can't change during debate
+    setDebateControlsEnabled(false);
 
     // Logo State
     document.querySelector('.header-logo').classList.add('debating');
@@ -487,11 +520,11 @@ async function runDebateProtocol() {
                     const result = await handleHumanJudge(false);
 
                     if (result.endDebate) {
-                        // Human chose to end - determine winner from cumulative score
-                        const finalScore = debateState.score;
-                        if (finalScore > 0) winner = 'advocate';
-                        else if (finalScore < 0) winner = 'skeptic';
-                        else winner = 'draw';
+                        // Human chose to end - now show the VERDICT UI to pick winner
+                        const verdictResult = await handleHumanJudge(true);
+
+                        // verdictResult.winner is 'advocate' or 'skeptic'
+                        winner = verdictResult.winner;
                         debateEnded = true;
                     }
                 } else {
@@ -521,6 +554,7 @@ async function runDebateProtocol() {
                     setInputState('hidden');
                     setJudgeInputState('hidden');
                     debateState.isDebating = false;
+                    setDebateControlsEnabled(true);  // Re-enable controls
                     document.body.classList.remove('debate-fullscreen');
                     return; // Exit the loop
                 }
@@ -532,10 +566,9 @@ async function runDebateProtocol() {
         // FINAL VERDICT (If loop maxed out or forced ending)
         if (!debateEnded) {
             if (config.judgeModel === 'human') {
-                // HUMAN FINAL VERDICT
-                await handleHumanJudge(true); // Verdict mode - only "Declare Winner" button
-                const finalScore = debateState.score;
-                winner = finalScore > 0 ? 'advocate' : finalScore < 0 ? 'skeptic' : 'draw';
+                // HUMAN FINAL VERDICT - show binary choice
+                const verdictResult = await handleHumanJudge(true);
+                winner = verdictResult.winner;
             } else {
                 await executeTurn('judge', false, true, false); // is_final=true
                 winner = 'draw'; // Default fallback
@@ -554,6 +587,7 @@ async function runDebateProtocol() {
         document.querySelector('.header-logo').classList.remove('debating');
         setInputState('hidden');
         debateState.isDebating = false;
+        setDebateControlsEnabled(true);  // Re-enable controls
         // Exit full screen mode
         document.body.classList.remove('debate-fullscreen');
         // Score bar stays visible until next debate starts
@@ -564,6 +598,7 @@ async function runDebateProtocol() {
         document.querySelector('.header-logo').classList.remove('debating');
         setInputState('hidden');
         debateState.isDebating = false;
+        setDebateControlsEnabled(true);  // Re-enable controls on error
         document.body.classList.remove('debate-fullscreen');
         // Score bar stays visible
     }
@@ -790,18 +825,33 @@ function setJudgeInputState(state, isVerdictMode = false) {
         return;
     }
 
+    // Hide the debater input dock when showing judge UI
+    setInputState('hidden');
+
     container.classList.remove('hidden');
     slider.value = 0;
     display.textContent = '0';
     comment.value = '';
 
-    // Update button labels for verdict mode
+    // Get sections
+    const scoreSection = document.getElementById('score-section');
+    const verdictSection = document.getElementById('verdict-section');
+    const actionsDiv = container.querySelector('.judge-actions');
+
     if (isVerdictMode) {
-        document.querySelector('.judge-header').textContent = '⚖️ Final Verdict';
-        continueBtn.style.display = 'none';
-        endBtn.textContent = 'Declare Winner';
+        // VERDICT MODE: Show binary choice buttons, hide slider and normal actions
+        document.querySelector('.judge-header').textContent = '⚖️ Declare the Winner';
+        if (scoreSection) scoreSection.style.display = 'none';
+        if (verdictSection) verdictSection.style.display = 'flex';
+        if (actionsDiv) actionsDiv.style.display = 'none';
+        comment.placeholder = 'Explain your verdict (optional)...';
     } else {
+        // NORMAL MODE: Show slider and actions, hide verdict buttons
         document.querySelector('.judge-header').textContent = '⚖️ Your Judgment';
+        if (scoreSection) scoreSection.style.display = 'flex';
+        if (verdictSection) verdictSection.style.display = 'none';
+        if (actionsDiv) actionsDiv.style.display = 'flex';
+        comment.placeholder = 'Why? (optional)';
         continueBtn.style.display = 'inline-block';
         endBtn.textContent = 'End & Declare Winner';
     }
@@ -818,40 +868,49 @@ function handleHumanJudge(isForVerdict = false) {
     return new Promise((resolve) => {
         setJudgeInputState('active', isForVerdict);
 
-        debateState.resolveJudgeInput = (endDebate, score, comment) => {
+        // In verdict mode, 'score' param will be winner string ('advocate'/'skeptic')
+        // In normal mode, 'score' is a number from the slider
+        debateState.resolveJudgeInput = (endDebate, scoreOrWinner, comment) => {
             setJudgeInputState('hidden');
-
-            // Update the score bar
-            updateScoreBar(score, comment || 'Human Judge');
 
             // Build judge response text
             let text = '';
-            if (endDebate) {
-                // Determine winner from cumulative score
-                const finalScore = debateState.score;
-                let winner = finalScore > 0 ? 'Advocate' : finalScore < 0 ? 'Skeptic' : 'Neither (tie)';
+            let shouldRenderMessage = true;
+            let winner = null;
+
+            if (isForVerdict) {
+                // BINARY VERDICT - scoreOrWinner is 'advocate' or 'skeptic'
+                winner = scoreOrWinner === 'advocate' ? 'Advocate' : 'Skeptic';
                 text = `**FINAL VERDICT**: The ${winner} wins!`;
                 if (comment) text += ` ${comment}`;
+            } else if (endDebate) {
+                // User clicked "End & Declare Winner" - don't render message,
+                // just signal to show the verdict UI
+                shouldRenderMessage = false;
             } else {
+                // Normal round evaluation - scoreOrWinner is a number
+                const score = scoreOrWinner;
+                updateScoreBar(score, comment || 'Human Judge');
                 const direction = score > 0 ? 'Advocate' : score < 0 ? 'Skeptic' : 'Neither';
                 text = `+${Math.abs(score)} to ${direction}.`;
                 if (comment) text += ` "${comment}"`;
                 text += ' Continue.';
             }
 
-            // Add to history
-            debateState.history.push(`Judge: ${text}`);
+            // Render judge message (if applicable)
+            if (shouldRenderMessage && text) {
+                debateState.history.push(`Judge: ${text}`);
 
-            // Render judge message
-            renderMessage({
-                role: 'judge',
-                text: text,
-                state: 'speaking',
-                round: `${debateState.round}.3`
-            });
+                renderMessage({
+                    role: 'judge',
+                    text: text,
+                    state: isForVerdict ? 'verdict' : 'speaking',
+                    round: isForVerdict ? 'FINAL' : `${debateState.round}.3`
+                });
+            }
 
             handleScrollPostRender(true);
-            resolve({ endDebate, score, comment, text });
+            resolve({ endDebate, winner: scoreOrWinner, comment, text });
         };
     });
 }
@@ -863,8 +922,24 @@ function submitJudgeEvaluation(endDebate) {
     const score = parseInt(slider.value);
     const commentText = comment.value.trim();
 
+    console.log('submitJudgeEvaluation called:', { endDebate, score, commentText, sliderValue: slider.value });
+
     if (debateState.resolveJudgeInput) {
         debateState.resolveJudgeInput(endDebate, score, commentText);
+        debateState.resolveJudgeInput = null;
+    }
+}
+
+// Binary verdict submission - called from Advocate/Skeptic wins buttons
+function submitVerdict(winner) {
+    const comment = document.getElementById('judge-comment');
+    const commentText = comment.value.trim();
+
+    console.log('submitVerdict called:', { winner, commentText });
+
+    if (debateState.resolveJudgeInput) {
+        // Pass winner directly: 'advocate' or 'skeptic'
+        debateState.resolveJudgeInput(true, winner, commentText);
         debateState.resolveJudgeInput = null;
     }
 }
