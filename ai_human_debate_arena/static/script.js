@@ -6,7 +6,29 @@ let voices = [];
 
 // Pacing State
 let nextMessageTime = 0; // Timestamp when the next message is allowed to show
-const WORDS_PER_MINUTE = 250; // Average reading speed
+
+// Preset speed levels: 50-100-150-175-200-225-250-300-400-500-600-700-Instant
+const SPEED_LEVELS = [50, 100, 150, 175, 200, 225, 250, 300, 400, 500, 600, 700, 999];
+let currentSpeedIndex = 6; // Start at 250 WPM
+
+// Get current WPM (for real-time reading during typing)
+function getCurrentWPM() {
+    return SPEED_LEVELS[currentSpeedIndex];
+}
+
+// Adjust speed via +/- buttons (steps through preset levels)
+function adjustWPM(delta) {
+    if (delta > 0) {
+        currentSpeedIndex = Math.min(SPEED_LEVELS.length - 1, currentSpeedIndex + 1);
+    } else {
+        currentSpeedIndex = Math.max(0, currentSpeedIndex - 1);
+    }
+    const wpm = SPEED_LEVELS[currentSpeedIndex];
+    const display = document.getElementById('wpm-display');
+    if (display) {
+        display.textContent = wpm === 999 ? '∞' : wpm;
+    }
+}
 
 // CURRENT DEBATE STYLES
 let currentAdvocateTone = '';
@@ -202,11 +224,16 @@ function processQueue() {
 // --- PACING LOGIC ---
 
 function calculateReadingDelay(text) {
+    const wpm = currentWPM;
+
+    // Very high WPM = nearly instant
+    if (wpm >= 500) return 200;
+
     const wordCount = text.trim().split(/\s+/).length;
     // Calculate reading time in milliseconds
-    const readingTimeMs = (wordCount / WORDS_PER_MINUTE) * 60 * 1000;
-    // Add a small buffer (1s)
-    return readingTimeMs + 1000;
+    const readingTimeMs = (wordCount / wpm) * 60 * 1000;
+    // Return the delay (minimum 1 second for very fast settings)
+    return Math.max(1000, readingTimeMs);
 }
 
 async function enforcePacing() {
@@ -281,7 +308,8 @@ let debateState = {
     topic: "",
     config: {},
     active: false,
-    resolveHumanInput: null // Function to resolve the Promise when human submits
+    resolveHumanInput: null, // Function to resolve the Promise when human submits
+    resolveJudgeInput: null  // Function to resolve the Promise when human judge submits
 };
 
 async function startDebate() {
@@ -439,29 +467,62 @@ async function runDebateProtocol() {
         debateState.round = 1;
 
         while (!debateEnded && debateState.round <= maxRounds) {
-            // Advocate Turn
+            // Advocate Turn - typewriter effect handles pacing
             await executeTurn('advocate', false, false, false);
-            await new Promise(r => setTimeout(r, 1500));
+            await new Promise(r => setTimeout(r, 500)); // Small buffer between turns
 
-            // Skeptic Turn
+            // Skeptic Turn - typewriter effect handles pacing
             await executeTurn('skeptic', false, false, false);
-            await new Promise(r => setTimeout(r, 1500));
+            await new Promise(r => setTimeout(r, 500)); // Small buffer between turns
 
-            // Judge Evaluation (starting Round 2)
-            if (debateState.round >= 2) {
-                const judgeRes = await executeTurn('judge', false, false, true); // is_evaluation=true
+            // Judge Evaluation - Human judges from round 1, AI from round 2
+            const shouldJudge = config.judgeModel === 'human' || debateState.round >= 2;
 
-                // Check for Termination
-                const text = judgeRes.toUpperCase();
-                if (text.includes("ADVOCATE WINS")) {
-                    winner = 'advocate';
-                    debateEnded = true;
-                } else if (text.includes("SKEPTIC WINS")) {
-                    winner = 'skeptic';
-                    debateEnded = true;
-                } else if (text.includes("DEADLOCK") || text.includes("VERDICT")) {
-                    winner = 'draw';
-                    debateEnded = true;
+            if (shouldJudge) {
+                let debateEnded = false;
+                let winner = null;
+
+                if (config.judgeModel === 'human') {
+                    // HUMAN JUDGE - Show score slider UI
+                    const result = await handleHumanJudge(false);
+
+                    if (result.endDebate) {
+                        // Human chose to end - determine winner from cumulative score
+                        const finalScore = debateState.score;
+                        if (finalScore > 0) winner = 'advocate';
+                        else if (finalScore < 0) winner = 'skeptic';
+                        else winner = 'draw';
+                        debateEnded = true;
+                    }
+                } else {
+                    // AI JUDGE
+                    const judgeRes = await executeTurn('judge', false, false, true); // is_evaluation=true
+
+                    // Check for Termination
+                    const text = judgeRes.toUpperCase();
+                    if (text.includes("ADVOCATE WINS")) {
+                        winner = 'advocate';
+                        debateEnded = true;
+                    } else if (text.includes("SKEPTIC WINS")) {
+                        winner = 'skeptic';
+                        debateEnded = true;
+                    } else if (text.includes("DEADLOCK") || text.includes("VERDICT")) {
+                        winner = 'draw';
+                        debateEnded = true;
+                    }
+                }
+
+                if (debateEnded) {
+                    // Winner Celebration
+                    if (winner) triggerWinAnimation(winner);
+                    saveDebateToHistory(debateState.topic, winner || 'Unknown');
+                    renderMessage({ role: 'judge', text: "Session closed.", round: 'SYSTEM', state: 'online' });
+                    document.querySelector('.header-logo').classList.remove('debating');
+                    setInputState('hidden');
+                    setJudgeInputState('hidden');
+                    debateState.isDebating = false;
+                    document.body.classList.remove('debate-fullscreen');
+                    return; // Exit the loop
                 }
             }
 
@@ -470,8 +531,15 @@ async function runDebateProtocol() {
 
         // FINAL VERDICT (If loop maxed out or forced ending)
         if (!debateEnded) {
-            await executeTurn('judge', false, true, false); // is_final=true
-            winner = 'draw'; // Default fallback
+            if (config.judgeModel === 'human') {
+                // HUMAN FINAL VERDICT
+                await handleHumanJudge(true); // Verdict mode - only "Declare Winner" button
+                const finalScore = debateState.score;
+                winner = finalScore > 0 ? 'advocate' : finalScore < 0 ? 'skeptic' : 'draw';
+            } else {
+                await executeTurn('judge', false, true, false); // is_final=true
+                winner = 'draw'; // Default fallback
+            }
         }
 
         // WINNER CELEBRATION
@@ -583,7 +651,8 @@ async function executeTurn(role, isOpening, isFinal, isEvaluation) {
         else if (isEvaluation) roundLabel = `${debateState.round}.3`;
         else roundLabel = `${debateState.round}.${role === 'advocate' ? '1' : '2'}`;
 
-        renderMessage({
+        // Use typewriter effect for AI messages
+        await renderMessageWithTypewriter({
             role: roleMap[role],
             text: text,
             state: isFinal ? 'verdict' : 'speaking',
@@ -591,7 +660,7 @@ async function executeTurn(role, isOpening, isFinal, isEvaluation) {
         });
 
         speakText(text, roleMap[role]);
-        handleScrollPostRender();
+        // Scroll is handled by typewriter function
 
         return text;
 
@@ -702,6 +771,104 @@ if (humanInput) {
     });
 }
 
+// =============================================
+// HUMAN JUDGE INPUT HANDLING
+// =============================================
+
+function setJudgeInputState(state, isVerdictMode = false) {
+    const container = document.getElementById('judge-input-container');
+    const slider = document.getElementById('judge-score');
+    const display = document.getElementById('score-display');
+    const comment = document.getElementById('judge-comment');
+    const continueBtn = document.getElementById('judge-continue');
+    const endBtn = document.getElementById('judge-end');
+
+    if (!container) return;
+
+    if (state === 'hidden') {
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
+    slider.value = 0;
+    display.textContent = '0';
+    comment.value = '';
+
+    // Update button labels for verdict mode
+    if (isVerdictMode) {
+        document.querySelector('.judge-header').textContent = '⚖️ Final Verdict';
+        continueBtn.style.display = 'none';
+        endBtn.textContent = 'Declare Winner';
+    } else {
+        document.querySelector('.judge-header').textContent = '⚖️ Your Judgment';
+        continueBtn.style.display = 'inline-block';
+        endBtn.textContent = 'End & Declare Winner';
+    }
+
+    // Update score display on slider change
+    slider.oninput = () => {
+        const val = parseInt(slider.value);
+        display.textContent = val > 0 ? '+' + val : val.toString();
+        display.style.color = val > 0 ? 'var(--accent-green)' : val < 0 ? 'var(--accent-red)' : 'var(--text-primary)';
+    };
+}
+
+function handleHumanJudge(isForVerdict = false) {
+    return new Promise((resolve) => {
+        setJudgeInputState('active', isForVerdict);
+
+        debateState.resolveJudgeInput = (endDebate, score, comment) => {
+            setJudgeInputState('hidden');
+
+            // Update the score bar
+            updateScoreBar(score, comment || 'Human Judge');
+
+            // Build judge response text
+            let text = '';
+            if (endDebate) {
+                // Determine winner from cumulative score
+                const finalScore = debateState.score;
+                let winner = finalScore > 0 ? 'Advocate' : finalScore < 0 ? 'Skeptic' : 'Neither (tie)';
+                text = `**FINAL VERDICT**: The ${winner} wins!`;
+                if (comment) text += ` ${comment}`;
+            } else {
+                const direction = score > 0 ? 'Advocate' : score < 0 ? 'Skeptic' : 'Neither';
+                text = `+${Math.abs(score)} to ${direction}.`;
+                if (comment) text += ` "${comment}"`;
+                text += ' Continue.';
+            }
+
+            // Add to history
+            debateState.history.push(`Judge: ${text}`);
+
+            // Render judge message
+            renderMessage({
+                role: 'judge',
+                text: text,
+                state: 'speaking',
+                round: `${debateState.round}.3`
+            });
+
+            handleScrollPostRender(true);
+            resolve({ endDebate, score, comment, text });
+        };
+    });
+}
+
+function submitJudgeEvaluation(endDebate) {
+    const slider = document.getElementById('judge-score');
+    const comment = document.getElementById('judge-comment');
+
+    const score = parseInt(slider.value);
+    const commentText = comment.value.trim();
+
+    if (debateState.resolveJudgeInput) {
+        debateState.resolveJudgeInput(endDebate, score, commentText);
+        debateState.resolveJudgeInput = null;
+    }
+}
+
 function markdownToHtml(text) {
     return text
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -767,6 +934,98 @@ function renderMessage(data) {
 
     msgDiv.innerHTML = innerHTML;
     stream.appendChild(msgDiv);
+}
+
+// TYPEWRITER EFFECT - Renders message word-by-word at WPM rate
+async function renderMessageWithTypewriter(data) {
+    const stream = document.getElementById('discussion-stream');
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `message msg-${data.role}`;
+    if (data.state === 'verdict') msgDiv.classList.add('verdict-box');
+    if (data.state === 'error') msgDiv.classList.add('error-box');
+
+    const avatarMap = {
+        'for': '/static/advocate_avatar.png',
+        'against': '/static/skeptic_avatar.png',
+        'judge': '/static/judge_avatar.png'
+    };
+
+    const nameMap = {
+        'for': 'The Advocate',
+        'against': 'The Skeptic',
+        'judge': 'The Judge'
+    };
+
+    // Style label
+    let styleLabel = '';
+    if (data.role === 'for') styleLabel = `<div class="style-label">${currentAdvocateTone}</div>`;
+    if (data.role === 'against') styleLabel = `<div class="style-label">${currentSkepticTone}</div>`;
+
+    // Create the structure with empty bubble for typing
+    if (data.state === 'verdict') {
+        msgDiv.innerHTML = `
+            <div class="bubble">
+                <span class="verdict-title">Final Judgment</span>
+                <div class="text typewriter-target"></div>
+            </div>
+        `;
+    } else {
+        msgDiv.innerHTML = `
+            <div class="msg-header-row">
+                <img src="${avatarMap[data.role]}" class="msg-avatar">
+                <div class="msg-name-block">
+                    <span class="role-label">${nameMap[data.role]}</span>
+                    <div class="msg-meta-row">
+                        ${styleLabel}
+                        ${data.round ? `<span class="round-label">${data.round}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+            <div class="bubble"><span class="typewriter-target"></span></div>
+        `;
+    }
+
+    stream.appendChild(msgDiv);
+
+    // Get the target element for typing
+    const target = msgDiv.querySelector('.typewriter-target');
+    if (!target) return;
+
+    // CHARACTER-BY-CHARACTER TYPING with real-time WPM
+    const text = data.text;
+    let currentText = '';
+
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        currentText += char;
+
+        // Apply markdown formatting to accumulated text
+        target.innerHTML = markdownToHtml(currentText);
+
+        // Auto-scroll every 30 characters
+        if (i % 30 === 0) {
+            handleScrollPostRender(true);
+        }
+
+        // Calculate delay based on CURRENT WPM (real-time reading for instant changes)
+        // Average word = 5 chars, so chars per minute = WPM * 5
+        const wpm = getCurrentWPM();
+
+        // Instant mode (999 WPM) = no delay
+        if (wpm >= 999) continue;
+
+        const charsPerMinute = wpm * 5;
+        const msPerChar = (60 * 1000) / charsPerMinute;
+
+        // Skip delay for spaces/newlines (feels more natural)
+        if (char !== ' ' && char !== '\n') {
+            await new Promise(r => setTimeout(r, msPerChar));
+        }
+    }
+
+    // Final scroll
+    handleScrollPostRender(true);
 }
 
 function renderLoadingMessage(data) {

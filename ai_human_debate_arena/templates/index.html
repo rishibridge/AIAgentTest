@@ -21,8 +21,8 @@
                 <input type="text" id="topic-input" placeholder="Enter a controversial topic..." autocomplete="off">
                 <button onclick="triggerChaos()" class="chaos-btn" title="Random Hot Topic">🔥</button>
                 <select id="advocate-tone" class="tone-dropdown" title="Advocate Style">
-                    <option value="casual" selected>Adv: Casual</option>
-                    <option value="scholar">Adv: Scholar</option>
+                    <option value="casual">Adv: Casual</option>
+                    <option value="scholar" selected>Adv: Scholar</option>
                     <option value="simple">Adv: Simple</option>
                     <option value="witty">Adv: Witty</option>
                     <option value="ab-initio">Adv: Ab-Initio</option>
@@ -42,6 +42,11 @@
                 </select>
 
                 <button id="sound-toggle" class="sound-btn" onclick="toggleSound()" title="Toggle audio">🔇</button>
+                <div class="wpm-control" title="Reading Speed (WPM)">
+                    <button class="wpm-btn" onclick="adjustWPM(-25)">−</button>
+                    <span id="wpm-display">250</span>
+                    <button class="wpm-btn" onclick="adjustWPM(25)">+</button>
+                </div>
                 <button onclick="startDebate()">DEBATE</button>
             </div>
             <!-- Score Bar (inline in header) -->
@@ -65,7 +70,7 @@
             </div>
             <div id="anchor"></div>
 
-            <!-- "The Glass Voice" Input (Ive Style) -->
+            <!-- "The Glass Voice" Input (Ive Style) - For Debaters -->
             <div id="user-input-container" class="ive-input-dock hidden">
                 <div class="input-pill">
                     <textarea id="human-argument" placeholder="Reply..." rows="1"></textarea>
@@ -76,6 +81,26 @@
                     </button>
                 </div>
             </div>
+
+            <!-- Judge Input Dock - For Human Judge -->
+            <div id="judge-input-container" class="judge-input-dock hidden">
+                <div class="judge-panel">
+                    <div class="judge-header">⚖️ Your Judgment</div>
+                    <div class="score-slider-row">
+                        <span class="slider-label skeptic">Skeptic</span>
+                        <input type="range" id="judge-score" min="-5" max="5" value="0" class="score-slider">
+                        <span class="slider-label advocate">Advocate</span>
+                        <span id="score-display" class="score-display">0</span>
+                    </div>
+                    <textarea id="judge-comment" placeholder="Why? (optional)" rows="2"></textarea>
+                    <div class="judge-actions">
+                        <button id="judge-continue" class="judge-btn continue"
+                            onclick="submitJudgeEvaluation(false)">Continue Debate</button>
+                        <button id="judge-end" class="judge-btn end" onclick="submitJudgeEvaluation(true)">End & Declare
+                            Winner</button>
+                    </div>
+                </div>
+            </div>
         </main>
         <footer class="copyright-footer">
             <span>© 2025 Rishi Khullar / Unusual Insights Inc. | v1.34</span>
@@ -83,9 +108,9 @@
                 style="color: var(--accent-blue); text-decoration: none; font-size: 0.7rem;">History</a>
             <div class="model-selectors">
                 <select id="advocate-model" class="model-dropdown" title="Advocate Model">
-                    <option value="gemini" selected>Advocate: Gemini 🇺🇸</option>
+                    <option value="gemini">Advocate: Gemini 🇺🇸</option>
                     <option value="deepseek">Advocate: DeepSeek 🇨🇳</option>
-                    <option value="kimi">Advocate: Kimi K2 🇨🇳</option>
+                    <option value="kimi" selected>Advocate: Kimi K2 🇨🇳</option>
                     <option value="human">Advocate: Human (Me) 👤</option>
                 </select>
                 <select id="skeptic-model" class="model-dropdown" title="Skeptic Model">
@@ -98,6 +123,7 @@
                     <option value="gemini">Judge: Gemini 🇺🇸</option>
                     <option value="deepseek" selected>Judge: DeepSeek 🇨🇳</option>
                     <option value="kimi">Judge: Kimi K2 🇨🇳</option>
+                    <option value="human">Judge: Human (Me) 👤</option>
                 </select>
             </div>
             <!-- History Modal -->
