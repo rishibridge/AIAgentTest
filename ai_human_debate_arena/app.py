@@ -1,4 +1,5 @@
 import os
+import re
 from flask import Flask, render_template, request, Response, stream_with_context
 import time
 import json
@@ -596,6 +597,15 @@ def get_llm_turn(persona_type, topic, role_data, conversation_history, category,
         for prefix in ["JUDGE:", "ADVOCATE:", "SKEPTIC:", "The Advocate:", "The Skeptic:", "The Judge:", "Turn:"]:
             if text.startswith(prefix):
                 text = text[len(prefix):].strip()
+        
+        # Remove Kimi citation markers like [cite: i, j, k] or [cite:1,2,3]
+        text = re.sub(r'\[cite[:\s]*[\d\w,\s]*\]', '', text)
+        # Remove other citation formats like [1], [2,3], (cite: x)
+        text = re.sub(r'\[\d+(?:,\s*\d+)*\]', '', text)
+        text = re.sub(r'\(cite[:\s]*[^)]+\)', '', text)
+        # Clean up any double spaces left behind
+        text = re.sub(r'\s{2,}', ' ', text).strip()
+        
         return text
     except Exception as e:
         return f"... analyzing the intellectual friction. ({str(e)})"
@@ -698,6 +708,30 @@ def generate_turn():
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/landing')
+def landing():
+    return render_template('landing.html')
+
+@app.route('/tribal')
+def landing_tribal():
+    return render_template('landing_tribal.html')
+
+@app.route('/elite')
+def landing_elite():
+    return render_template('landing_elite.html')
+
+@app.route('/fear')
+def landing_fear():
+    return render_template('landing_fear.html')
+
+@app.route('/bothsides')
+def landing_bothsides():
+    return render_template('landing_bothsides.html')
+
+@app.route('/compare')
+def compare_mockups():
+    return render_template('compare_mockups.html')
 
 @app.route('/api/debate')
 def debate():
@@ -802,16 +836,28 @@ def debate():
                 yield json.dumps({"role": "judge", "state": "speaking", "text": judge_eval, "round": f"{round_num}.3"}) + "\n"
                 time.sleep(2)
                 
-                # Check if judge decided to end
-                if "ADVOCATE WINS" in judge_eval.upper() or "SKEPTIC WINS" in judge_eval.upper() or "DEADLOCK" in judge_eval.upper() or "VERDICT" in judge_eval.upper():
+                # Check if judge decided to end - expanded to catch more termination phrases
+                eval_upper = judge_eval.upper()
+                termination_phrases = [
+                    "ADVOCATE WINS", "SKEPTIC WINS", 
+                    "ADVOCATE PREVAILS", "SKEPTIC PREVAILS",
+                    "THE ADVOCATE WINS", "THE SKEPTIC WINS",
+                    "THE ADVOCATE PREVAILS", "THE SKEPTIC PREVAILS",
+                    "ADVOCATE TAKES IT", "SKEPTIC TAKES IT",
+                    "ADVOCATE IS THE WINNER", "SKEPTIC IS THE WINNER",
+                    "DEADLOCK", "STALEMATE", "VERDICT",
+                    "I FIND IN FAVOR OF", "DECLARE THE WINNER",
+                    "THE WINNER IS", "WINS THE DEBATE"
+                ]
+                if any(phrase in eval_upper for phrase in termination_phrases):
                     debate_ended = True
             
             round_num += 1
         
-        # FINAL VERDICT if not already given
-        if not debate_ended:
-            verdict = get_llm_turn("judge", topic, f"P: {for_data} C: {against_data}", history, category, "scholar", is_final=True, model_provider=judge_model)
-            yield json.dumps({"role": "judge", "state": "verdict", "text": verdict, "round": "FINAL"}) + "\n"
+        # FINAL VERDICT - ALWAYS generate, regardless of how debate ended
+        # This ensures a formal summary is always shown at the end
+        verdict = get_llm_turn("judge", topic, f"P: {for_data} C: {against_data}", history, category, "scholar", is_final=True, model_provider=judge_model)
+        yield json.dumps({"role": "judge", "state": "verdict", "text": verdict, "round": "FINAL"}) + "\n"
         
         yield json.dumps({"role": "judge", "state": "online", "text": "Session closed.", "round": "SYSTEM"}) + "\n"
 

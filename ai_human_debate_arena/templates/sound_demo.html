@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Debate Sound Samples</title>
+    <style>
+        body {
+            background: #0a0f1a;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #38bdf8;
+        }
+
+        h2 {
+            color: #fbbf24;
+            margin-top: 40px;
+        }
+
+        .sound-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 1px solid #334155;
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #334155;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .label {
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .desc {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔊 Debate Sound Samples</h1>
+    <p>Click each button to hear the sound. Pick your favorites!</p>
+
+    <h2>START DEBATE SOUNDS</h2>
+    <div class="sound-grid">
+        <button onclick="playGavel()">
+            <div class="label">A. Courtroom Gavel</div>
+            <div class="desc">tink... tink</div>
+        </button>
+        <button onclick="playBoxingBell()">
+            <div class="label">B. Boxing Bell</div>
+            <div class="desc">Single bright ding</div>
+        </button>
+        <button onclick="playEpicIntro()">
+            <div class="label">C. Epic Intro</div>
+            <div class="desc">Rising swell + brass</div>
+        </button>
+        <button onclick="playTechWhoosh()">
+            <div class="label">D. Tech Whoosh</div>
+            <div class="desc">Futuristic power-up</div>
+        </button>
+    </div>
+
+    <h2>END DEBATE SOUNDS (Victory)</h2>
+    <div class="sound-grid">
+        <button onclick="playStadiumHorn()">
+            <div class="label">1. Stadium Horn + Crowd</div>
+            <div class="desc">Air horn + cheering</div>
+        </button>
+        <button onclick="playLawAndOrder()">
+            <div class="label">2. Law & Order "DUN DUN"</div>
+            <div class="desc">Two dramatic chords</div>
+        </button>
+        <button onclick="playGavelSlam()">
+            <div class="label">3. Gavel Slam + Echo</div>
+            <div class="desc">Heavy slam with reverb</div>
+        </button>
+        <button onclick="playFanfare()">
+            <div class="label">4. Triumphant Fanfare</div>
+            <div class="desc">Brass victory jingle</div>
+        </button>
+        <button onclick="playElectronicVictory()">
+            <div class="label">5. Electronic Victory</div>
+            <div class="desc">Synth arpeggio burst</div>
+        </button>
+    </div>
+
+    <script>
+        let ctx;
+        function getCtx() {
+            if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+            return ctx;
+        }
+
+        // === START SOUNDS ===
+
+        function playGavel() {
+            const c = getCtx();
+            [0, 0.3].forEach(delay => {
+                const osc = c.createOscillator();
+                const gain = c.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, c.currentTime + delay);
+                osc.frequency.exponentialRampToValueAtTime(400, c.currentTime + delay + 0.1);
+                gain.gain.setValueAtTime(0.5, c.currentTime + delay);
+                gain.gain.exponentialRampToValueAtTime(0.01, c.currentTime + delay + 0.15);
+                osc.connect(gain);
+                gain.connect(c.destination);
+                osc.start(c.currentTime + delay);
+                osc.stop(c.currentTime + delay + 0.15);
+            });
+        }
+
+        function playBoxingBell() {
+            const c = getCtx();
+            const osc = c.createOscillator();
+            const gain = c.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 1200;
+            gain.gain.setValueAtTime(0.6, c.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, c.currentTime + 1.5);
+            osc.connect(gain);
+            gain.connect(c.destination);
+            osc.start();
+            osc.stop(c.currentTime + 1.5);
+        }
+
+        function playEpicIntro() {
+            const c = getCtx();
+            const notes = [220, 330, 440, 550, 660];
+            notes.forEach((freq, i) => {
+                const osc = c.createOscillator();
+                const gain = c.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0, c.currentTime + i * 0.15);
+                gain.gain.linearRampToValueAtTime(0.15, c.currentTime + i * 0.15 + 0.1);
+                gain.gain.linearRampToValueAtTime(0.1, c.currentTime + 1.5);
+                gain.gain.linearRampToValueAtTime(0, c.currentTime + 2);
+                osc.connect(gain);
+                gain.connect(c.destination);
+                osc.start(c.currentTime + i * 0.15);
+                osc.stop(c.currentTime + 2);
+            });
+        }
+
+        function playTechWhoosh() {
+            const c = getCtx();
+            const osc = c.createOscillator();
+            const gain = c.createGain();
+            const filter = c.createBiquadFilter();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, c.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(2000, c.currentTime + 0.5);
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(200, c.currentTime);
+            filter.frequency.exponentialRampToValueAtTime(4000, c.currentTime + 0.5);
+            gain.gain.setValueAtTime(0.3, c.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, c.currentTime + 0.6);
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(c.destination);
+            osc.start();
+            osc.stop(c.currentTime + 0.6);
+        }
+
+        // === END SOUNDS ===
+
+        function playStadiumHorn() {
+            const c = getCtx();
+            // Horn
+            const osc = c.createOscillator();
+            const gain = c.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(220, c.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(440, c.currentTime + 0.1);
+            osc.frequency.setValueAtTime(440, c.currentTime + 0.1);
+            osc.frequency.exponentialRampToValueAtTime(550, c.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.3, c.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, c.currentTime + 0.8);
+            osc.connect(gain);
+            gain.connect(c.destination);
+            osc.start();
+            osc.stop(c.currentTime + 0.8);
+
+            // Crowd noise
+            setTimeout(() => {
+                const bufferSize = c.sampleRate * 2;
+                const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    const t = i / c.sampleRate;
+                    const envelope = Math.sin(Math.PI * t / 2) * Math.exp(-t * 0.5);
+                    data[i] = (Math.random() * 2 - 1) * envelope * 0.15;
+                }
+                const source = c.createBufferSource();
+                source.buffer = buffer;
+                const filter = c.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 800;
+                source.connect(filter);
+                filter.connect(c.destination);
+                source.start();
+            }, 200);
+        }
+
+        function playLawAndOrder() {
+            const c = getCtx();
+            // DUN
+            [0, 0.4].forEach((delay, idx) => {
+                const freqs = idx === 0 ? [130, 196, 262] : [98, 147, 196];
+                freqs.forEach(freq => {
+                    const osc = c.createOscillator();
+                    const gain = c.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.2, c.currentTime + delay);
+                    gain.gain.exponentialRampToValueAtTime(0.01, c.currentTime + delay + 0.5);
+                    osc.connect(gain);
+                    gain.connect(c.destination);
+                    osc.start(c.currentTime + delay);
+                    osc.stop(c.currentTime + delay + 0.5);
+                });
+            });
+        }
+
+        function playGavelSlam() {
+            const c = getCtx();
+            // Impact
+            const osc = c.createOscillator();
+            const gain = c.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(150, c.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(50, c.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.8, c.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, c.currentTime + 1);
+            osc.connect(gain);
+            gain.connect(c.destination);
+            osc.start();
+            osc.stop(c.currentTime + 1);
+            // Click
+            const click = c.createOscillator();
+            const clickGain = c.createGain();
+            click.type = 'square';
+            click.frequency.value = 1000;
+            clickGain.gain.setValueAtTime(0.3, c.currentTime);
+            clickGain.gain.exponentialRampToValueAtTime(0.01, c.currentTime + 0.05);
+            click.connect(clickGain);
+            clickGain.connect(c.destination);
+            click.start();
+            click.stop(c.currentTime + 0.05);
+        }
+
+        function playFanfare() {
+            const c = getCtx();
+            const melody = [523, 659, 784, 1047, 784]; // C E G C G
+            melody.forEach((freq, i) => {
+                const osc = c.createOscillator();
+                const gain = c.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.value = freq;
+                const start = c.currentTime + i * 0.15;
+                gain.gain.setValueAtTime(0, start);
+                gain.gain.linearRampToValueAtTime(0.2, start + 0.05);
+                gain.gain.linearRampToValueAtTime(0.15, start + 0.1);
+                gain.gain.linearRampToValueAtTime(0, start + 0.4);
+                osc.connect(gain);
+                gain.connect(c.destination);
+                osc.start(start);
+                osc.stop(start + 0.5);
+            });
+        }
+
+        function playElectronicVictory() {
+            const c = getCtx();
+            // Arpeggio burst
+            const notes = [261, 329, 392, 523, 659, 784, 1047];
+            notes.forEach((freq, i) => {
+                const osc = c.createOscillator();
+                const gain = c.createGain();
+                osc.type = 'square';
+                osc.frequency.value = freq;
+                const start = c.currentTime + i * 0.05;
+                gain.gain.setValueAtTime(0.15, start);
+                gain.gain.exponentialRampToValueAtTime(0.01, start + 0.3);
+                osc.connect(gain);
+                gain.connect(c.destination);
+                osc.start(start);
+                osc.stop(start + 0.3);
+            });
+            // Bass drop
+            setTimeout(() => {
+                const bass = c.createOscillator();
+                const bassGain = c.createGain();
+                bass.type = 'sine';
+                bass.frequency.setValueAtTime(80, c.currentTime);
+                bass.frequency.exponentialRampToValueAtTime(40, c.currentTime + 0.5);
+                bassGain.gain.setValueAtTime(0.5, c.currentTime);
+                bassGain.gain.exponentialRampToValueAtTime(0.01, c.currentTime + 0.5);
+                bass.connect(bassGain);
+                bassGain.connect(c.destination);
+                bass.start();
+                bass.stop(c.currentTime + 0.5);
+            }, 350);
+        }
+    </script>
+</body>
+
+</html>

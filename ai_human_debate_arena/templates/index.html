@@ -17,49 +17,43 @@
                 <img src="/static/logo.png" alt="AI Human Debate Arena" class="header-logo">
                 <p class="subtitle" id="tagline">Pick a topic. Watch AI Agents Debate. See Who Wins.</p>
             </div>
-            <div class="search-section">
-                <input type="text" id="topic-input" placeholder="Enter a controversial topic..." autocomplete="off">
-                <button onclick="triggerChaos()" class="chaos-btn" title="Random Hot Topic">🔥</button>
-                <select id="advocate-tone" class="tone-dropdown" title="Advocate Style">
-                    <option value="casual">Adv: Casual</option>
-                    <option value="scholar" selected>Adv: Scholar</option>
-                    <option value="simple">Adv: Simple</option>
-                    <option value="witty">Adv: Witty</option>
-                    <option value="ab-initio">Adv: Ab-Initio</option>
-                    <option value="rofl">Adv: ROFL</option>
-                    <option value="spicy">Adv: Spicy 🌶️</option>
-                    <option value="satirical">Adv: Satirical</option>
-                </select>
-                <select id="skeptic-tone" class="tone-dropdown" title="Skeptic Style">
-                    <option value="casual">Skeptic: Casual</option>
-                    <option value="scholar" selected>Skeptic: Scholar</option> <!-- Default contrast -->
-                    <option value="simple">Skeptic: Simple</option>
-                    <option value="witty">Skeptic: Witty</option>
-                    <option value="ab-initio">Skeptic: Ab-Initio</option>
-                    <option value="rofl">Skeptic: ROFL</option>
-                    <option value="spicy">Skeptic: Spicy 🌶️</option>
-                    <option value="satirical">Skeptic: Satirical</option>
-                </select>
+            <div class="debate-controls">
+                <button onclick="triggerChaos()" class="chaos-btnGlass" title="Random Hot Topic">🔥</button>
+                <input type="text" id="topic-input" class="inputGlass"
+                    placeholder="What topic would you like to debate?" autocomplete="off">
+                <button onclick="startDebate()" class="debate-btnGlass">DEBATE</button>
+            </div>
 
-                <button id="sound-toggle" class="sound-btn" onclick="toggleSound()" title="Toggle audio">🔇</button>
-                <div class="wpm-control" title="Reading Speed (WPM)">
+            <div class="settings-controls">
+                <div class="wpm-controlGlass" title="Reading Speed (WPM)">
                     <button class="wpm-btn" onclick="adjustWPM(-25)">−</button>
                     <span id="wpm-display">250</span>
                     <button class="wpm-btn" onclick="adjustWPM(25)">+</button>
                 </div>
-                <button onclick="startDebate()">DEBATE</button>
             </div>
-            <!-- Score Bar (inline in header) -->
-            <div id="score-container" class="score-container" style="display: none;">
-                <div class="score-row advocate">
-                    <span id="crown-advocate" class="crown" style="display: none;">👑</span>
-                    <span class="side-label advocate">Advocate</span>
-                    <span id="score-advocate" class="score-value advocate">0</span>
+            <!-- Sports Broadcast Style Scoreboard -->
+            <div id="score-container" class="scoreboard"
+                style="display: none; margin-left: auto; height: 36px; background: linear-gradient(180deg, rgba(20,25,35,0.95), rgba(10,15,25,0.98)); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; align-items: center;">
+                <div class="scoreboard-side for"
+                    style="display: flex; align-items: center; gap: 8px; padding: 0 12px; height: 100%; background: linear-gradient(90deg, rgba(52,211,153,0.15), transparent); border-left: 3px solid #34d399;">
+                    <span class="scoreboard-label"
+                        style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #34d399;">FOR</span>
+                    <span id="score-advocate" class="scoreboard-score"
+                        style="font-size: 1.4rem; font-weight: 800; color: #34d399; text-shadow: 0 0 10px rgba(52,211,153,0.5);">0</span>
+                    <span id="crown-advocate" class="crown" style="display: none; font-size: 1rem;">👑</span>
                 </div>
-                <div class="score-row skeptic">
-                    <span id="score-skeptic" class="score-value skeptic">0</span>
-                    <span class="side-label skeptic">Skeptic</span>
-                    <span id="crown-skeptic" class="crown" style="display: none;">👑</span>
+                <div class="scoreboard-center" style="padding: 0 16px; display: flex; align-items: center;">
+                    <span id="round-display" class="round-pill"
+                        style="background: linear-gradient(135deg, rgba(56,189,248,0.2), rgba(56,189,248,0.1)); border: 1px solid rgba(56,189,248,0.4); color: #38bdf8; padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Round
+                        0</span>
+                </div>
+                <div class="scoreboard-side against"
+                    style="display: flex; align-items: center; gap: 8px; padding: 0 12px; height: 100%; background: linear-gradient(270deg, rgba(251,113,133,0.15), transparent); border-right: 3px solid #fb7185;">
+                    <span id="crown-skeptic" class="crown" style="display: none; font-size: 1rem;">👑</span>
+                    <span id="score-skeptic" class="scoreboard-score"
+                        style="font-size: 1.4rem; font-weight: 800; color: #fb7185; text-shadow: 0 0 10px rgba(251,113,133,0.5);">0</span>
+                    <span class="scoreboard-label"
+                        style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #fb7185;">AGAINST</span>
                 </div>
             </div>
         </header>
@@ -114,44 +108,151 @@
         </main>
         <footer class="copyright-footer">
             <span>© 2025 Rishi Khullar / Unusual Insights Inc. | v1.34</span>
-            <a href="#" onclick="showHistory()"
-                style="color: var(--accent-blue); text-decoration: none; font-size: 0.7rem;">History</a>
-            <div class="model-selectors">
-                <select id="advocate-model" class="model-dropdown" title="Advocate Model">
-                    <option value="gemini">Advocate: Gemini 🇺🇸</option>
-                    <option value="deepseek">Advocate: DeepSeek 🇨🇳</option>
-                    <option value="kimi" selected>Advocate: Kimi K2 🇨🇳</option>
-                    <option value="human">Advocate: Human (Me) 👤</option>
-                </select>
-                <select id="skeptic-model" class="model-dropdown" title="Skeptic Model">
-                    <option value="gemini">Skeptic: Gemini 🇺🇸</option>
-                    <option value="deepseek">Skeptic: DeepSeek 🇨🇳</option>
-                    <option value="kimi" selected>Skeptic: Kimi K2 🇨🇳</option>
-                    <option value="human">Skeptic: Human (Me) 👤</option>
-                </select>
-                <select id="judge-model" class="model-dropdown" title="Judge Model">
-                    <option value="gemini">Judge: Gemini 🇺🇸</option>
-                    <option value="deepseek" selected>Judge: DeepSeek 🇨🇳</option>
-                    <option value="kimi">Judge: Kimi K2 🇨🇳</option>
-                    <option value="human">Judge: Human (Me) 👤</option>
-                </select>
+            <span id="debate-config" class="debate-config hidden"></span>
+            <div class="footer-right">
+                <a href="#" onclick="showHistory()" class="footer-link">History</a>
+                <button onclick="showSettings()" id="settings-btn" class="settings-btn" title="Debate Settings">⚙️
+                    Settings</button>
             </div>
-            <!-- History Modal -->
-            <div id="history-modal" class="modal hidden">
-                <div class="modal-content glass-panel">
-                    <div class="modal-header">
-                        <h2>Debate History</h2>
-                        <button onclick="closeHistory()" class="close-btn">&times;</button>
-                    </div>
-                    <div id="history-list" class="history-list">
-                        <!-- History items injected here -->
-                    </div>
-                    <button onclick="clearHistory()" class="clear-history-btn">Clear History</button>
-                </div>
         </footer>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <script src="/static/script.js?v=8"></script>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="modal hidden">
+            <div class="modal-content glass-panel settings-panel">
+                <div class="modal-header">
+                    <h2>⚙️ Debate Settings</h2>
+                    <button onclick="closeSettings()" class="close-btn">&times;</button>
+                </div>
+
+                <!-- Audio Toggle Section -->
+                <div class="audio-toggle-section">
+                    <label class="audio-toggle-label">
+                        <input type="checkbox" id="sound-toggle-checkbox" onchange="toggleSound()">
+                        <span class="audio-toggle-slider"></span>
+                        <span class="audio-toggle-text">🔊 Enable Audio</span>
+                    </label>
+                </div>
+
+                <div class="settings-grid">
+                    <!-- FOR Side -->
+                    <div class="settings-group">
+                        <h3 class="settings-group-title for-title">🟢 FOR Side</h3>
+                        <label>Model</label>
+                        <select id="advocate-model" class="settings-select">
+                            <option value="gemini">Gemini 🇺🇸</option>
+                            <option value="deepseek">DeepSeek 🇨🇳</option>
+                            <option value="kimi" selected>Kimi K2 🇨🇳</option>
+                            <option value="human">Human (Me) 👤</option>
+                        </select>
+                        <label>Style</label>
+                        <select id="advocate-tone" class="settings-select">
+                            <option value="casual">Casual</option>
+                            <option value="scholar" selected>Scholar</option>
+                            <option value="simple">Simple</option>
+                            <option value="witty">Witty</option>
+                            <option value="ab-initio">Ab-Initio</option>
+                            <option value="rofl">ROFL</option>
+                            <option value="spicy">Spicy 🌶️</option>
+                            <option value="satirical">Satirical</option>
+                        </select>
+                        <div class="voice-section hidden">
+                            <label>Voice</label>
+                            <div class="voice-row">
+                                <select id="advocate-voice" class="settings-select voice-select">
+                                    <option value="">Auto</option>
+                                </select>
+                                <button onclick="previewVoice('advocate-voice')" class="voice-preview-btn">▶</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AGAINST Side -->
+                    <div class="settings-group">
+                        <h3 class="settings-group-title against-title">🔴 AGAINST Side</h3>
+                        <label>Model</label>
+                        <select id="skeptic-model" class="settings-select">
+                            <option value="gemini">Gemini 🇺🇸</option>
+                            <option value="deepseek">DeepSeek 🇨🇳</option>
+                            <option value="kimi" selected>Kimi K2 🇨🇳</option>
+                            <option value="human">Human (Me) 👤</option>
+                        </select>
+                        <label>Style</label>
+                        <select id="skeptic-tone" class="settings-select">
+                            <option value="casual">Casual</option>
+                            <option value="scholar" selected>Scholar</option>
+                            <option value="simple">Simple</option>
+                            <option value="witty">Witty</option>
+                            <option value="ab-initio">Ab-Initio</option>
+                            <option value="rofl">ROFL</option>
+                            <option value="spicy">Spicy 🌶️</option>
+                            <option value="satirical">Satirical</option>
+                        </select>
+                        <div class="voice-section hidden">
+                            <label>Voice</label>
+                            <div class="voice-row">
+                                <select id="skeptic-voice" class="settings-select voice-select">
+                                    <option value="">Auto</option>
+                                </select>
+                                <button onclick="previewVoice('skeptic-voice')" class="voice-preview-btn">▶</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Judge -->
+                    <div class="settings-group">
+                        <h3 class="settings-group-title judge-title">⚖️ Judge</h3>
+                        <label>Model</label>
+                        <select id="judge-model" class="settings-select">
+                            <option value="gemini">Gemini 🇺🇸</option>
+                            <option value="deepseek" selected>DeepSeek 🇨🇳</option>
+                            <option value="kimi">Kimi K2 🇨🇳</option>
+                            <option value="human">Human (Me) 👤</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="settings-topic" class="settings-topic hidden"></div>
+                <div class="settings-buttons">
+                    <button onclick="closeSettings()" class="settings-cancel-btn">Cancel</button>
+                    <button onclick="confirmAndStartDebate()" id="settings-start-btn" class="settings-done-btn">🚀 Start
+                        Debate</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Modal -->
+        <div id="history-modal" class="modal hidden">
+            <div class="modal-content glass-panel">
+                <div class="modal-header">
+                    <h2>Debate History</h2>
+                    <button onclick="closeHistory()" class="close-btn">&times;</button>
+                </div>
+                <div id="history-list" class="history-list">
+                    <!-- History items injected here -->
+                </div>
+                <button onclick="clearHistory()" class="clear-history-btn">Clear History</button>
+            </div>
+            </footer>
+
+            <!-- Prediction Modal -->
+            <div id="prediction-modal" class="prediction-modal hidden">
+                <div class="prediction-content glass-panel">
+                    <div class="prediction-header">🎯 Make Your Prediction</div>
+                    <p class="prediction-prompt">Who will win this debate?</p>
+                    <div class="prediction-buttons">
+                        <button class="prediction-btn advocate" onclick="submitPrediction('advocate')">
+                            🟢 ADVOCATE
+                        </button>
+                        <button class="prediction-btn skeptic" onclick="submitPrediction('skeptic')">
+                            🔴 SKEPTIC
+                        </button>
+                    </div>
+                    <p class="prediction-skip"><a href="#" onclick="submitPrediction(null)">Skip prediction →</a></p>
+                </div>
+            </div>
+
+        </div>
+        <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+        <script src="/static/script.js?v=9"></script>
 </body>
 
 </html>

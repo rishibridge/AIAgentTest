@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escape the Echo Chamber | AI Debate Arena</title>
+    <meta name="description" content="Most people consume AI passively. The top 1% audit the logic. Join the Jury.">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0c0c0c;
+            --bg-card: rgba(20, 20, 20, 0.8);
+            --gold-primary: #d4af37;
+            --gold-light: #f4d03f;
+            --gold-dark: #a67c00;
+            --gold-glow: rgba(212, 175, 55, 0.3);
+            --text-white: #fafafa;
+            --text-cream: #e8e4d9;
+            --text-gray: #8a8a8a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-white);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Luxury Background */
+        .luxury-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
+            background:
+                radial-gradient(ellipse at top, rgba(212, 175, 55, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at bottom, rgba(212, 175, 55, 0.05) 0%, transparent 50%),
+                var(--bg-dark);
+        }
+
+        /* Gold Particle Effect */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--gold-primary);
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: float 15s infinite ease-in-out;
+        }
+
+        .particle:nth-child(1) {
+            left: 10%;
+            animation-delay: 0s;
+        }
+
+        .particle:nth-child(2) {
+            left: 20%;
+            animation-delay: 2s;
+        }
+
+        .particle:nth-child(3) {
+            left: 30%;
+            animation-delay: 4s;
+        }
+
+        .particle:nth-child(4) {
+            left: 50%;
+            animation-delay: 1s;
+        }
+
+        .particle:nth-child(5) {
+            left: 70%;
+            animation-delay: 3s;
+        }
+
+        .particle:nth-child(6) {
+            left: 80%;
+            animation-delay: 5s;
+        }
+
+        .particle:nth-child(7) {
+            left: 90%;
+            animation-delay: 2.5s;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(100vh) scale(0);
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+
+            90% {
+                opacity: 0;
+            }
+
+            100% {
+                transform: translateY(-100px) scale(1);
+            }
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Nav */
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px 48px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+        }
+
+        .nav-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--gold-primary);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .nav-cta {
+            background: transparent;
+            border: 1px solid var(--gold-primary);
+            color: var(--gold-primary);
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            text-decoration: none;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-cta:hover {
+            background: var(--gold-primary);
+            color: var(--bg-dark);
+        }
+
+        /* Hero */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 120px 24px 80px;
+        }
+
+        .elite-tag {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold-primary) 50%, var(--gold-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+        }
+
+        .hero-title {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(3rem, 8vw, 5.5rem);
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            color: var(--text-cream);
+        }
+
+        .hero-title .highlight {
+            color: var(--gold-primary);
+            font-style: italic;
+        }
+
+        .hero-subtitle {
+            font-size: 1.2rem;
+            color: var(--text-gray);
+            max-width: 600px;
+            margin-bottom: 48px;
+            line-height: 1.8;
+        }
+
+        .hero-subtitle strong {
+            color: var(--text-white);
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: center;
+            gap: 48px;
+            margin-bottom: 48px;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--gold-primary);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-gray);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold-primary) 100%);
+            color: var(--bg-dark);
+            padding: 20px 48px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 1rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 20px 60px var(--gold-glow);
+        }
+
+        .cta-button:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 30px 80px var(--gold-glow);
+        }
+
+        /* The Hook Section */
+        .hook-section {
+            padding: 100px 0;
+            border-top: 1px solid rgba(212, 175, 55, 0.1);
+        }
+
+        .hook-content {
+            max-width: 700px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .hook-quote {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(1.5rem, 3vw, 2rem);
+            font-style: italic;
+            color: var(--text-cream);
+            line-height: 1.6;
+            margin-bottom: 32px;
+            padding: 0 24px;
+            border-left: 3px solid var(--gold-primary);
+        }
+
+        .hook-explanation {
+            color: var(--text-gray);
+            line-height: 1.8;
+        }
+
+        /* Process Section */
+        .process-section {
+            padding: 100px 0;
+        }
+
+        .process-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            text-align: center;
+            margin-bottom: 60px;
+            color: var(--gold-primary);
+        }
+
+        .process-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+        }
+
+        .process-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(212, 175, 55, 0.15);
+            border-radius: 8px;
+            padding: 40px 32px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .process-card:hover {
+            border-color: var(--gold-primary);
+            transform: translateY(-8px);
+        }
+
+        .process-number {
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem;
+            color: var(--gold-primary);
+            margin-bottom: 16px;
+        }
+
+        .process-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 12px;
+            color: var(--text-cream);
+        }
+
+        .process-card p {
+            color: var(--text-gray);
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        /* Bottom CTA */
+        .bottom-cta {
+            padding: 120px 0;
+            text-align: center;
+            background: linear-gradient(180deg, transparent 0%, rgba(212, 175, 55, 0.03) 100%);
+        }
+
+        .badge-display {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(212, 175, 55, 0.1);
+            border: 1px solid var(--gold-primary);
+            padding: 16px 32px;
+            border-radius: 60px;
+            margin-bottom: 32px;
+        }
+
+        .badge-icon {
+            font-size: 1.5rem;
+        }
+
+        .badge-text {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem;
+            color: var(--gold-primary);
+        }
+
+        .bottom-cta h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2rem, 4vw, 3rem);
+            margin-bottom: 24px;
+            color: var(--text-cream);
+        }
+
+        /* Footer */
+        .footer {
+            padding: 40px 0;
+            text-align: center;
+            border-top: 1px solid rgba(212, 175, 55, 0.1);
+            color: var(--text-gray);
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 768px) {
+            .nav {
+                padding: 16px 24px;
+            }
+
+            .process-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stat-row {
+                gap: 32px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="luxury-bg"></div>
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="nav">
+        <div class="nav-badge">
+            <span>⚖️</span> The Jury
+        </div>
+        <a href="/" class="nav-cta">Enter →</a>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <span class="elite-tag">For the Discerning Mind</span>
+
+        <h1 class="hero-title">
+            Escape the<br>
+            <span class="highlight">Echo Chamber</span>
+        </h1>
+
+        <p class="hero-subtitle">
+            Most people consume AI passively.<br>
+            <strong>The top 1% audit the logic.</strong>
+        </p>
+
+        <div class="stat-row">
+            <div class="stat">
+                <div class="stat-number">3</div>
+                <div class="stat-label">AI Models</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">1</div>
+                <div class="stat-label">Truth</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">You</div>
+                <div class="stat-label">The Judge</div>
+            </div>
+        </div>
+
+        <a href="/" class="cta-button">
+            Start the Inquisition
+        </a>
+    </section>
+
+    <!-- The Hook -->
+    <section class="hook-section">
+        <div class="container">
+            <div class="hook-content">
+                <blockquote class="hook-quote">
+                    "Stop accepting the first answer. Force the world's smartest models to cross-examine each other
+                    until the actual truth falls out."
+                </blockquote>
+                <p class="hook-explanation">
+                    Single-model queries give you single-perspective answers.
+                    The Arena pits multiple AI systems against each other,
+                    exposing contradictions, biases, and blind spots in real-time.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Process -->
+    <section class="process-section">
+        <div class="container">
+            <h2 class="process-title">The Inquisition Process</h2>
+            <div class="process-grid">
+                <div class="process-card">
+                    <div class="process-number">I</div>
+                    <h3>Pose the Question</h3>
+                    <p>Any topic. Any controversy. Any claim you want stress-tested.</p>
+                </div>
+                <div class="process-card">
+                    <div class="process-number">II</div>
+                    <h3>Witness the Clash</h3>
+                    <p>Watch Gemini, DeepSeek, and Kimi K2 argue from opposing positions.</p>
+                </div>
+                <div class="process-card">
+                    <div class="process-number">III</div>
+                    <h3>Render Judgment</h3>
+                    <p>You decide who made the stronger case. You control the verdict.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bottom CTA -->
+    <section class="bottom-cta">
+        <div class="container">
+            <div class="badge-display">
+                <span class="badge-icon">⚖️</span>
+                <span class="badge-text">Join the Jury</span>
+            </div>
+            <h2>The privileged few don't accept answers.<br>They interrogate them.</h2>
+            <a href="/" class="cta-button">Claim Your Seat</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>© 2025 Unusual Insights Inc. / Rishi Khullar</p>
+        </div>
+    </footer>
+</body>
+
+</html>

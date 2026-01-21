@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The AI Cold War is Live | AI Debate Arena</title>
+    <meta name="description"
+        content="Gemini (USA) vs DeepSeek (China). Who is lying to you? Watch AI models from rival nations battle for the truth.">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Bebas+Neue&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a0a;
+            --bg-card: rgba(20, 20, 20, 0.9);
+            --red-primary: #dc2626;
+            --red-glow: rgba(220, 38, 38, 0.4);
+            --blue-primary: #2563eb;
+            --blue-glow: rgba(37, 99, 235, 0.4);
+            --gold: #fbbf24;
+            --text-white: #ffffff;
+            --text-gray: #9ca3af;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-white);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated War Background */
+        .war-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .war-bg::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, var(--blue-glow) 0%, transparent 50%);
+            animation: pulse-blue 4s ease-in-out infinite;
+        }
+
+        .war-bg::after {
+            content: '';
+            position: absolute;
+            bottom: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, var(--red-glow) 0%, transparent 50%);
+            animation: pulse-red 4s ease-in-out infinite 2s;
+        }
+
+        @keyframes pulse-blue {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.5;
+            }
+
+            50% {
+                transform: scale(1.2);
+                opacity: 0.8;
+            }
+        }
+
+        @keyframes pulse-red {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.5;
+            }
+
+            50% {
+                transform: scale(1.2);
+                opacity: 0.8;
+            }
+        }
+
+        /* Scan Lines */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 0, 0, 0.1) 2px,
+                    rgba(0, 0, 0, 0.1) 4px);
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Hero */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 80px 24px;
+        }
+
+        .alert-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(220, 38, 38, 0.2);
+            border: 1px solid var(--red-primary);
+            padding: 8px 20px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--red-primary);
+            margin-bottom: 32px;
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .hero-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(4rem, 12vw, 10rem);
+            font-weight: 400;
+            line-height: 0.9;
+            letter-spacing: 4px;
+            margin-bottom: 24px;
+            text-transform: uppercase;
+        }
+
+        .hero-title .cold-war {
+            background: linear-gradient(90deg, var(--blue-primary) 0%, var(--text-white) 50%, var(--red-primary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .versus {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 24px;
+            margin: 40px 0;
+            flex-wrap: wrap;
+        }
+
+        .nation {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 24px 40px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .nation.usa {
+            background: rgba(37, 99, 235, 0.1);
+            border: 2px solid var(--blue-primary);
+        }
+
+        .nation.china {
+            background: rgba(220, 38, 38, 0.1);
+            border: 2px solid var(--red-primary);
+        }
+
+        .nation:hover {
+            transform: scale(1.05);
+        }
+
+        .nation .flag {
+            font-size: 3rem;
+        }
+
+        .nation .model-name {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2rem;
+            letter-spacing: 2px;
+        }
+
+        .nation.usa .model-name {
+            color: var(--blue-primary);
+        }
+
+        .nation.china .model-name {
+            color: var(--red-primary);
+        }
+
+        .vs-text {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 3rem;
+            color: var(--gold);
+            text-shadow: 0 0 20px var(--gold);
+        }
+
+        .hero-subtitle {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-white);
+            margin: 24px 0 16px;
+        }
+
+        .hero-hook {
+            font-size: 1.1rem;
+            color: var(--text-gray);
+            max-width: 600px;
+            line-height: 1.7;
+            margin-bottom: 40px;
+        }
+
+        .hero-hook strong {
+            color: var(--gold);
+        }
+
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, var(--red-primary) 0%, #991b1b 100%);
+            color: white;
+            padding: 20px 48px;
+            border-radius: 4px;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.5rem;
+            letter-spacing: 3px;
+            text-decoration: none;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 40px var(--red-glow);
+        }
+
+        .cta-button:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 0 60px var(--red-glow);
+        }
+
+        /* The Enemy Section */
+        .enemy-section {
+            padding: 100px 0;
+            background: linear-gradient(180deg, transparent 0%, rgba(220, 38, 38, 0.05) 100%);
+        }
+
+        .enemy-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .enemy-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 32px;
+            text-align: center;
+        }
+
+        .enemy-card .icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        .enemy-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 12px;
+            color: var(--red-primary);
+        }
+
+        .enemy-card p {
+            color: var(--text-gray);
+            line-height: 1.6;
+        }
+
+        /* Bottom CTA */
+        .bottom-cta {
+            padding: 120px 0;
+            text-align: center;
+        }
+
+        .bottom-cta h2 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(2rem, 5vw, 4rem);
+            letter-spacing: 3px;
+            margin-bottom: 24px;
+        }
+
+        .bottom-cta p {
+            color: var(--text-gray);
+            font-size: 1.1rem;
+            margin-bottom: 40px;
+        }
+
+        /* Footer */
+        .footer {
+            padding: 40px 0;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-gray);
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 768px) {
+            .versus {
+                gap: 16px;
+            }
+
+            .nation {
+                padding: 16px 24px;
+            }
+
+            .vs-text {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="war-bg"></div>
+    <div class="scanlines"></div>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="alert-badge">
+            <span>🔴</span> LIVE CONFLICT
+        </div>
+
+        <h1 class="hero-title">
+            <span class="cold-war">The AI Cold War</span><br>
+            is Live.
+        </h1>
+
+        <div class="versus">
+            <div class="nation usa">
+                <span class="flag">🇺🇸</span>
+                <span class="model-name">GEMINI</span>
+            </div>
+            <span class="vs-text">VS</span>
+            <div class="nation china">
+                <span class="flag">🇨🇳</span>
+                <span class="model-name">DEEPSEEK</span>
+            </div>
+        </div>
+
+        <p class="hero-subtitle">Who is lying to you?</p>
+
+        <p class="hero-hook">
+            The media tells you one thing. The algorithms tell you another.
+            <strong>Don't trust the output—watch the fight.</strong>
+        </p>
+
+        <a href="/" class="cta-button">
+            Pick a Side. Watch Them Brawl.
+        </a>
+    </section>
+
+    <!-- The Enemy -->
+    <section class="enemy-section">
+        <div class="container">
+            <div class="enemy-grid">
+                <div class="enemy-card">
+                    <div class="icon">🎭</div>
+                    <h3>The Sanitized Internet</h3>
+                    <p>Every AI has been trained to tell you what its creators want you to hear. Different nations,
+                        different agendas, different "truths."</p>
+                </div>
+                <div class="enemy-card">
+                    <div class="icon">🔒</div>
+                    <h3>Hidden Bias</h3>
+                    <p>You can't see the bias until you see the conflict. When US and Chinese models disagree, the
+                        propaganda becomes visible.</p>
+                </div>
+                <div class="enemy-card">
+                    <div class="icon">⚔️</div>
+                    <h3>Information Warfare</h3>
+                    <p>The AI arms race is real. Your information diet is a battleground. See who's fighting for your
+                        mind.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bottom CTA -->
+    <section class="bottom-cta">
+        <div class="container">
+            <h2>The Truth Emerges in Combat</h2>
+            <p>Force the world's most powerful AI models to clash. See what they're hiding.</p>
+            <a href="/" class="cta-button">Enter the War Room</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>© 2025 Unusual Insights Inc. / Rishi Khullar</p>
+        </div>
+    </footer>
+</body>
+
+</html>

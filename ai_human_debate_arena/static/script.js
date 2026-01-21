@@ -11,6 +11,155 @@ let nextMessageTime = 0; // Timestamp when the next message is allowed to show
 const SPEED_LEVELS = [50, 100, 150, 175, 200, 225, 250, 300, 400, 500, 600, 700, 999];
 let currentSpeedIndex = 6; // Start at 250 WPM
 
+// Prediction State
+let userPrediction = null;
+let predictionResolve = null;
+
+// Audio Context for victory sounds
+let audioContext = null;
+
+// =============================================
+// PREDICTION BETTING
+// =============================================
+function showPredictionModal() {
+    return new Promise((resolve) => {
+        predictionResolve = resolve;
+        document.getElementById('prediction-modal').classList.remove('hidden');
+    });
+}
+
+function submitPrediction(choice) {
+    userPrediction = choice;
+    document.getElementById('prediction-modal').classList.add('hidden');
+    if (predictionResolve) {
+        predictionResolve(choice);
+        predictionResolve = null;
+    }
+}
+
+function showPredictionResult(actualWinner) {
+    if (!userPrediction) return; // No prediction made
+
+    const correct = userPrediction === actualWinner;
+    const resultEl = document.createElement('div');
+    resultEl.className = `prediction-result ${correct ? 'correct' : 'wrong'}`;
+    resultEl.textContent = correct ? '✅ You called it!' : '❌ Wrong call!';
+    document.body.appendChild(resultEl);
+
+    // Remove after animation
+    setTimeout(() => resultEl.remove(), 3000);
+
+    // Track accuracy in localStorage
+    const stats = JSON.parse(localStorage.getItem('predictionStats') || '{"correct":0,"total":0}');
+    stats.total++;
+    if (correct) stats.correct++;
+    localStorage.setItem('predictionStats', JSON.stringify(stats));
+}
+
+// =============================================
+// VICTORY SOUNDS (Web Audio API)
+// =============================================
+function initAudio() {
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+
+function playVictorySound() {
+    initAudio();
+
+    // Create a triumphant fanfare using oscillators
+    const now = audioContext.currentTime;
+
+    // Note frequencies for a victory fanfare (C major chord arpeggio)
+    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+
+    notes.forEach((freq, i) => {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+
+        gain.gain.setValueAtTime(0, now + i * 0.15);
+        gain.gain.linearRampToValueAtTime(0.3, now + i * 0.15 + 0.05);
+        gain.gain.linearRampToValueAtTime(0, now + i * 0.15 + 0.4);
+
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+
+        osc.start(now + i * 0.15);
+        osc.stop(now + i * 0.15 + 0.5);
+    });
+}
+
+function playScoreChime(positive) {
+    initAudio();
+
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.value = positive ? 880 : 440; // High for positive, low for negative
+
+    const now = audioContext.currentTime;
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.linearRampToValueAtTime(0, now + 0.2);
+
+    osc.connect(gain);
+    gain.connect(audioContext.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.2);
+}
+
+// =============================================
+// STREAK TRACKING
+// =============================================
+function updateStreak() {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const lastDate = localStorage.getItem('lastDebateDate');
+    let streak = parseInt(localStorage.getItem('debateStreak') || '0');
+
+    if (lastDate === today) {
+        // Already debated today, just increment debates count
+        const todayCount = parseInt(localStorage.getItem('debatesToday') || '0') + 1;
+        localStorage.setItem('debatesToday', todayCount);
+    } else {
+        // New day
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+        if (lastDate === yesterday) {
+            // Consecutive day - increment streak
+            streak++;
+        } else {
+            // Streak broken - reset
+            streak = 1;
+        }
+
+        localStorage.setItem('debateStreak', streak);
+        localStorage.setItem('lastDebateDate', today);
+        localStorage.setItem('debatesToday', '1');
+    }
+
+    // Update display
+    const badge = document.getElementById('streak-badge');
+    if (badge) {
+        badge.textContent = `🔥 ${streak}`;
+    }
+}
+
+function initStreakDisplay() {
+    const streak = localStorage.getItem('debateStreak') || '0';
+    const badge = document.getElementById('streak-badge');
+    if (badge) {
+        badge.textContent = `🔥 ${streak}`;
+    }
+}
+
+// Initialize streak on page load
+document.addEventListener('DOMContentLoaded', initStreakDisplay);
+
 // Get current WPM (for real-time reading during typing)
 function getCurrentWPM() {
     return SPEED_LEVELS[currentSpeedIndex];
@@ -145,16 +294,68 @@ const voiceSettings = {
 };
 
 function toggleSound() {
-    soundEnabled = !soundEnabled;
-    const btn = document.getElementById('sound-toggle');
-    btn.textContent = soundEnabled ? '🔊' : '🔇';
-    btn.classList.toggle('active', soundEnabled);
+    const checkbox = document.getElementById('sound-toggle-checkbox');
+
+    // If called from checkbox, use its state; otherwise toggle
+    if (checkbox) {
+        soundEnabled = checkbox.checked;
+    } else {
+        soundEnabled = !soundEnabled;
+    }
+
+    // Sync checkbox state
+    if (checkbox) checkbox.checked = soundEnabled;
+
+    // Update toggle text
+    const toggleText = document.querySelector('.audio-toggle-text');
+    if (toggleText) {
+        toggleText.textContent = soundEnabled ? '🔊 Audio Enabled' : '🔇 Audio Disabled';
+    }
+
+    // Show/hide voice sections based on audio state
+    document.querySelectorAll('.voice-section').forEach(section => {
+        section.classList.toggle('hidden', !soundEnabled);
+    });
+
+    if (soundEnabled) {
+        // Sync typing speed with speech (approx 175 WPM)
+        // Index 3 = 175 WPM in SPEED_LEVELS
+        currentSpeedIndex = 3;
+        const display = document.getElementById('wpm-display');
+        if (display) display.textContent = SPEED_LEVELS[currentSpeedIndex];
+    }
 
     if (!soundEnabled) {
         window.speechSynthesis.cancel();
         speechQueue = [];
         isSpeaking = false;
     }
+}
+
+function previewVoice(dropdownId) {
+    const select = document.getElementById(dropdownId);
+    const voiceName = select.value;
+
+    // Cancel any current speech
+    window.speechSynthesis.cancel();
+
+    const sampleText = "This is how I sound. Ready to debate?";
+    const utterance = new SpeechSynthesisUtterance(sampleText);
+
+    if (voiceName) {
+        const voice = voices.find(v => v.name === voiceName);
+        if (voice) utterance.voice = voice;
+    } else {
+        // Auto voice - use default based on role
+        const role = dropdownId.includes('advocate') ? 'for' : 'against';
+        const settings = voiceSettings[role];
+        const voice = findVoice(settings.female);
+        if (voice) utterance.voice = voice;
+        utterance.pitch = settings.pitch;
+        utterance.rate = settings.rate;
+    }
+
+    window.speechSynthesis.speak(utterance);
 }
 
 function sanitizeForSpeech(text) {
@@ -326,7 +527,7 @@ function setDebateControlsEnabled(enabled) {
     });
 
     // Debate button - change text and behavior
-    const debateBtn = document.querySelector('.controls button[onclick="startDebate()"]');
+    const debateBtn = document.querySelector('.debate-btnGlass');
     if (debateBtn) {
         if (enabled) {
             debateBtn.textContent = 'DEBATE';
@@ -338,11 +539,66 @@ function setDebateControlsEnabled(enabled) {
     }
 
     // Fire button (random topic)
-    const fireBtn = document.querySelector('.fire-btn');
+    const fireBtn = document.querySelector('.chaos-btnGlass');
     if (fireBtn) fireBtn.disabled = !enabled;
+}
+// Global reference for aborting pending fetch requests
+let currentAbortController = null;
+
+function stopDebate() {
+    console.log("Stopping debate...");
+
+    // Abort any pending fetch requests
+    if (currentAbortController) {
+        currentAbortController.abort();
+        currentAbortController = null;
+    }
+
+    // Cancel any pending speech
+    window.speechSynthesis.cancel();
+    speechQueue = [];
+    isSpeaking = false;
+
+    // Reset debate state
+    debateState.active = false;
+    debateState.isDebating = false;
+
+    // Re-enable controls
+    setDebateControlsEnabled(true);
+
+    // Reset logo state
+    const logo = document.querySelector('.header-logo');
+    if (logo) logo.classList.remove('debating');
+
+    // Cleanup UI
+    removeLoadingMessages();
+    setInputState('hidden');
+
+    // Hide footer config
+    const debateConfig = document.getElementById('debate-config');
+    if (debateConfig) debateConfig.classList.add('hidden');
+
+    // Show stopped message
+    const stream = document.getElementById('discussion-stream');
+    const stoppedMsg = document.createElement('div');
+    stoppedMsg.className = 'message msg-judge';
+    stoppedMsg.innerHTML = `
+        <div class="bubble" style="text-align: center; color: #f59e0b;">
+            ⚠️ Debate stopped by user
+        </div>
+    `;
+    stream.appendChild(stoppedMsg);
+
+    console.log("Debate stopped successfully");
 }
 
 async function startDebate() {
+    // If debate is already running, stop it instead
+    if (debateState.active || debateState.isDebating) {
+        stopDebate();
+        return;
+    }
+
     console.log("Starting debate..."); // Debug Log
     const topicInput = document.getElementById('topic-input');
     const topic = topicInput.value || "Is Buddhism a religion?";
@@ -369,6 +625,17 @@ async function startDebate() {
 
     // Disable controls that can't change during debate
     setDebateControlsEnabled(false);
+
+    // Show config in footer during debate
+    const debateConfig = document.getElementById('debate-config');
+    if (debateConfig) {
+        const modelNames = { gemini: 'Gemini', deepseek: 'DeepSeek', kimi: 'Kimi', human: 'Human' };
+        const forModel = modelNames[config.advocateModel] || config.advocateModel;
+        const againstModel = modelNames[config.skepticModel] || config.skepticModel;
+        const judgeModel = modelNames[config.judgeModel] || config.judgeModel;
+        debateConfig.textContent = `🟢 ${forModel}/${currentAdvocateTone} vs 🔴 ${againstModel}/${currentSkepticTone} | ⚖️ ${judgeModel}`;
+        debateConfig.classList.remove('hidden');
+    }
 
     // Logo State
     document.querySelector('.header-logo').classList.add('debating');
@@ -402,10 +669,11 @@ async function startDebate() {
     document.getElementById('discussion-stream').classList.remove('hidden');
 
     // Show Score Bar and reset crowns
-    document.getElementById('score-container').style.display = 'block';
+    document.getElementById('score-container').style.display = 'flex';
     document.getElementById('crown-advocate').style.display = 'none';
     document.getElementById('crown-skeptic').style.display = 'none';
     updateScoreBar(0, "Debate Start");
+    updateRoundDisplay(0); // Initialize round counter
 
     // PERSISTENT DOCK SETUP
     // If Human is playing, show the dock immediately (Waiting State)
@@ -499,7 +767,7 @@ async function runDebateProtocol() {
         let debateEnded = false;
         debateState.round = 1;
 
-        while (!debateEnded && debateState.round <= maxRounds) {
+        while (!debateEnded && debateState.round <= maxRounds && debateState.active) {
             // Advocate Turn - typewriter effect handles pacing
             await executeTurn('advocate', false, false, false);
             await new Promise(r => setTimeout(r, 500)); // Small buffer between turns
@@ -531,21 +799,37 @@ async function runDebateProtocol() {
                     // AI JUDGE
                     const judgeRes = await executeTurn('judge', false, false, true); // is_evaluation=true
 
-                    // Check for Termination
+                    // Check for Termination - expanded to match backend
                     const text = judgeRes.toUpperCase();
-                    if (text.includes("ADVOCATE WINS")) {
-                        winner = 'advocate';
-                        debateEnded = true;
-                    } else if (text.includes("SKEPTIC WINS")) {
-                        winner = 'skeptic';
-                        debateEnded = true;
-                    } else if (text.includes("DEADLOCK") || text.includes("VERDICT")) {
-                        winner = 'draw';
+                    const terminationPhrases = [
+                        "ADVOCATE WINS", "SKEPTIC WINS",
+                        "ADVOCATE PREVAILS", "SKEPTIC PREVAILS",
+                        "THE ADVOCATE WINS", "THE SKEPTIC WINS",
+                        "THE ADVOCATE PREVAILS", "THE SKEPTIC PREVAILS",
+                        "ADVOCATE TAKES IT", "SKEPTIC TAKES IT",
+                        "ADVOCATE IS THE WINNER", "SKEPTIC IS THE WINNER",
+                        "DEADLOCK", "STALEMATE", "VERDICT",
+                        "I FIND IN FAVOR OF", "DECLARE THE WINNER",
+                        "THE WINNER IS", "WINS THE DEBATE"
+                    ];
+
+                    if (terminationPhrases.some(phrase => text.includes(phrase))) {
+                        // Determine winner from the evaluation text
+                        if (text.includes("ADVOCATE") && (text.includes("WINS") || text.includes("PREVAILS") || text.includes("TAKES IT") || text.includes("FAVOR OF THE ADVOCATE"))) {
+                            winner = 'advocate';
+                        } else if (text.includes("SKEPTIC") && (text.includes("WINS") || text.includes("PREVAILS") || text.includes("TAKES IT") || text.includes("FAVOR OF THE SKEPTIC"))) {
+                            winner = 'skeptic';
+                        } else {
+                            winner = 'draw';
+                        }
                         debateEnded = true;
                     }
                 }
 
                 if (debateEnded) {
+                    // ALWAYS generate formal verdict before ending
+                    await executeTurn('judge', false, true, false); // is_final=true
+
                     // Winner Celebration
                     if (winner) triggerWinAnimation(winner);
                     saveDebateToHistory(debateState.topic, winner || 'Unknown');
@@ -561,18 +845,18 @@ async function runDebateProtocol() {
             }
 
             debateState.round++;
+            // Update round display
+            updateRoundDisplay(debateState.round);
         }
 
-        // FINAL VERDICT (If loop maxed out or forced ending)
-        if (!debateEnded) {
-            if (config.judgeModel === 'human') {
-                // HUMAN FINAL VERDICT - show binary choice
-                const verdictResult = await handleHumanJudge(true);
-                winner = verdictResult.winner;
-            } else {
-                await executeTurn('judge', false, true, false); // is_final=true
-                winner = 'draw'; // Default fallback
-            }
+        // FINAL VERDICT (If loop maxed out)
+        if (config.judgeModel === 'human') {
+            // HUMAN FINAL VERDICT - show binary choice
+            const verdictResult = await handleHumanJudge(true);
+            winner = verdictResult.winner;
+        } else {
+            await executeTurn('judge', false, true, false); // is_final=true
+            winner = 'draw'; // Default fallback
         }
 
         // WINNER CELEBRATION
@@ -634,7 +918,15 @@ async function executeTurn(role, isOpening, isFinal, isEvaluation) {
     // AI GENERATION
     renderLoadingMessage({ text: `${role.toUpperCase()} is thinking...` });
 
+    // Create AbortController for this turn
+    currentAbortController = new AbortController();
+
     try {
+        // Check if already stopped
+        if (!debateState.active) {
+            removeLoadingMessages();
+            return { text: '', stopped: true };
+        }
         const payload = {
             role: role,
             topic: topic,
@@ -650,8 +942,15 @@ async function executeTurn(role, isOpening, isFinal, isEvaluation) {
         const res = await fetch('/api/turn', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            signal: currentAbortController.signal
         });
+
+        // Check if stopped while waiting for response
+        if (!debateState.active) {
+            removeLoadingMessages();
+            return { text: '', stopped: true };
+        }
 
         if (!res.ok) {
             const errText = await res.text();
@@ -693,13 +992,18 @@ async function executeTurn(role, isOpening, isFinal, isEvaluation) {
             state: isFinal ? 'verdict' : 'speaking',
             round: roundLabel
         });
-
-        speakText(text, roleMap[role]);
         // Scroll is handled by typewriter function
 
         return text;
 
     } catch (e) {
+        // Handle abort gracefully - don't show error
+        if (e.name === 'AbortError') {
+            console.log("Turn aborted");
+            removeLoadingMessages();
+            return { text: '', stopped: true };
+        }
+
         console.error("Turn Error:", e);
         removeLoadingMessages();
 
@@ -992,9 +1296,31 @@ function renderMessage(data) {
         `;
     } else {
         const cleanText = markdownToHtml(data.text);
+
+        // Get model + flag for this role
+        let modelFlag = '';
+        if (debateState.config) {
+            const modelMap = {
+                'gemini': 'Gemini 🇺🇸',
+                'deepseek': 'DeepSeek 🇨🇳',
+                'kimi': 'Kimi 🇨🇳',
+                'human': 'Human 👤'
+            };
+            if (data.role === 'for' && debateState.config.advocateModel) {
+                modelFlag = `<div class="model-flag">${modelMap[debateState.config.advocateModel] || ''}</div>`;
+            } else if (data.role === 'against' && debateState.config.skepticModel) {
+                modelFlag = `<div class="model-flag">${modelMap[debateState.config.skepticModel] || ''}</div>`;
+            } else if (data.role === 'judge' && debateState.config.judgeModel) {
+                modelFlag = `<div class="model-flag">${modelMap[debateState.config.judgeModel] || ''}</div>`;
+            }
+        }
+
         innerHTML = `
             <div class="msg-header-row">
-                <img src="${avatarMap[data.role]}" class="msg-avatar">
+                <div class="avatar-block">
+                    <img src="${avatarMap[data.role]}" class="msg-avatar">
+                    ${modelFlag}
+                </div>
                 <div class="msg-name-block">
                     <span class="role-label">${nameMap[data.role]}</span>
                     <div class="msg-meta-row">
@@ -1046,9 +1372,30 @@ async function renderMessageWithTypewriter(data) {
             </div>
         `;
     } else {
+        // Get model + flag for this role
+        let modelFlag = '';
+        if (debateState.config) {
+            const modelMap = {
+                'gemini': 'Gemini 🇺🇸',
+                'deepseek': 'DeepSeek 🇨🇳',
+                'kimi': 'Kimi 🇨🇳',
+                'human': 'Human 👤'
+            };
+            if (data.role === 'for' && debateState.config.advocateModel) {
+                modelFlag = `<div class="model-flag">${modelMap[debateState.config.advocateModel] || ''}</div>`;
+            } else if (data.role === 'against' && debateState.config.skepticModel) {
+                modelFlag = `<div class="model-flag">${modelMap[debateState.config.skepticModel] || ''}</div>`;
+            } else if (data.role === 'judge' && debateState.config.judgeModel) {
+                modelFlag = `<div class="model-flag">${modelMap[debateState.config.judgeModel] || ''}</div>`;
+            }
+        }
+
         msgDiv.innerHTML = `
             <div class="msg-header-row">
-                <img src="${avatarMap[data.role]}" class="msg-avatar">
+                <div class="avatar-block">
+                    <img src="${avatarMap[data.role]}" class="msg-avatar">
+                    ${modelFlag}
+                </div>
                 <div class="msg-name-block">
                     <span class="role-label">${nameMap[data.role]}</span>
                     <div class="msg-meta-row">
@@ -1062,6 +1409,11 @@ async function renderMessageWithTypewriter(data) {
     }
 
     stream.appendChild(msgDiv);
+
+    // Start TTS immediately (in parallel with typing)
+    // We do this INSIDE renderMessageWithTypewriter so it is tightly coupled 
+    // to the visual start, preventing any async race conditions in the parent loop.
+    speakText(data.text, data.role);
 
     // Get the target element for typing
     const target = msgDiv.querySelector('.typewriter-target');
@@ -1260,11 +1612,61 @@ function clearHistory() {
     }
 }
 
+function showSettings() {
+    const modal = document.getElementById('settings-modal');
+    const topicDisplay = document.getElementById('settings-topic');
+    const topicInput = document.getElementById('topic-input');
+    const isDebating = debateState.active || debateState.isDebating;
+
+    // Show topic if there's one pending
+    if (topicInput.value) {
+        topicDisplay.textContent = `📋 Topic: "${topicInput.value}"`;
+        topicDisplay.classList.remove('hidden');
+    } else {
+        topicDisplay.classList.add('hidden');
+    }
+
+    // During debate: disable all inputs and hide action buttons
+    const settingsInputs = modal.querySelectorAll('select, input, .voice-preview-btn');
+    const settingsButtons = modal.querySelector('.settings-buttons');
+    const audioToggle = modal.querySelector('.audio-toggle-section');
+
+    if (isDebating) {
+        // Disable all selects and inputs
+        settingsInputs.forEach(el => el.disabled = true);
+        // Hide action buttons
+        if (settingsButtons) settingsButtons.classList.add('hidden');
+        // Hide audio toggle
+        if (audioToggle) audioToggle.classList.add('hidden');
+        // Update header to indicate view-only
+        modal.querySelector('.modal-header h2').textContent = '👁️ Current Settings (View Only)';
+    } else {
+        // Re-enable all
+        settingsInputs.forEach(el => el.disabled = false);
+        if (settingsButtons) settingsButtons.classList.remove('hidden');
+        if (audioToggle) audioToggle.classList.remove('hidden');
+        modal.querySelector('.modal-header h2').textContent = '⚙️ Debate Settings';
+    }
+
+    modal.classList.remove('hidden');
+    setTimeout(() => modal.classList.add('visible'), 10);
+}
+
+function closeSettings() {
+    const modal = document.getElementById('settings-modal');
+    modal.classList.remove('visible');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+}
+
 // Close modal when clicking outside
 window.onclick = function (event) {
-    const modal = document.getElementById('history-modal');
-    if (event.target === modal) {
+    const historyModal = document.getElementById('history-modal');
+    const settingsModal = document.getElementById('settings-modal');
+    if (event.target === historyModal) {
         closeHistory();
+    }
+    if (event.target === settingsModal) {
+        closeSettings();
     }
 }
 
@@ -1296,7 +1698,7 @@ function updateScoreBar(delta, reason) {
 
     // Flash Delta with reason
     if (delta !== 0 && reason && deltaEl) {
-        let winner = delta > 0 ? 'Advocate' : 'Skeptic';
+        let winner = delta > 0 ? 'FOR' : 'AGAINST';
         let points = Math.abs(delta);
         deltaEl.innerText = `${winner} +${points}: ${reason.substring(0, 60)}${reason.length > 60 ? '...' : ''}`;
         deltaEl.classList.remove('flash');
@@ -1305,21 +1707,22 @@ function updateScoreBar(delta, reason) {
     }
 }
 
+function updateRoundDisplay(round) {
+    const roundEl = document.getElementById('round-display');
+    if (roundEl) {
+        roundEl.textContent = `Round ${round}`;
+    }
+}
+
 function triggerWinAnimation(winner) {
-    const fillLeft = document.getElementById('score-fill-left');
-    const fillRight = document.getElementById('score-fill-right');
     const crownAdvocate = document.getElementById('crown-advocate');
     const crownSkeptic = document.getElementById('crown-skeptic');
 
-    // Fill bar to 100% for winner (if bar exists)
+    // Set winner score and show crown
     if (winner === 'advocate') {
-        if (fillRight) fillRight.style.width = '50%';
-        if (fillLeft) fillLeft.style.width = '0%';
         if (crownAdvocate) crownAdvocate.style.display = 'inline';
         debateState.score = 10;
     } else if (winner === 'skeptic') {
-        if (fillLeft) fillLeft.style.width = '50%';
-        if (fillRight) fillRight.style.width = '0%';
         if (crownSkeptic) crownSkeptic.style.display = 'inline';
         debateState.score = -10;
     }
@@ -1330,18 +1733,112 @@ function triggerWinAnimation(winner) {
     if (advScoreEl) advScoreEl.innerText = debateState.score > 0 ? '+' + debateState.score : '0';
     if (skpScoreEl) skpScoreEl.innerText = debateState.score < 0 ? Math.abs(debateState.score) : '0';
 
-    // Confetti (if library loaded)
-    if (typeof confetti !== 'undefined') {
-        confetti({
-            particleCount: 150,
-            spread: 70,
-            origin: { y: 0.6 }
-        });
+    // ========================================
+    // ARENA CELEBRATION EFFECT
+    // ========================================
+
+    // 1. SCREEN FLASH
+    const flash = document.createElement('div');
+    flash.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: white; opacity: 0.8; z-index: 9999;
+        animation: flashFade 0.3s ease-out forwards;
+    `;
+    document.body.appendChild(flash);
+    setTimeout(() => flash.remove(), 300);
+
+    // 2. SCREEN SHAKE
+    document.body.style.animation = 'shake 0.4s ease-in-out';
+    setTimeout(() => document.body.style.animation = '', 400);
+
+    // 3. SPOTLIGHT BURST
+    const spotlight = document.createElement('div');
+    spotlight.style.cssText = `
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: 0; height: 0; border-radius: 50%; z-index: 9998;
+        background: radial-gradient(circle, ${winner === 'advocate' ? 'rgba(52,211,153,0.4)' : 'rgba(251,113,133,0.4)'} 0%, transparent 70%);
+        animation: spotlightBurst 1s ease-out forwards;
+    `;
+    document.body.appendChild(spotlight);
+    setTimeout(() => spotlight.remove(), 1000);
+
+    // 4. WINNER BADGE
+    const badge = document.createElement('div');
+    const winnerText = winner === 'advocate' ? 'FOR WINS!' : winner === 'skeptic' ? 'AGAINST WINS!' : 'DRAW!';
+    const winnerColor = winner === 'advocate' ? '#34d399' : '#fb7185';
+    badge.innerHTML = `
+        <div style="font-size: 3rem; margin-bottom: 10px;">🏆</div>
+        <div style="font-size: 2rem; font-weight: 800; letter-spacing: 3px; text-shadow: 0 0 30px ${winnerColor};">${winnerText}</div>
+    `;
+    badge.style.cssText = `
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
+        text-align: center; color: ${winnerColor}; z-index: 10000;
+        animation: badgePop 2.5s ease-out forwards;
+    `;
+    document.body.appendChild(badge);
+    setTimeout(() => badge.remove(), 2500);
+
+    // 5. VICTORY SOUNDS
+    if (soundEnabled) {
+        // Victory horn
+        playVictoryHorn();
+        // Crowd roar (delayed slightly)
+        setTimeout(() => playCrowdRoar(), 200);
     }
 }
 
+// Arena celebration sound effects
+function playVictoryHorn() {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(220, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.1);
+    osc.frequency.setValueAtTime(440, ctx.currentTime + 0.1);
+    osc.frequency.exponentialRampToValueAtTime(550, ctx.currentTime + 0.3);
+
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.8);
+}
+
+function playCrowdRoar() {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const bufferSize = ctx.sampleRate * 2; // 2 seconds
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+
+    // Generate crowd noise (filtered white noise with modulation)
+    for (let i = 0; i < bufferSize; i++) {
+        const t = i / ctx.sampleRate;
+        const envelope = Math.sin(Math.PI * t / 2) * Math.exp(-t * 0.5);
+        data[i] = (Math.random() * 2 - 1) * envelope * 0.15;
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 800;
+
+    source.connect(filter);
+    filter.connect(ctx.destination);
+    source.start();
+}
+
+// Pending topic - set when user uses fire button
+let pendingDebateTopic = null;
+
 async function triggerChaos() {
-    const btn = document.querySelector('.chaos-btn');
+    const btn = document.querySelector('.chaos-btnGlass');
+    if (!btn) return;
     btn.innerText = "🎲";
 
     try {
@@ -1349,12 +1846,22 @@ async function triggerChaos() {
         const data = await res.json();
         document.getElementById('topic-input').value = data.topic;
         btn.innerText = "🔥";
-        startDebate();
+
+        // Store pending topic and show settings
+        pendingDebateTopic = data.topic;
+        showSettings();
     } catch (e) {
         console.error("Chaos failed:", e);
         btn.innerText = "❌";
         setTimeout(() => btn.innerText = "🔥", 2000);
     }
+}
+
+// Modified to start debate after settings confirmed
+function confirmAndStartDebate() {
+    closeSettings();
+    pendingDebateTopic = null;
+    startDebate();
 }
 
 // Update tagline when model dropdowns change

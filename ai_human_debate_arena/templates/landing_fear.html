@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your AI is Hallucinating | AI Debate Arena</title>
+    <meta name="description"
+        content="You just don't know when. Single-model searching is dangerous. Expose the blind spots in real-time.">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a0f;
+            --bg-terminal: #0d1117;
+            --red-alert: #ef4444;
+            --red-dark: #991b1b;
+            --red-glow: rgba(239, 68, 68, 0.3);
+            --yellow-warn: #eab308;
+            --green-safe: #22c55e;
+            --text-white: #e5e7eb;
+            --text-gray: #6b7280;
+            --text-code: #9ca3af;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-white);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Glitch Background */
+        .glitch-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
+            background:
+                repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(239, 68, 68, 0.02) 2px,
+                    rgba(239, 68, 68, 0.02) 4px);
+        }
+
+        .glitch-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
+            background: radial-gradient(ellipse at center, transparent 0%, var(--bg-dark) 70%);
+        }
+
+        /* Warning Stripe */
+        .warning-stripe {
+            background: repeating-linear-gradient(45deg,
+                    var(--yellow-warn),
+                    var(--yellow-warn) 10px,
+                    #0a0a0f 10px,
+                    #0a0a0f 20px);
+            height: 6px;
+            width: 100%;
+            position: fixed;
+            top: 0;
+            z-index: 100;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Hero */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 100px 24px 80px;
+        }
+
+        .alert-icon {
+            width: 80px;
+            height: 80px;
+            border: 3px solid var(--red-alert);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            margin-bottom: 32px;
+            animation: pulse-alert 2s ease-in-out infinite;
+            box-shadow: 0 0 40px var(--red-glow);
+        }
+
+        @keyframes pulse-alert {
+
+            0%,
+            100% {
+                box-shadow: 0 0 20px var(--red-glow);
+            }
+
+            50% {
+                box-shadow: 0 0 60px var(--red-glow);
+            }
+        }
+
+        .hero-title {
+            font-size: clamp(2.5rem, 7vw, 5rem);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 16px;
+            color: var(--red-alert);
+            text-shadow: 0 0 30px var(--red-glow);
+        }
+
+        .hero-subtitle {
+            font-size: 1.5rem;
+            color: var(--text-gray);
+            margin-bottom: 48px;
+            font-weight: 400;
+        }
+
+        .hero-subtitle em {
+            color: var(--yellow-warn);
+            font-style: normal;
+        }
+
+        /* Terminal Box */
+        .terminal-box {
+            background: var(--bg-terminal);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 24px 32px;
+            max-width: 600px;
+            margin: 0 auto 48px;
+            text-align: left;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .terminal-header {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .terminal-dot.red {
+            background: var(--red-alert);
+        }
+
+        .terminal-dot.yellow {
+            background: var(--yellow-warn);
+        }
+
+        .terminal-dot.green {
+            background: var(--green-safe);
+        }
+
+        .terminal-line {
+            color: var(--text-code);
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+
+        .terminal-line .danger {
+            color: var(--red-alert);
+        }
+
+        .terminal-line .warn {
+            color: var(--yellow-warn);
+        }
+
+        .terminal-line .safe {
+            color: var(--green-safe);
+        }
+
+        .prompt {
+            color: var(--green-safe);
+        }
+
+        .hero-hook {
+            font-size: 1.1rem;
+            color: var(--text-gray);
+            max-width: 550px;
+            line-height: 1.8;
+            margin-bottom: 48px;
+        }
+
+        .hero-hook strong {
+            color: var(--text-white);
+        }
+
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--red-alert);
+            color: white;
+            padding: 18px 40px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 1rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 40px var(--red-glow);
+        }
+
+        .cta-button:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 0 60px var(--red-glow);
+            background: #dc2626;
+        }
+
+        /* Risks Section */
+        .risks-section {
+            padding: 100px 0;
+            background: linear-gradient(180deg, transparent 0%, rgba(239, 68, 68, 0.03) 100%);
+        }
+
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 16px;
+            color: var(--yellow-warn);
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: var(--text-gray);
+            margin-bottom: 48px;
+        }
+
+        .risks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        .risk-card {
+            background: var(--bg-terminal);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 8px;
+            padding: 32px;
+            transition: all 0.3s ease;
+        }
+
+        .risk-card:hover {
+            border-color: var(--red-alert);
+            transform: translateY(-4px);
+        }
+
+        .risk-icon {
+            font-size: 2rem;
+            margin-bottom: 16px;
+        }
+
+        .risk-card h3 {
+            font-size: 1.1rem;
+            color: var(--red-alert);
+            margin-bottom: 12px;
+        }
+
+        .risk-card p {
+            color: var(--text-gray);
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        /* Relief Section */
+        .relief-section {
+            padding: 100px 0;
+            text-align: center;
+        }
+
+        .relief-box {
+            background: rgba(34, 197, 94, 0.05);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            border-radius: 12px;
+            padding: 48px;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .relief-icon {
+            font-size: 3rem;
+            margin-bottom: 24px;
+        }
+
+        .relief-title {
+            font-size: 1.8rem;
+            margin-bottom: 16px;
+            color: var(--green-safe);
+        }
+
+        .relief-text {
+            color: var(--text-gray);
+            font-size: 1.1rem;
+            line-height: 1.8;
+            margin-bottom: 32px;
+        }
+
+        .relief-text em {
+            color: var(--text-white);
+            font-style: normal;
+        }
+
+        .cta-button.safe {
+            background: var(--green-safe);
+            box-shadow: 0 0 40px rgba(34, 197, 94, 0.3);
+        }
+
+        .cta-button.safe:hover {
+            background: #16a34a;
+            box-shadow: 0 0 60px rgba(34, 197, 94, 0.4);
+        }
+
+        /* Footer */
+        .footer {
+            padding: 40px 0;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-gray);
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 768px) {
+            .terminal-box {
+                padding: 16px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="warning-stripe"></div>
+    <div class="glitch-bg"></div>
+    <div class="glitch-overlay"></div>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="alert-icon">⚠️</div>
+
+        <h1 class="hero-title">Your AI is Hallucinating.</h1>
+        <p class="hero-subtitle">You just <em>don't know when</em>.</p>
+
+        <div class="terminal-box">
+            <div class="terminal-header">
+                <div class="terminal-dot red"></div>
+                <div class="terminal-dot yellow"></div>
+                <div class="terminal-dot green"></div>
+            </div>
+            <div class="terminal-line"><span class="prompt">$</span> query "What are the facts about X?"</div>
+            <div class="terminal-line"><span class="danger">[WARNING]</span> Single model response</div>
+            <div class="terminal-line"><span class="danger">[WARNING]</span> No adversarial verification</div>
+            <div class="terminal-line"><span class="danger">[WARNING]</span> Bias undetected</div>
+            <div class="terminal-line"><span class="warn">[RISK]</span> Hallucination possible</div>
+        </div>
+
+        <p class="hero-hook">
+            Single-model searching is dangerous. Without a dissenting voice,
+            <strong>you are blind to bias.</strong> Enter the Arena to see the blind spots exposed in real-time.
+        </p>
+
+        <a href="/" class="cta-button">Expose the Flaw</a>
+    </section>
+
+    <!-- Risks -->
+    <section class="risks-section">
+        <div class="container">
+            <h2 class="section-title">⚠️ The Hidden Risks</h2>
+            <p class="section-subtitle">What happens when you trust a single AI without verification?</p>
+
+            <div class="risks-grid">
+                <div class="risk-card">
+                    <div class="risk-icon">🎭</div>
+                    <h3>Confident Lies</h3>
+                    <p>AI models present fabricated information with complete confidence. They don't know what they
+                        don't know.</p>
+                </div>
+                <div class="risk-card">
+                    <div class="risk-icon">🔄</div>
+                    <h3>Echo Chambers</h3>
+                    <p>Without opposition, biased training data becomes "truth." You absorb ideology disguised as fact.
+                    </p>
+                </div>
+                <div class="risk-card">
+                    <div class="risk-icon">🕳️</div>
+                    <h3>Blind Spots</h3>
+                    <p>Every model has gaps. Without a second opinion, you'll never know what you're missing.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Relief -->
+    <section class="relief-section">
+        <div class="container">
+            <div class="relief-box">
+                <div class="relief-icon">✅</div>
+                <h2 class="relief-title">The Only Way to Trust the Answer</h2>
+                <p class="relief-text">
+                    <em>Is to witness the debate.</em><br><br>
+                    When multiple AI models argue opposing positions, hallucinations get exposed.
+                    Biases become visible. The strongest argument wins—not the most confident.
+                </p>
+                <a href="/" class="cta-button safe">Enter the Arena</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>© 2025 Unusual Insights Inc. / Rishi Khullar</p>
+        </div>
+    </footer>
+</body>
+
+</html>
