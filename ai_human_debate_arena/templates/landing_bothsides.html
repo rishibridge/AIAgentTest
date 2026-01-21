@@ -4,112 +4,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BothSides - See Both Sides. Think For Yourself.</title>
+    <title>See Both Sides - Think For Yourself</title>
     <meta name="description"
         content="Engage with diverse viewpoints, understand the issues, and form your own informed opinions.">
-    <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
-    <link rel="stylesheet" href="/static/bothsides.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0a1628;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .landing-container {
+            width: 100%;
+            max-width: 1024px;
+            margin: 0 auto;
+        }
+
+        .landing-image {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* Responsive image map - the coords are for the original image size */
+        @media (max-width: 1024px) {
+            .landing-container {
+                /* Image map coords will need JavaScript to scale */
+            }
+        }
+    </style>
 </head>
 
 <body>
+    <div class="landing-container">
+        <img src="/static/bothsides_full.jpg" alt="See Both Sides - Think For Yourself" class="landing-image"
+            usemap="#image-map">
 
-    <!-- Background Layer (Flag Theme) -->
-    <div class="theme-background"></div>
-    <div class="theme-overlay"></div>
-
-    <div class="page-wrapper">
-        <!-- Hero Section -->
-        <header class="hero-section">
-            <div class="container">
-                <h1 class="hero-title">See Both Sides. Think For Yourself.</h1>
-                <p class="hero-subtitle">Engage with diverse viewpoints, understand the issues,<br>and form your own
-                    informed opinions.</p>
-                <a href="/" class="cta-button primary">Start Exploring</a>
-            </div>
-        </header>
-
-        <!-- Features Section -->
-        <section class="features-section">
-            <div class="container features-grid">
-                <!-- Card 1 -->
-                <div class="feature-card">
-                    <div class="icon-wrapper teal">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" class="icon">
-                            <!-- Yin Yang / Balance Icon -->
-                            <path
-                                d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
-                                stroke="currentColor" stroke-width="2" />
-                            <path d="M12 12C9.23858 12 7 9.76142 7 7C7 4.23858 9.23858 2 12 2" stroke="currentColor"
-                                stroke-width="2" />
-                            <path d="M12 22C14.7614 22 17 19.7614 17 17C17 14.2386 14.7614 12 12 12"
-                                stroke="currentColor" stroke-width="2" />
-                            <circle cx="12" cy="7" r="1.5" fill="currentColor" />
-                            <circle cx="12" cy="17" r="1.5" fill="currentColor" />
-                        </svg>
-                    </div>
-                    <h3>1. Explore Both Sides</h3>
-                    <p>Dive into curated arguments from multiple perspectives on key civic topics. Understand the nuance
-                        behind every issue.</p>
-                    <a href="/" class="card-link teal">Learn More</a>
-                </div>
-
-                <!-- Card 2 -->
-                <div class="feature-card">
-                    <div class="icon-wrapper teal">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" class="icon">
-                            <!-- Chat / Debate Icon -->
-                            <path
-                                d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                    </div>
-                    <h3>2. Watch AI Debate</h3>
-                    <p>Experience real-time, AI-powered debates simulation to see how different arguments interact and
-                        challenge each other.</p>
-                    <a href="/" class="card-link teal">Watch Demo</a>
-                </div>
-
-                <!-- Card 3 -->
-                <div class="feature-card">
-                    <div class="icon-wrapper coral">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" class="icon">
-                            <!-- Gavel / Judge Icon -->
-                            <path
-                                d="M14 13L21.4142 5.58579C22.1953 4.80474 22.1953 3.53841 21.4142 2.75736C20.6332 1.97631 19.3668 1.97631 18.5858 2.75736L11.1716 10.1716"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                            <path d="M8.5 13H4C2.89543 13 2 13.8954 2 15V19C2 20.1046 2.89543 21 4 21H8.5"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                            <path d="M12.5 17L10.5 19H14.5L12.5 17Z" fill="currentColor" />
-                            <path d="M10 13L2 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round" />
-                        </svg>
-                    </div>
-                    <h3>3. Judge For Yourself</h3>
-                    <p>Analyze the information, weigh the evidence, and form your own well-reasoned conclusions. Your
-                        voice matters.</p>
-                    <a href="/" class="card-link coral">Get Started</a>
-                </div>
-            </div>
-        </section>
-
-        <!-- Footer -->
-        <footer class="main-footer">
-            <div class="container footer-content">
-                <p class="tagline">For Students • Families • All Americans</p>
-                <div class="footer-links">
-                    <a href="#">About Us</a>
-                    <a href="#">Contact</a>
-                    <a href="#">Privacy Policy</a>
-                    <a href="#">Terms of Service</a>
-                </div>
-            </div>
-        </footer>
+        <map name="image-map">
+            <!-- Start Exploring button -->
+            <area target="" alt="Start" title="Start Exploring" href="/" coords="412,502,609,447" shape="rect">
+            <!-- Card 1: Explore Both Sides - Learn More -->
+            <area target="" alt="LearnMore" title="Learn More" href="/" coords="149,814,276,850" shape="rect">
+            <!-- Card 2: Watch AI Debate - Watch Demo -->
+            <area target="" alt="WatchDemo" title="Watch Demo" href="/" coords="447,808,578,854" shape="rect">
+            <!-- Card 3: Judge For Yourself - Get Started -->
+            <area target="" alt="GetStarted" title="Get Started" href="/" coords="749,812,873,849" shape="rect">
+        </map>
     </div>
 
+    <script>
+        // Responsive image map - scale coords based on actual image size
+        function resizeImageMap() {
+            const img = document.querySelector('img[usemap]');
+            const map = document.querySelector('map[name="image-map"]');
+            if (!img || !map) return;
+
+            const naturalWidth = img.naturalWidth || 1024;
+            const actualWidth = img.clientWidth;
+            const scale = actualWidth / naturalWidth;
+
+            // Store original coords on first run
+            map.querySelectorAll('area').forEach(area => {
+                if (!area.dataset.originalCoords) {
+                    area.dataset.originalCoords = area.coords;
+                }
+
+                const originalCoords = area.dataset.originalCoords.split(',').map(Number);
+                const scaledCoords = originalCoords.map(coord => Math.round(coord * scale));
+                area.coords = scaledCoords.join(',');
+            });
+        }
+
+        // Run on load and resize
+        window.addEventListener('load', resizeImageMap);
+        window.addEventListener('resize', resizeImageMap);
+    </script>
 </body>
 
 </html>
