@@ -21,7 +21,7 @@
                 <button onclick="triggerChaos()" class="chaos-btnGlass" title="Random Hot Topic">🔥</button>
                 <input type="text" id="topic-input" class="inputGlass"
                     placeholder="What topic would you like to debate?" autocomplete="off">
-                <button onclick="startDebate()" class="debate-btnGlass">DEBATE</button>
+                <button onclick="handleDebateButton()" class="debate-btnGlass">DEBATE</button>
             </div>
 
             <div class="settings-controls">
@@ -219,40 +219,65 @@
             </div>
         </div>
 
-        <!-- History Modal -->
-        <div id="history-modal" class="modal hidden">
-            <div class="modal-content glass-panel">
+        <!-- History Modal (Fullscreen) -->
+        <div id="history-modal" class="modal history-modal hidden">
+            <div class="modal-content history-content">
                 <div class="modal-header">
-                    <h2>Debate History</h2>
-                    <button onclick="closeHistory()" class="close-btn">&times;</button>
-                </div>
-                <div id="history-list" class="history-list">
-                    <!-- History items injected here -->
-                </div>
-                <button onclick="clearHistory()" class="clear-history-btn">Clear History</button>
-            </div>
-            </footer>
-
-            <!-- Prediction Modal -->
-            <div id="prediction-modal" class="prediction-modal hidden">
-                <div class="prediction-content glass-panel">
-                    <div class="prediction-header">🎯 Make Your Prediction</div>
-                    <p class="prediction-prompt">Who will win this debate?</p>
-                    <div class="prediction-buttons">
-                        <button class="prediction-btn advocate" onclick="submitPrediction('advocate')">
-                            🟢 ADVOCATE
-                        </button>
-                        <button class="prediction-btn skeptic" onclick="submitPrediction('skeptic')">
-                            🔴 SKEPTIC
-                        </button>
+                    <h2>📜 Debate History</h2>
+                    <div class="history-controls">
+                        <button onclick="clearHistory()" class="clear-history-btn">🗑️ Clear All</button>
+                        <button onclick="closeHistory()" class="close-btn">&times;</button>
                     </div>
-                    <p class="prediction-skip"><a href="#" onclick="submitPrediction(null)">Skip prediction →</a></p>
+                </div>
+
+                <!-- List View -->
+                <div id="history-list-view" class="history-list-view">
+                    <div id="history-list" class="history-list">
+                        <!-- History items injected here -->
+                    </div>
+                    <div class="history-empty-state hidden" id="history-empty">
+                        <span class="empty-icon">📭</span>
+                        <p>No debates recorded yet.</p>
+                        <p class="empty-hint">Start a debate and it will appear here!</p>
+                    </div>
+                </div>
+
+                <!-- Detail View (Hidden by default) -->
+                <div id="history-detail-view" class="history-detail-view hidden">
+                    <div class="detail-header">
+                        <button onclick="backToHistoryList()" class="back-btn">← Back</button>
+                        <div class="detail-title">
+                            <h3 id="detail-topic"></h3>
+                            <span id="detail-meta" class="detail-meta"></span>
+                        </div>
+                    </div>
+                    <div id="transcript-container" class="transcript-container">
+                        <!-- Transcript messages rendered here -->
+                    </div>
                 </div>
             </div>
-
         </div>
-        <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-        <script src="/static/script.js?v=9"></script>
+
+        <!-- Prediction Modal -->
+        <div id="prediction-modal" class="prediction-modal hidden">
+            <div class="prediction-content glass-panel">
+                <div class="prediction-header">🎯 Make Your Prediction</div>
+                <p class="prediction-prompt">Who will win this debate?</p>
+                <div class="prediction-buttons">
+                    <button class="prediction-btn advocate" onclick="submitPrediction('advocate')">
+                        🟢 ADVOCATE
+                    </button>
+                    <button class="prediction-btn skeptic" onclick="submitPrediction('skeptic')">
+                        🔴 SKEPTIC
+                    </button>
+                </div>
+                <p class="prediction-skip"><a href="#" onclick="submitPrediction(null)">Skip prediction →</a></p>
+            </div>
+        </div>
+
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="/static/script.js?v=9"></script>
 </body>
 
 </html>

@@ -63,7 +63,16 @@ def is_debatable(topic, model_provider="gemini"):
     debatable_patterns = [
         "is it good", "is it bad", "should we", "was it justified",
         "is it better", "is it worse", "is it right", "is it wrong",
-        "do you think", "what is your opinion"
+        "do you think", "what is your opinion",
+        # Do/Does questions about effects/benefits
+        "do pets", "does pet", "do dogs", "does dog", "do cats", "does cat",
+        "do animals", "does animal",
+        "improve", "help with", "cause", "lead to", "result in",
+        "are good", "are bad", "is good for", "is bad for",
+        "beneficial", "harmful", "healthy", "unhealthy",
+        # Opinion starters
+        "is it true that", "is it fair", "is it ethical",
+        "can we", "will we", "would it be"
     ]
     
     for pattern in debatable_patterns:
@@ -732,6 +741,14 @@ def landing_bothsides():
 @app.route('/compare')
 def compare_mockups():
     return render_template('compare_mockups.html')
+
+@app.route('/judge')
+def landing_judge():
+    return render_template('landing_judge.html')
+
+@app.route('/india')
+def landing_india():
+    return render_template('landing_india.html')
 
 @app.route('/api/debate')
 def debate():

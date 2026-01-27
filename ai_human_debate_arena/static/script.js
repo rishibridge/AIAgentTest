@@ -542,6 +542,16 @@ function setDebateControlsEnabled(enabled) {
     const fireBtn = document.querySelector('.chaos-btnGlass');
     if (fireBtn) fireBtn.disabled = !enabled;
 }
+
+// Handle DEBATE/STOP button click - routes to correct function based on state
+function handleDebateButton() {
+    if (debateState.active || debateState.isDebating) {
+        stopDebate();
+    } else {
+        showSettings();
+    }
+}
+
 // Global reference for aborting pending fetch requests
 let currentAbortController = null;
 
@@ -704,8 +714,16 @@ async function startDebate() {
             document.querySelector('.header-logo').classList.remove('debating');
             // Hide dock if debate canceled
             setInputState('hidden');
+            // Hide scoreboard (no debate = no scores)
+            document.getElementById('score-container').style.display = 'none';
+            // Hide footer config
+            const debateConfig = document.getElementById('debate-config');
+            if (debateConfig) debateConfig.classList.add('hidden');
+            // Reset state
             debateState.isDebating = false;
-            // Score bar stays visible until next debate
+            debateState.active = false;
+            // Reset button to DEBATE (was stuck on STOP)
+            setDebateControlsEnabled(true);
             return;
         }
 
@@ -799,8 +817,13 @@ async function runDebateProtocol() {
                     // AI JUDGE
                     const judgeRes = await executeTurn('judge', false, false, true); // is_evaluation=true
 
+                    // Check if debate was stopped during the turn
+                    if (!debateState.active || (typeof judgeRes === 'object' && judgeRes?.stopped)) {
+                        return; // Exit cleanly, stopDebate() handles UI
+                    }
+
                     // Check for Termination - expanded to match backend
-                    const text = judgeRes.toUpperCase();
+                    const text = (typeof judgeRes === 'string' ? judgeRes : judgeRes?.text || '').toUpperCase();
                     const terminationPhrases = [
                         "ADVOCATE WINS", "SKEPTIC WINS",
                         "ADVOCATE PREVAILS", "SKEPTIC PREVAILS",
@@ -849,18 +872,41 @@ async function runDebateProtocol() {
             updateRoundDisplay(debateState.round);
         }
 
+        // If debate was stopped by user, don't do final verdict - stopDebate() already handled UI
+        if (!debateState.active) {
+            console.log("Debate was stopped by user, skipping final verdict.");
+            return;
+        }
+
         // FINAL VERDICT (If loop maxed out)
         if (config.judgeModel === 'human') {
             // HUMAN FINAL VERDICT - show binary choice
             const verdictResult = await handleHumanJudge(true);
             winner = verdictResult.winner;
         } else {
-            await executeTurn('judge', false, true, false); // is_final=true
-            winner = 'draw'; // Default fallback
+            // AI JUDGE - Get final verdict and parse winner from text
+            const verdictResult = await executeTurn('judge', false, true, false); // is_final=true
+
+            // Check if stopped during verdict
+            if (!debateState.active || (typeof verdictResult === 'object' && verdictResult?.stopped)) {
+                return; // Exit cleanly
+            }
+
+            const verdictText = (typeof verdictResult === 'string' ? verdictResult : verdictResult?.text || '').toUpperCase();
+
+            // Parse winner from verdict text
+            if (verdictText.includes('ADVOCATE') && (verdictText.includes('WINS') || verdictText.includes('PREVAILS') || verdictText.includes('FAVOR OF THE ADVOCATE') || verdictText.includes('WINNER'))) {
+                winner = 'advocate';
+            } else if (verdictText.includes('SKEPTIC') && (verdictText.includes('WINS') || verdictText.includes('PREVAILS') || verdictText.includes('FAVOR OF THE SKEPTIC') || verdictText.includes('WINNER'))) {
+                winner = 'skeptic';
+            } else {
+                // Fallback: use score to determine winner
+                winner = debateState.score > 0 ? 'advocate' : debateState.score < 0 ? 'skeptic' : 'draw';
+            }
         }
 
         // WINNER CELEBRATION
-        if (winner) {
+        if (winner && winner !== 'draw') {
             triggerWinAnimation(winner);
         }
 
@@ -1424,6 +1470,13 @@ async function renderMessageWithTypewriter(data) {
     let currentText = '';
 
     for (let i = 0; i < text.length; i++) {
+        // ABORT CHECK - Stop typing if debate was cancelled
+        if (!debateState.active) {
+            // Optionally remove the partial message or leave it
+            msgDiv.remove();
+            return;
+        }
+
         const char = text[i];
         currentText += char;
 
@@ -1528,43 +1581,54 @@ function saveDebateToHistory(topic, winner) {
 
 function showHistory() {
     const modal = document.getElementById('history-modal');
+    const listView = document.getElementById('history-list-view');
+    const detailView = document.getElementById('history-detail-view');
     const list = document.getElementById('history-list');
+    const emptyState = document.getElementById('history-empty');
+
+    // Show list view, hide detail view
+    listView.classList.remove('hidden');
+    detailView.classList.add('hidden');
 
     const history = getHistory();
     list.innerHTML = '';
 
     if (history.length === 0) {
-        list.innerHTML = '<div class="history-empty">No debates recorded yet.</div>';
-        return;
+        emptyState.classList.remove('hidden');
+        list.classList.add('hidden');
+    } else {
+        emptyState.classList.add('hidden');
+        list.classList.remove('hidden');
+
+        history.forEach((item, index) => {
+            const entry = document.createElement('div');
+            entry.className = 'history-item';
+            entry.onclick = () => viewTranscript(index);
+
+            // Winner class
+            let winnerClass = 'win-draw';
+            let winnerLabel = item.winner?.toUpperCase() || 'UNKNOWN';
+            if (item.winner === 'advocate') winnerClass = 'win-advocate';
+            else if (item.winner === 'skeptic') winnerClass = 'win-skeptic';
+
+            // Count messages
+            const msgCount = item.transcript?.length || 0;
+
+            entry.innerHTML = `
+                <div class="history-topic">${item.topic || 'Untitled Debate'}</div>
+                <div class="history-meta">
+                    <span class="winner-tag ${winnerClass}">${winnerLabel} WINS</span>
+                    <span class="history-date">${item.date || ''}</span>
+                </div>
+                <div class="history-stats">
+                    <span>💬 ${msgCount} messages</span>
+                </div>
+            `;
+            list.appendChild(entry);
+        });
     }
 
-    history.forEach((item, index) => {
-        const entry = document.createElement('div');
-        entry.className = 'history-item';
-
-        // Highlight winner color
-        let winnerClass = '';
-        if (item.winner === 'advocate') winnerClass = 'win-advocate';
-        else if (item.winner === 'skeptic') winnerClass = 'win-skeptic';
-
-        // Check if transcript exists (backward compatibility)
-        const hasTranscript = item.transcript && item.transcript.length > 0;
-
-        entry.innerHTML = `
-            <div class="history-info">
-                <div class="history-topic">${item.topic}</div>
-                <div class="history-meta">
-                    <span class="winner-tag ${winnerClass}">${item.winner.toUpperCase()}</span> 
-                    <span class="history-date">${item.date}</span>
-                </div>
-            </div>
-            ${hasTranscript ? `<button class="view-transcript-btn" onclick="viewTranscript(${index})">View Talk</button>` : ''}
-        `;
-        list.appendChild(entry);
-    });
-
     modal.classList.remove('hidden');
-    // Force reflow
     void modal.offsetWidth;
     modal.classList.add('visible');
 }
@@ -1572,30 +1636,87 @@ function showHistory() {
 function viewTranscript(index) {
     const history = getHistory();
     const item = history[index];
-    if (!item || !item.transcript) return;
+    if (!item) return;
 
-    const list = document.getElementById('history-list');
+    const listView = document.getElementById('history-list-view');
+    const detailView = document.getElementById('history-detail-view');
+    const topicEl = document.getElementById('detail-topic');
+    const metaEl = document.getElementById('detail-meta');
+    const container = document.getElementById('transcript-container');
 
-    // Create Transcript View
-    const transcriptHTML = `
-        <div class="transcript-view">
-            <div class="transcript-header">
-                <h3>${item.topic}</h3>
-                <button onclick="showHistory()" class="back-btn">Back</button>
+    // Switch views
+    listView.classList.add('hidden');
+    detailView.classList.remove('hidden');
+
+    // Set header
+    topicEl.textContent = item.topic || 'Untitled Debate';
+
+    let winnerText = item.winner === 'advocate' ? '🟢 Advocate Wins' :
+        item.winner === 'skeptic' ? '🔴 Skeptic Wins' : '⚖️ Draw';
+    metaEl.textContent = `${winnerText} • ${item.date || ''}`;
+
+    // Render transcript with rich styling
+    container.innerHTML = '';
+
+    if (!item.transcript || item.transcript.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 40px;">No transcript available for this debate.</div>';
+        return;
+    }
+
+    const avatarMap = {
+        'advocate': '/static/advocate_avatar.png',
+        'skeptic': '/static/skeptic_avatar.png',
+        'judge': '/static/judge_avatar.png'
+    };
+
+    const roleMap = {
+        'advocate': { class: 'msg-for', label: 'Advocate (FOR)' },
+        'skeptic': { class: 'msg-against', label: 'Skeptic (AGAINST)' },
+        'judge': { class: 'msg-judge', label: 'Judge' }
+    };
+
+    item.transcript.forEach(line => {
+        // Parse the line to detect role
+        // Format: "Advocate: text" or "Skeptic: text" or "Judge: text"
+        let role = 'judge';
+        let text = line;
+
+        if (line.toLowerCase().startsWith('advocate:')) {
+            role = 'advocate';
+            text = line.substring(9).trim();
+        } else if (line.toLowerCase().startsWith('skeptic:')) {
+            role = 'skeptic';
+            text = line.substring(8).trim();
+        } else if (line.toLowerCase().startsWith('judge:')) {
+            role = 'judge';
+            text = line.substring(6).trim();
+        }
+
+        const roleInfo = roleMap[role];
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `transcript-msg ${roleInfo.class}`;
+
+        msgDiv.innerHTML = `
+            <img src="${avatarMap[role]}" class="transcript-avatar" alt="${role}">
+            <div class="transcript-bubble">
+                <div class="transcript-role">${roleInfo.label}</div>
+                <div class="transcript-text">${markdownToHtml(text)}</div>
             </div>
-            <div class="transcript-content">
-                ${item.transcript.map(line => {
-        // Simple formatting
-        return `<div class="t-line">${line}</div>`;
-    }).join('')}
-            </div>
-        </div>
-     `;
+        `;
+        container.appendChild(msgDiv);
+    });
 
-    list.innerHTML = transcriptHTML;
+    // Scroll to top
+    container.scrollTop = 0;
 }
 
+function backToHistoryList() {
+    const listView = document.getElementById('history-list-view');
+    const detailView = document.getElementById('history-detail-view');
 
+    listView.classList.remove('hidden');
+    detailView.classList.add('hidden');
+}
 
 function closeHistory() {
     const modal = document.getElementById('history-modal');
@@ -1606,9 +1727,9 @@ function closeHistory() {
 }
 
 function clearHistory() {
-    if (confirm("Are you sure you want to clear your debate history?")) {
+    if (confirm("Are you sure you want to clear all debate history?")) {
         localStorage.removeItem('debate_history');
-        showHistory(); // refresh view
+        showHistory(); // Refresh view to show empty state
     }
 }
 
@@ -1631,6 +1752,16 @@ function showSettings() {
     const settingsButtons = modal.querySelector('.settings-buttons');
     const audioToggle = modal.querySelector('.audio-toggle-section');
 
+    // Get or create the info notice element
+    let infoNotice = modal.querySelector('.settings-info-notice');
+    if (!infoNotice) {
+        infoNotice = document.createElement('div');
+        infoNotice.className = 'settings-info-notice';
+        // Insert after header
+        const header = modal.querySelector('.modal-header');
+        header.insertAdjacentElement('afterend', infoNotice);
+    }
+
     if (isDebating) {
         // Disable all selects and inputs
         settingsInputs.forEach(el => el.disabled = true);
@@ -1639,13 +1770,21 @@ function showSettings() {
         // Hide audio toggle
         if (audioToggle) audioToggle.classList.add('hidden');
         // Update header to indicate view-only
-        modal.querySelector('.modal-header h2').textContent = '👁️ Current Settings (View Only)';
+        modal.querySelector('.modal-header h2').textContent = '👁️ Current Settings';
+        // Show explanatory notice
+        infoNotice.innerHTML = `
+            <span class="notice-icon">🔒</span>
+            <span class="notice-text">Settings are locked during an active debate. <strong>Stop the debate</strong> to make changes.</span>
+        `;
+        infoNotice.classList.remove('hidden');
     } else {
         // Re-enable all
         settingsInputs.forEach(el => el.disabled = false);
         if (settingsButtons) settingsButtons.classList.remove('hidden');
         if (audioToggle) audioToggle.classList.remove('hidden');
         modal.querySelector('.modal-header h2').textContent = '⚙️ Debate Settings';
+        // Hide notice
+        infoNotice.classList.add('hidden');
     }
 
     modal.classList.remove('hidden');

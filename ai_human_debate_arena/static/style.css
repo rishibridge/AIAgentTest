@@ -748,7 +748,7 @@ body {
     flex-shrink: 0;
 }
 
-/* DEBATE HISTORY MODAL */
+/* BASE MODAL STYLES (Shared) */
 .modal {
     position: fixed;
     top: 0;
@@ -818,183 +818,332 @@ body {
     color: white;
 }
 
-.history-list {
-    flex-grow: 1;
+/* DEBATE HISTORY MODAL (Fullscreen Redesign) */
+.history-modal {
+    z-index: 4000;
+}
+
+.history-modal .history-content {
+    width: 95vw;
+    max-width: 1200px;
+    height: 90vh;
+    max-height: 900px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.history-modal .modal-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.history-modal .modal-header h2 {
+    font-family: 'Cinzel', serif;
+    color: var(--accent-blue);
+    font-size: 1.3rem;
+}
+
+.history-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.history-controls .clear-history-btn {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--accent-red);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.history-controls .clear-history-btn:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: var(--accent-red);
+}
+
+/* List View */
+.history-list-view {
+    flex: 1;
     overflow-y: auto;
+    padding: 16px 24px;
+}
+
+.history-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+}
+
+.history-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
     display: flex;
     flex-direction: column;
     gap: 12px;
 }
 
-.history-item {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    padding: 12px;
-    border: 1px solid transparent;
-    transition: all 0.2s ease;
-}
-
 .history-item:hover {
     background: rgba(255, 255, 255, 0.08);
     border-color: var(--accent-blue);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .history-topic {
     font-weight: 600;
     color: white;
-    margin-bottom: 4px;
+    font-size: 1rem;
+    line-height: 1.4;
 }
 
 .history-meta {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
     display: flex;
-    justify-content: space-between;
-}
-
-.history-winner {
-    font-weight: bold;
-}
-
-.winner-advocate {
-    color: var(--accent-green);
-}
-
-.winner-skeptic {
-    color: var(--accent-red);
-}
-
-.winner-draw {
-    color: var(--accent-gold);
-}
-
-.clear-history-btn {
-    background: rgba(239, 68, 68, 0.2);
-    color: var(--accent-red);
-    border: 1px solid var(--accent-red);
-    padding: 8px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    transition: all 0.2s;
-}
-
-.clear-history-btn:hover {
-    background: rgba(239, 68, 68, 0.4);
-}
-
-#submit-argument svg {
-    width: 20px;
-    height: 20px;
-    fill: white;
-    transform: translateX(1px);
-    /* Optical center */
-}
-
-@keyframes dockSlideUp {
-    from {
-        transform: translate(-50%, 40px);
-        opacity: 0;
-    }
-
-    to {
-        transform: translate(-50%, 0);
-        opacity: 1;
-    }
-}
-
-/* Transcript View Styles */
-.view-transcript-btn {
-    background: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--accent-blue);
-    padding: 4px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.75rem;
-    margin-top: 8px;
-    width: 100%;
-    transition: all 0.2s;
-}
-
-.view-transcript-btn:hover {
-    background: rgba(56, 189, 248, 0.1);
-    border-color: var(--accent-blue);
-}
-
-.transcript-view {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    max-height: 60vh;
-}
-
-.transcript-header {
-    display: flex;
-    justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 12px;
-    margin-bottom: 12px;
-}
-
-.transcript-header h3 {
-    color: var(--accent-blue);
-    font-size: 1rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 70%;
-}
-
-.back-btn {
-    background: transparent;
-    border: none;
+    gap: 12px;
+    font-size: 0.75rem;
     color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 0.9rem;
+}
+
+.winner-tag {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.65rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.winner-tag.win-advocate {
+    background: rgba(52, 211, 153, 0.15);
+    color: var(--accent-green);
+    border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.winner-tag.win-skeptic {
+    background: rgba(251, 113, 133, 0.15);
+    color: var(--accent-red);
+    border: 1px solid rgba(251, 113, 133, 0.3);
+}
+
+.winner-tag.win-draw {
+    background: rgba(251, 191, 36, 0.15);
+    color: var(--accent-gold);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.history-stats {
+    display: flex;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+}
+
+.history-stats span {
     display: flex;
     align-items: center;
     gap: 4px;
 }
 
-.back-btn:hover {
+/* Empty State */
+.history-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 300px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.history-empty-state .empty-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.history-empty-state p {
+    font-size: 1rem;
+    margin-bottom: 8px;
+}
+
+.history-empty-state .empty-hint {
+    font-size: 0.8rem;
+    opacity: 0.6;
+}
+
+/* Detail View */
+.history-detail-view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.detail-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    background: rgba(17, 24, 39, 0.8);
+}
+
+.detail-header .back-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.detail-header .back-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
     color: white;
 }
 
-.transcript-content {
-    flex-grow: 1;
-    overflow-y: auto;
-    font-family: 'JetBrains Mono', monospace;
+.detail-title {
+    flex: 1;
+}
+
+.detail-title h3 {
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.detail-meta {
     font-size: 0.75rem;
-    line-height: 1.6;
     color: var(--text-secondary);
-    background: rgba(0, 0, 0, 0.3);
-    padding: 12px;
-    border-radius: 6px;
-    white-space: pre-wrap;
-    /* Preserve formatting */
 }
 
-.t-line {
-    margin-bottom: 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    padding-bottom: 4px;
+/* Transcript Container - Styled like main debate */
+.transcript-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 24px;
+    background: rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
-/* We don't have these classes in script.js yet, but adding them for future proofing or if script.js used them */
-.t-role-advocate {
+/* Transcript Messages - Match main debate styling */
+.transcript-msg {
+    display: flex;
+    gap: 12px;
+    max-width: 85%;
+    animation: fadeIn 0.3s ease;
+}
+
+.transcript-msg.msg-for {
+    align-self: flex-start;
+}
+
+.transcript-msg.msg-against {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.transcript-msg.msg-judge {
+    align-self: center;
+    max-width: 90%;
+}
+
+.transcript-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.transcript-bubble {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 10px 14px;
+    border-left: 3px solid transparent;
+}
+
+.transcript-msg.msg-for .transcript-bubble {
+    background: rgba(52, 211, 153, 0.08);
+    border-left-color: var(--accent-green);
+}
+
+.transcript-msg.msg-against .transcript-bubble {
+    background: rgba(251, 113, 133, 0.08);
+    border-right: 3px solid var(--accent-red);
+    border-left: none;
+}
+
+.transcript-msg.msg-judge .transcript-bubble {
+    background: rgba(251, 191, 36, 0.05);
+    border-left-color: var(--accent-gold);
+    font-style: italic;
+}
+
+.transcript-role {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.transcript-msg.msg-for .transcript-role {
     color: var(--accent-green);
-    font-weight: bold;
 }
 
-.t-role-skeptic {
+.transcript-msg.msg-against .transcript-role {
     color: var(--accent-red);
-    font-weight: bold;
 }
 
-.t-role-normal {
+.transcript-msg.msg-judge .transcript-role {
+    color: var(--accent-gold);
+}
+
+.transcript-text {
+    font-size: 0.85rem;
+    line-height: 1.6;
     color: var(--text-primary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .history-modal .history-content {
+        width: 100vw;
+        height: 100vh;
+        max-width: none;
+        max-height: none;
+        border-radius: 0;
+    }
+
+    .history-list {
+        grid-template-columns: 1fr;
+    }
+
+    .transcript-msg {
+        max-width: 95%;
+    }
 }
 
 /* Score Container (Inline in Header) */
@@ -2146,6 +2295,37 @@ body.debate-fullscreen .score-bar-container {
 .settings-panel {
     max-width: 700px;
     width: 90%;
+}
+
+/* Settings Info Notice (shown during debate) */
+.settings-info-notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 8px;
+    margin: 16px 20px 0;
+    color: var(--accent-gold);
+}
+
+.settings-info-notice.hidden {
+    display: none;
+}
+
+.settings-info-notice .notice-icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.settings-info-notice .notice-text {
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.settings-info-notice .notice-text strong {
+    color: white;
 }
 
 .settings-grid {
