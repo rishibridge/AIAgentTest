@@ -317,13 +317,8 @@ function toggleSound() {
         section.classList.toggle('hidden', !soundEnabled);
     });
 
-    if (soundEnabled) {
-        // Sync typing speed with speech (approx 175 WPM)
-        // Index 3 = 175 WPM in SPEED_LEVELS
-        currentSpeedIndex = 3;
-        const display = document.getElementById('wpm-display');
-        if (display) display.textContent = SPEED_LEVELS[currentSpeedIndex];
-    }
+    // Note: When audio is enabled, typing is now synced via SpeechSynthesis 
+    // boundary events in renderWithAudioSync(), so no WPM override needed.
 
     if (!soundEnabled) {
         window.speechSynthesis.cancel();
@@ -1384,6 +1379,7 @@ function renderMessage(data) {
 }
 
 // TYPEWRITER EFFECT - Renders message word-by-word at WPM rate
+// When audio is enabled, uses SpeechSynthesis boundary events for true sync
 async function renderMessageWithTypewriter(data) {
     const stream = document.getElementById('discussion-stream');
 
@@ -1456,23 +1452,130 @@ async function renderMessageWithTypewriter(data) {
 
     stream.appendChild(msgDiv);
 
-    // Start TTS immediately (in parallel with typing)
-    // We do this INSIDE renderMessageWithTypewriter so it is tightly coupled 
-    // to the visual start, preventing any async race conditions in the parent loop.
-    speakText(data.text, data.role);
-
     // Get the target element for typing
     const target = msgDiv.querySelector('.typewriter-target');
     if (!target) return;
 
-    // CHARACTER-BY-CHARACTER TYPING with real-time WPM
     const text = data.text;
+
+    // =====================================================
+    // AUDIO-SYNCED MODE: Use boundary events for true sync
+    // =====================================================
+    if (soundEnabled && window.speechSynthesis) {
+        await renderWithAudioSync(target, text, data.role, msgDiv);
+    } else {
+        // =====================================================
+        // WPM MODE: Character-by-character typing (no audio)
+        // =====================================================
+        await renderWithWPMTiming(target, text, msgDiv);
+    }
+
+    // Final scroll
+    handleScrollPostRender(true);
+}
+
+// Audio-synced rendering: words appear as they are spoken
+async function renderWithAudioSync(target, text, role, msgDiv) {
+    return new Promise((resolve) => {
+        const cleanText = sanitizeForSpeech(text);
+        const words = cleanText.split(/\s+/);
+        let wordIndex = 0;
+        let displayedText = '';
+
+        // Cancel any previous speech
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+
+        // Configure voice based on role
+        const settings = voiceSettings[role] || voiceSettings['judge'];
+        utterance.pitch = settings.pitch;
+        utterance.rate = settings.rate;
+
+        // Get voice
+        let selectedVoiceName = '';
+        if (role === 'for') selectedVoiceName = document.getElementById('advocate-voice')?.value;
+        else if (role === 'against') selectedVoiceName = document.getElementById('skeptic-voice')?.value;
+        else if (role === 'judge') selectedVoiceName = document.getElementById('judge-voice')?.value;
+
+        let voice = selectedVoiceName ? voices.find(v => v.name === selectedVoiceName) : null;
+        if (!voice) voice = findVoice(settings.female);
+        if (voice) utterance.voice = voice;
+
+        // Track if we got any boundary events (for fallback)
+        let boundaryEventFired = false;
+
+        // Real-time sync: reveal words as they're spoken
+        utterance.onboundary = (event) => {
+            if (event.name === 'word' && debateState.active) {
+                boundaryEventFired = true;
+                wordIndex++;
+                // Build displayed text from original (with formatting)
+                const originalWords = text.split(/\s+/);
+                displayedText = originalWords.slice(0, wordIndex).join(' ');
+                target.innerHTML = markdownToHtml(displayedText);
+
+                // Auto-scroll periodically
+                if (wordIndex % 10 === 0) {
+                    handleScrollPostRender(true);
+                }
+            }
+        };
+
+        utterance.onend = () => {
+            // Ensure full text is shown
+            target.innerHTML = markdownToHtml(text);
+            resolve();
+        };
+
+        utterance.onerror = (e) => {
+            console.warn('Speech synthesis error:', e);
+            // Fallback: show full text immediately
+            target.innerHTML = markdownToHtml(text);
+            resolve();
+        };
+
+        // Start speech
+        window.speechSynthesis.speak(utterance);
+
+        // Fallback timeout: if no boundary events after 500ms, 
+        // the browser may not support them (Firefox issue)
+        setTimeout(() => {
+            if (!boundaryEventFired && debateState.active) {
+                console.log('No boundary events detected, falling back to WPM timing');
+                window.speechSynthesis.cancel();
+                // Fall back to WPM mode but run speech in parallel
+                speakText(text, role);
+                renderWithWPMTiming(target, text, msgDiv).then(resolve);
+            }
+        }, 800);
+
+        // Abort check - if debate stopped, cancel speech
+        const abortCheck = setInterval(() => {
+            if (!debateState.active) {
+                window.speechSynthesis.cancel();
+                clearInterval(abortCheck);
+                msgDiv.remove();
+                resolve();
+            }
+        }, 100);
+
+        // Clear interval when speech ends
+        utterance.onend = () => {
+            clearInterval(abortCheck);
+            target.innerHTML = markdownToHtml(text);
+            resolve();
+        };
+    });
+}
+
+// WPM-based rendering: character-by-character at configured speed
+async function renderWithWPMTiming(target, text, msgDiv) {
     let currentText = '';
 
     for (let i = 0; i < text.length; i++) {
         // ABORT CHECK - Stop typing if debate was cancelled
         if (!debateState.active) {
-            // Optionally remove the partial message or leave it
             msgDiv.remove();
             return;
         }
@@ -1489,7 +1592,6 @@ async function renderMessageWithTypewriter(data) {
         }
 
         // Calculate delay based on CURRENT WPM (real-time reading for instant changes)
-        // Average word = 5 chars, so chars per minute = WPM * 5
         const wpm = getCurrentWPM();
 
         // Instant mode (999 WPM) = no delay
@@ -1503,9 +1605,6 @@ async function renderMessageWithTypewriter(data) {
             await new Promise(r => setTimeout(r, msPerChar));
         }
     }
-
-    // Final scroll
-    handleScrollPostRender(true);
 }
 
 function renderLoadingMessage(data) {

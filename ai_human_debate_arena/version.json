@@ -1,7 +1,16 @@
 {
-    "version": "1.36",
-    "date": "2026-01-27",
+    "version": "1.37",
+    "date": "2026-02-08",
     "changelog": [
+        {
+            "version": "1.37",
+            "date": "2026-02-08",
+            "changes": [
+                "Audio-synced typewriter: words now appear exactly as spoken",
+                "Uses SpeechSynthesis boundary events for true real-time sync",
+                "Fallback to WPM timing when audio disabled or unsupported"
+            ]
+        },
         {
             "version": "1.36",
             "date": "2026-01-27",
