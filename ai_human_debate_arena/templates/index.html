@@ -251,10 +251,32 @@
                             <h3 id="detail-topic"></h3>
                             <span id="detail-meta" class="detail-meta"></span>
                         </div>
-                        <button id="history-play-btn" onclick="toggleHistoryAudio()" class="history-play-btn">
-                            🔊 Play
-                        </button>
                     </div>
+
+                    <!-- Audio Control Bar -->
+                    <div id="history-audio-bar" class="history-audio-bar">
+                        <div class="audio-controls">
+                            <button id="audio-play-btn" onclick="playHistoryAudio()" class="audio-ctrl-btn"
+                                title="Play">▶️</button>
+                            <button id="audio-pause-btn" onclick="pauseHistoryAudio()" class="audio-ctrl-btn hidden"
+                                title="Pause">⏸️</button>
+                            <button id="audio-resume-btn" onclick="resumeHistoryAudio()" class="audio-ctrl-btn hidden"
+                                title="Resume">▶️</button>
+                            <button id="audio-stop-btn" onclick="stopHistoryAudio()" class="audio-ctrl-btn" title="Stop"
+                                disabled>⏹️</button>
+                        </div>
+                        <div class="audio-progress">
+                            <span id="audio-status">Ready to play</span>
+                        </div>
+                        <div class="audio-voice-select">
+                            <label>Voice:</label>
+                            <select id="playback-voice" onchange="setPlaybackVoice()">
+                                <option value="default">Default voices</option>
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
+
                     <div id="transcript-container" class="transcript-container">
                         <!-- Transcript messages rendered here -->
                     </div>

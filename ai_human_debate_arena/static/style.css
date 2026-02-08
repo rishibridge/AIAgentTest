@@ -1146,6 +1146,74 @@ body {
     transform: scale(1.05);
 }
 
+/* History Audio Control Bar */
+.history-audio-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 24px;
+    background: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.audio-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.audio-ctrl-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.audio-ctrl-btn:hover:not(:disabled) {
+    background: rgba(52, 211, 153, 0.3);
+    border-color: rgba(52, 211, 153, 0.5);
+    transform: scale(1.1);
+}
+
+.audio-ctrl-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.audio-progress {
+    flex: 1;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.audio-voice-select {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.audio-voice-select label {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.audio-voice-select select {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border-color);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    max-width: 200px;
+}
+
 /* Playing Message Highlight */
 .transcript-msg.playing {
     animation: pulseHighlight 1.5s ease-in-out infinite;

@@ -1791,15 +1791,41 @@ function closeChangelog() {
 
 // --- HISTORY AUDIO PLAYBACK ---
 let isPlayingHistory = false;
+let isPausedHistory = false;
 let currentHistoryIndex = null;  // Tracks which history item is being viewed
 let currentMessageIndex = 0;     // Tracks current message during playback
+let currentHistoryMessages = []; // Cache messages for the current history item
+let selectedPlaybackVoice = null; // User-selected voice override
 
-function toggleHistoryAudio() {
-    if (isPlayingHistory) {
-        stopHistoryAudio();
-    } else {
-        playHistoryAudio();
-    }
+function initPlaybackVoiceSelector() {
+    const select = document.getElementById('playback-voice');
+    if (!select || !voices.length) return;
+
+    // Build options grouped by language
+    const grouped = {};
+    voices.forEach(v => {
+        const lang = v.lang.split('-')[0];
+        if (!grouped[lang]) grouped[lang] = [];
+        grouped[lang].push(v);
+    });
+
+    select.innerHTML = '<option value="default">Default (per role)</option>';
+    Object.keys(grouped).sort().forEach(lang => {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = lang.toUpperCase();
+        grouped[lang].forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.name;
+            opt.textContent = v.name.replace('Microsoft', '').replace('Online', '').trim();
+            optgroup.appendChild(opt);
+        });
+        select.appendChild(optgroup);
+    });
+}
+
+function setPlaybackVoice() {
+    const select = document.getElementById('playback-voice');
+    selectedPlaybackVoice = select?.value === 'default' ? null : select?.value;
 }
 
 function playHistoryAudio() {
@@ -1810,14 +1836,85 @@ function playHistoryAudio() {
     if (!item) return;
 
     // Use enhanced messages array if available, otherwise parse transcript
-    const messages = item.messages || parseTranscriptToMessages(item.transcript);
-    if (!messages || messages.length === 0) return;
+    currentHistoryMessages = item.messages || parseTranscriptToMessages(item.transcript);
+    if (!currentHistoryMessages || currentHistoryMessages.length === 0) return;
 
     isPlayingHistory = true;
+    isPausedHistory = false;
     currentMessageIndex = 0;
-    updatePlayButton(true);
 
-    playMessagesSequentially(messages);
+    updateAudioControlsUI('playing');
+    updateAudioStatus(`Playing 1 of ${currentHistoryMessages.length}`);
+
+    playMessagesSequentially();
+}
+
+function pauseHistoryAudio() {
+    if (!isPlayingHistory || isPausedHistory) return;
+
+    window.speechSynthesis.pause();
+    isPausedHistory = true;
+    updateAudioControlsUI('paused');
+    updateAudioStatus(`Paused at ${currentMessageIndex + 1} of ${currentHistoryMessages.length}`);
+}
+
+function resumeHistoryAudio() {
+    if (!isPlayingHistory || !isPausedHistory) return;
+
+    window.speechSynthesis.resume();
+    isPausedHistory = false;
+    updateAudioControlsUI('playing');
+    updateAudioStatus(`Playing ${currentMessageIndex + 1} of ${currentHistoryMessages.length}`);
+}
+
+function stopHistoryAudio() {
+    window.speechSynthesis.cancel();
+    isPlayingHistory = false;
+    isPausedHistory = false;
+    currentMessageIndex = 0;
+
+    updateAudioControlsUI('stopped');
+    updateAudioStatus('Ready to play');
+
+    // Remove playing highlight from all messages
+    document.querySelectorAll('.transcript-msg.playing').forEach(el => {
+        el.classList.remove('playing');
+    });
+}
+
+function updateAudioControlsUI(state) {
+    const playBtn = document.getElementById('audio-play-btn');
+    const pauseBtn = document.getElementById('audio-pause-btn');
+    const resumeBtn = document.getElementById('audio-resume-btn');
+    const stopBtn = document.getElementById('audio-stop-btn');
+
+    if (!playBtn) return;
+
+    // Reset all buttons
+    playBtn.classList.add('hidden');
+    pauseBtn.classList.add('hidden');
+    resumeBtn.classList.add('hidden');
+    stopBtn.disabled = true;
+
+    switch (state) {
+        case 'playing':
+            pauseBtn.classList.remove('hidden');
+            stopBtn.disabled = false;
+            break;
+        case 'paused':
+            resumeBtn.classList.remove('hidden');
+            stopBtn.disabled = false;
+            break;
+        case 'stopped':
+        default:
+            playBtn.classList.remove('hidden');
+            break;
+    }
+}
+
+function updateAudioStatus(text) {
+    const status = document.getElementById('audio-status');
+    if (status) status.textContent = text;
 }
 
 function parseTranscriptToMessages(transcript) {
@@ -1841,37 +1938,24 @@ function parseTranscriptToMessages(transcript) {
     });
 }
 
-function stopHistoryAudio() {
-    window.speechSynthesis.cancel();
-    isPlayingHistory = false;
-    updatePlayButton(false);
-
-    // Remove playing highlight from all messages
-    document.querySelectorAll('.transcript-msg.playing').forEach(el => {
-        el.classList.remove('playing');
-    });
-}
-
-function updatePlayButton(isPlaying) {
-    const btn = document.getElementById('history-play-btn');
-    if (btn) {
-        btn.textContent = isPlaying ? '⏹️ Stop' : '🔊 Play';
-    }
-}
-
-async function playMessagesSequentially(messages) {
-    if (!isPlayingHistory || currentMessageIndex >= messages.length) {
+async function playMessagesSequentially() {
+    if (!isPlayingHistory || currentMessageIndex >= currentHistoryMessages.length) {
         stopHistoryAudio();
+        updateAudioStatus('Playback complete');
         return;
     }
 
-    const msg = messages[currentMessageIndex];
+    const msg = currentHistoryMessages[currentMessageIndex];
     highlightCurrentMessage(currentMessageIndex);
+    updateAudioStatus(`Playing ${currentMessageIndex + 1} of ${currentHistoryMessages.length}`);
 
     await speakMessageWithHighlight(msg);
 
-    currentMessageIndex++;
-    playMessagesSequentially(messages);
+    // Check if we should continue (not stopped or paused externally)
+    if (isPlayingHistory && !isPausedHistory) {
+        currentMessageIndex++;
+        playMessagesSequentially();
+    }
 }
 
 function highlightCurrentMessage(index) {
@@ -1896,28 +1980,33 @@ function speakMessageWithHighlight(msg) {
         const cleanText = sanitizeForSpeech(msg.text);
         const utterance = new SpeechSynthesisUtterance(cleanText);
 
-        // Use saved voice settings if available, otherwise use defaults
-        const voiceSettings = msg.voiceSettings;
-        const roleKey = msg.role === 'advocate' ? 'for' : msg.role === 'skeptic' ? 'against' : 'judge';
-        const defaults = window.voiceSettings?.[roleKey] || { pitch: 1.0, rate: 1.0, female: false };
+        // Use user-selected voice if set, otherwise use saved/default
+        if (selectedPlaybackVoice) {
+            const userVoice = voices.find(v => v.name === selectedPlaybackVoice);
+            if (userVoice) utterance.voice = userVoice;
+        } else {
+            // Use saved voice settings if available, otherwise use defaults
+            const voiceSettings = msg.voiceSettings;
+            const roleKey = msg.role === 'advocate' ? 'for' : msg.role === 'skeptic' ? 'against' : 'judge';
+            const defaults = window.voiceSettings?.[roleKey] || { pitch: 1.0, rate: 1.0, female: false };
 
-        if (voiceSettings) {
-            utterance.pitch = voiceSettings.pitch || defaults.pitch;
-            utterance.rate = voiceSettings.rate || defaults.rate;
+            if (voiceSettings) {
+                utterance.pitch = voiceSettings.pitch || defaults.pitch;
+                utterance.rate = voiceSettings.rate || defaults.rate;
 
-            // Try to find saved voice, fall back to default
-            if (voiceSettings.voiceName) {
-                const savedVoice = voices.find(v => v.name === voiceSettings.voiceName);
-                if (savedVoice) utterance.voice = savedVoice;
+                if (voiceSettings.voiceName) {
+                    const savedVoice = voices.find(v => v.name === voiceSettings.voiceName);
+                    if (savedVoice) utterance.voice = savedVoice;
+                } else {
+                    const fallbackVoice = findVoice(voiceSettings.female ?? defaults.female);
+                    if (fallbackVoice) utterance.voice = fallbackVoice;
+                }
             } else {
-                const fallbackVoice = findVoice(voiceSettings.female ?? defaults.female);
+                utterance.pitch = defaults.pitch;
+                utterance.rate = defaults.rate;
+                const fallbackVoice = findVoice(defaults.female);
                 if (fallbackVoice) utterance.voice = fallbackVoice;
             }
-        } else {
-            utterance.pitch = defaults.pitch;
-            utterance.rate = defaults.rate;
-            const fallbackVoice = findVoice(defaults.female);
-            if (fallbackVoice) utterance.voice = fallbackVoice;
         }
 
         utterance.onend = () => {
@@ -1931,6 +2020,7 @@ function speakMessageWithHighlight(msg) {
         window.speechSynthesis.speak(utterance);
     });
 }
+
 function showHistory() {
     const modal = document.getElementById('history-modal');
     const listView = document.getElementById('history-list-view');
@@ -1992,7 +2082,8 @@ function viewTranscript(index) {
 
     // Track current history item for audio playback
     currentHistoryIndex = index;
-    stopHistoryAudio();  // Stop any playing audio and reset button
+    stopHistoryAudio();  // Stop any playing audio and reset controls
+    initPlaybackVoiceSelector(); // Populate voice dropdown
 
     const listView = document.getElementById('history-list-view');
     const detailView = document.getElementById('history-detail-view');
