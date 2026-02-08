@@ -227,6 +227,120 @@ test.describe('History Modal', () => {
 });
 
 // ============================================
+// HISTORY AUDIO PLAYBACK TESTS
+// ============================================
+
+test.describe('History Audio Playback', () => {
+
+    // Seed history data before each test
+    async function seedHistory(page) {
+        await page.evaluate(() => {
+            localStorage.setItem('debate_history', JSON.stringify([{
+                topic: 'Test Debate Topic',
+                winner: 'advocate',
+                date: '2/8/2026 12:00 PM',
+                transcript: [
+                    'Advocate: This is the first argument for the motion.',
+                    'Skeptic: This is the counter-argument against the motion.',
+                    'Judge: Both sides made good points. Advocate wins.'
+                ],
+                messages: [
+                    { role: 'advocate', text: 'This is the first argument for the motion.', voiceSettings: { pitch: 1.1, rate: 1.0, female: false } },
+                    { role: 'skeptic', text: 'This is the counter-argument against the motion.', voiceSettings: { pitch: 0.9, rate: 1.0, female: true } },
+                    { role: 'judge', text: 'Both sides made good points. Advocate wins.', voiceSettings: { pitch: 1.0, rate: 0.9, female: false } }
+                ]
+            }]));
+        });
+    }
+
+    test('@regression HIST-AUD-01: Audio control bar visible in transcript view', async ({ page }) => {
+        await page.goto('/');
+        await seedHistory(page);
+        await page.reload();
+
+        // Open history modal
+        await page.click('a.footer-link:has-text("History")');
+        await expect(page.locator('#history-modal')).toBeVisible();
+
+        // Click first history item to view transcript
+        await page.click('.history-item');
+
+        // Verify audio control bar is visible
+        await expect(page.locator('.history-audio-bar')).toBeVisible();
+    });
+
+    test('@regression HIST-AUD-02: Play button visible initially', async ({ page }) => {
+        await page.goto('/');
+        await seedHistory(page);
+        await page.reload();
+
+        await page.click('a.footer-link:has-text("History")');
+        await page.click('.history-item');
+
+        // Play button should be visible, pause/resume hidden
+        await expect(page.locator('#audio-play-btn')).toBeVisible();
+        await expect(page.locator('#audio-pause-btn')).not.toBeVisible();
+        await expect(page.locator('#audio-resume-btn')).not.toBeVisible();
+    });
+
+    test('@regression HIST-AUD-03: Stop button disabled initially', async ({ page }) => {
+        await page.goto('/');
+        await seedHistory(page);
+        await page.reload();
+
+        await page.click('a.footer-link:has-text("History")');
+        await page.click('.history-item');
+
+        // Stop button should be disabled when not playing
+        await expect(page.locator('#audio-stop-btn')).toBeDisabled();
+    });
+
+    test('@regression HIST-AUD-04: Voice selector dropdown exists', async ({ page }) => {
+        await page.goto('/');
+        await seedHistory(page);
+        await page.reload();
+
+        await page.click('a.footer-link:has-text("History")');
+        await page.click('.history-item');
+
+        // Voice selector should be visible
+        await expect(page.locator('#playback-voice')).toBeVisible();
+        // Should have at least the default option
+        const optionCount = await page.locator('#playback-voice option').count();
+        expect(optionCount).toBeGreaterThanOrEqual(1);
+    });
+
+    test('@regression HIST-AUD-05: Audio status shows ready initially', async ({ page }) => {
+        await page.goto('/');
+        await seedHistory(page);
+        await page.reload();
+
+        await page.click('a.footer-link:has-text("History")');
+        await page.click('.history-item');
+
+        // Status should show "Ready to play"
+        await expect(page.locator('#audio-status')).toContainText('Ready to play');
+    });
+
+    test('@regression HIST-AUD-06: Transcript messages rendered correctly', async ({ page }) => {
+        await page.goto('/');
+        await seedHistory(page);
+        await page.reload();
+
+        await page.click('a.footer-link:has-text("History")');
+        await page.click('.history-item');
+
+        // Should have 3 transcript messages
+        await expect(page.locator('.transcript-msg')).toHaveCount(3);
+        // Verify role-based styling classes exist
+        await expect(page.locator('.transcript-msg.msg-for')).toHaveCount(1);
+        await expect(page.locator('.transcript-msg.msg-against')).toHaveCount(1);
+        await expect(page.locator('.transcript-msg.msg-judge')).toHaveCount(1);
+    });
+
+});
+
+// ============================================
 // LOADING & ERROR STATES
 // ============================================
 
