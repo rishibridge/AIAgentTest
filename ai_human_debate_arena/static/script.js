@@ -798,8 +798,7 @@ async function runDebateProtocol() {
             const shouldJudge = config.judgeModel === 'human' || debateState.round >= 2;
 
             if (shouldJudge) {
-                let debateEnded = false;
-                let winner = null;
+                // Note: using outer debateEnded and winner variables (no let re-declaration)
 
                 if (config.judgeModel === 'human') {
                     // HUMAN JUDGE - Show score slider UI
@@ -843,7 +842,8 @@ async function runDebateProtocol() {
                         } else if (text.includes("SKEPTIC") && (text.includes("WINS") || text.includes("PREVAILS") || text.includes("TAKES IT") || text.includes("FAVOR OF THE SKEPTIC"))) {
                             winner = 'skeptic';
                         } else {
-                            winner = 'draw';
+                            // Fallback to score
+                            winner = debateState.score > 0 ? 'advocate' : debateState.score < 0 ? 'skeptic' : 'draw';
                         }
                         debateEnded = true;
                     }
@@ -853,8 +853,8 @@ async function runDebateProtocol() {
                     // ALWAYS generate formal verdict before ending
                     await executeTurn('judge', false, true, false); // is_final=true
 
-                    // Winner Celebration
-                    if (winner) triggerWinAnimation(winner);
+                    // Winner Celebration (only for non-draw)
+                    if (winner && winner !== 'draw') triggerWinAnimation(winner);
                     saveDebateToHistory(debateState.topic, winner || 'Unknown');
                     renderMessage({ role: 'judge', text: "Session closed.", round: 'SYSTEM', state: 'online' });
                     document.querySelector('.header-logo').classList.remove('debating');
@@ -1525,31 +1525,89 @@ function removeLoadingMessages() {
     loadingMessages.forEach(msg => msg.remove());
 }
 
-// --- WINNER ANIMATION (CONFETTI) ---
+// --- WINNER ANIMATION (KICK-ASS CELEBRATION!) ---
 function triggerWinAnimation(winner) {
-    if (!window.confetti) return;
+    const crownAdvocate = document.getElementById('crown-advocate');
+    const crownSkeptic = document.getElementById('crown-skeptic');
 
-    let origin = { x: 0.5, y: 0.5 };
-    let colors = ['#ffffff', '#ff0000'];
-
+    // Set winner score and show crown
     if (winner === 'advocate') {
-        origin = { x: 0.0, y: 0.5 }; // Shoot from Left
-        colors = ['#22c55e', '#ffffff']; // Green & White
+        if (crownAdvocate) crownAdvocate.style.display = 'inline';
+        debateState.score = 10;
     } else if (winner === 'skeptic') {
-        origin = { x: 1.0, y: 0.5 }; // Shoot from Right
-        colors = ['#ef4444', '#ffffff']; // Red & White
-    } else {
-        colors = ['#eab308', '#ffffff']; // Gold (Draw)
+        if (crownSkeptic) crownSkeptic.style.display = 'inline';
+        debateState.score = -10;
     }
 
-    // Fire!
-    confetti({
-        particleCount: 150,
-        spread: 100,
-        origin: origin,
-        colors: colors,
-        zIndex: 3000
-    });
+    // Update score display
+    const advScoreEl = document.getElementById('score-advocate');
+    const skpScoreEl = document.getElementById('score-skeptic');
+    if (advScoreEl) advScoreEl.innerText = debateState.score > 0 ? '+' + debateState.score : '0';
+    if (skpScoreEl) skpScoreEl.innerText = debateState.score < 0 ? Math.abs(debateState.score) : '0';
+
+    // ========================================
+    // 🎆 CELEBRATION EFFECTS 🎆
+    // ========================================
+
+    // 1. CONFETTI EXPLOSION!
+    if (window.confetti) {
+        const colors = winner === 'advocate' ? ['#22c55e', '#34d399', '#ffffff'] :
+            winner === 'skeptic' ? ['#ef4444', '#fb7185', '#ffffff'] :
+                ['#eab308', '#fbbf24', '#ffffff'];
+
+        // Multi-burst confetti
+        const origin = winner === 'advocate' ? { x: 0.2, y: 0.6 } :
+            winner === 'skeptic' ? { x: 0.8, y: 0.6 } : { x: 0.5, y: 0.5 };
+
+        confetti({ particleCount: 100, spread: 70, origin: origin, colors: colors, zIndex: 10001 });
+        setTimeout(() => confetti({ particleCount: 80, spread: 100, origin: { x: 0.5, y: 0.3 }, colors: colors, zIndex: 10001 }), 200);
+        setTimeout(() => confetti({ particleCount: 60, spread: 120, origin: { x: Math.random(), y: 0.5 }, colors: colors, zIndex: 10001 }), 400);
+    }
+
+    // 2. SCREEN FLASH
+    const flash = document.createElement('div');
+    flash.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: white; opacity: 0.8; z-index: 9999;
+        animation: flashFade 0.3s ease-out forwards;
+    `;
+    document.body.appendChild(flash);
+    setTimeout(() => flash.remove(), 300);
+
+    // 3. SCREEN SHAKE
+    document.body.style.animation = 'shake 0.4s ease-in-out';
+    setTimeout(() => document.body.style.animation = '', 400);
+
+    // 4. SPOTLIGHT BURST
+    const spotlightColor = winner === 'advocate' ? 'rgba(52,211,153,0.4)' :
+        winner === 'skeptic' ? 'rgba(251,113,133,0.4)' : 'rgba(250,204,21,0.4)';
+    const spotlight = document.createElement('div');
+    spotlight.style.cssText = `
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: 0; height: 0; border-radius: 50%; z-index: 9998;
+        background: radial-gradient(circle, ${spotlightColor} 0%, transparent 70%);
+        animation: spotlightBurst 1s ease-out forwards;
+    `;
+    document.body.appendChild(spotlight);
+    setTimeout(() => spotlight.remove(), 1000);
+
+    // 5. WINNER BADGE
+    const badge = document.createElement('div');
+    const winnerText = winner === 'advocate' ? 'FOR WINS!' : winner === 'skeptic' ? 'AGAINST WINS!' : 'DRAW!';
+    const winnerColor = winner === 'advocate' ? '#34d399' : winner === 'skeptic' ? '#fb7185' : '#fbbf24';
+    badge.innerHTML = `
+        <div style="font-size: 3rem; margin-bottom: 10px;">🏆</div>
+        <div style="font-size: 2rem; font-weight: 800; letter-spacing: 3px; text-shadow: 0 0 30px ${winnerColor};">${winnerText}</div>
+    `;
+    badge.style.cssText = `
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
+        text-align: center; color: ${winnerColor}; z-index: 10000;
+        animation: badgePop 2.5s ease-out forwards;
+    `;
+    document.body.appendChild(badge);
+    setTimeout(() => badge.remove(), 2500);
+
+    // VISUAL CELEBRATION ONLY (no sound)
 }
 
 // --- DEBATE HISTORY LOCAL STORAGE ---
@@ -1577,6 +1635,17 @@ function saveDebateToHistory(topic, winner) {
     if (history.length > 50) history.pop();
 
     localStorage.setItem('debate_history', JSON.stringify(history));
+}
+
+// --- CHANGELOG MODAL ---
+function showChangelog() {
+    const modal = document.getElementById('changelog-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closeChangelog() {
+    const modal = document.getElementById('changelog-modal');
+    if (modal) modal.classList.add('hidden');
 }
 
 function showHistory() {
@@ -1850,79 +1919,6 @@ function updateRoundDisplay(round) {
     const roundEl = document.getElementById('round-display');
     if (roundEl) {
         roundEl.textContent = `Round ${round}`;
-    }
-}
-
-function triggerWinAnimation(winner) {
-    const crownAdvocate = document.getElementById('crown-advocate');
-    const crownSkeptic = document.getElementById('crown-skeptic');
-
-    // Set winner score and show crown
-    if (winner === 'advocate') {
-        if (crownAdvocate) crownAdvocate.style.display = 'inline';
-        debateState.score = 10;
-    } else if (winner === 'skeptic') {
-        if (crownSkeptic) crownSkeptic.style.display = 'inline';
-        debateState.score = -10;
-    }
-
-    // Update score display
-    const advScoreEl = document.getElementById('score-advocate');
-    const skpScoreEl = document.getElementById('score-skeptic');
-    if (advScoreEl) advScoreEl.innerText = debateState.score > 0 ? '+' + debateState.score : '0';
-    if (skpScoreEl) skpScoreEl.innerText = debateState.score < 0 ? Math.abs(debateState.score) : '0';
-
-    // ========================================
-    // ARENA CELEBRATION EFFECT
-    // ========================================
-
-    // 1. SCREEN FLASH
-    const flash = document.createElement('div');
-    flash.style.cssText = `
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: white; opacity: 0.8; z-index: 9999;
-        animation: flashFade 0.3s ease-out forwards;
-    `;
-    document.body.appendChild(flash);
-    setTimeout(() => flash.remove(), 300);
-
-    // 2. SCREEN SHAKE
-    document.body.style.animation = 'shake 0.4s ease-in-out';
-    setTimeout(() => document.body.style.animation = '', 400);
-
-    // 3. SPOTLIGHT BURST
-    const spotlight = document.createElement('div');
-    spotlight.style.cssText = `
-        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        width: 0; height: 0; border-radius: 50%; z-index: 9998;
-        background: radial-gradient(circle, ${winner === 'advocate' ? 'rgba(52,211,153,0.4)' : 'rgba(251,113,133,0.4)'} 0%, transparent 70%);
-        animation: spotlightBurst 1s ease-out forwards;
-    `;
-    document.body.appendChild(spotlight);
-    setTimeout(() => spotlight.remove(), 1000);
-
-    // 4. WINNER BADGE
-    const badge = document.createElement('div');
-    const winnerText = winner === 'advocate' ? 'FOR WINS!' : winner === 'skeptic' ? 'AGAINST WINS!' : 'DRAW!';
-    const winnerColor = winner === 'advocate' ? '#34d399' : '#fb7185';
-    badge.innerHTML = `
-        <div style="font-size: 3rem; margin-bottom: 10px;">🏆</div>
-        <div style="font-size: 2rem; font-weight: 800; letter-spacing: 3px; text-shadow: 0 0 30px ${winnerColor};">${winnerText}</div>
-    `;
-    badge.style.cssText = `
-        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
-        text-align: center; color: ${winnerColor}; z-index: 10000;
-        animation: badgePop 2.5s ease-out forwards;
-    `;
-    document.body.appendChild(badge);
-    setTimeout(() => badge.remove(), 2500);
-
-    // 5. VICTORY SOUNDS
-    if (soundEnabled) {
-        // Victory horn
-        playVictoryHorn();
-        // Crowd roar (delayed slightly)
-        setTimeout(() => playCrowdRoar(), 200);
     }
 }
 

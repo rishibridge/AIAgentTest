@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Victory Sound Preview</title>
+    <style>
+        body {
+            background: #111827;
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            padding: 40px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #fbbf24;
+            text-align: center;
+        }
+
+        .option {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid #374151;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .option h3 {
+            margin: 0 0 5px 0;
+            color: #34d399;
+        }
+
+        .option p {
+            margin: 0;
+            color: #9ca3af;
+            font-size: 0.9rem;
+        }
+
+        button {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🏆 Victory Sound Preview</h1>
+    <p style="text-align: center; color: #9ca3af;">Click to hear each option</p>
+
+    <div class="option">
+        <div>
+            <h3>🎵 Option 1: Triumphant Chime</h3>
+            <p>Ascending C major chord - clean, musical</p>
+        </div>
+        <button onclick="playOption1()">Play</button>
+    </div>
+
+    <div class="option">
+        <div>
+            <h3>✨ Option 2: Sparkle Magic</h3>
+            <p>Quick ascending glissando - whimsical</p>
+        </div>
+        <button onclick="playOption2()">Play</button>
+    </div>
+
+    <div class="option">
+        <div>
+            <h3>📯 Option 3: Stadium Horn</h3>
+            <p>Punchy blast - bold, celebratory</p>
+        </div>
+        <button onclick="playOption3()">Play</button>
+    </div>
+
+    <div class="option">
+        <div>
+            <h3>🔔 Option 4: Gentle Bell</h3>
+            <p>Deep sine bell with decay - elegant</p>
+        </div>
+        <button onclick="playOption4()">Play</button>
+    </div>
+
+    <div class="option">
+        <div>
+            <h3>👾 Option 5: 8-bit Fanfare</h3>
+            <p>Chip-tune ascending notes - retro fun</p>
+        </div>
+        <button onclick="playOption5()">Play</button>
+    </div>
+
+    <script>
+        let ctx;
+        function getCtx() {
+            if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+            return ctx;
+        }
+
+        // Option 1: Triumphant Chime Arpeggio
+        function playOption1() {
+            const c = getCtx();
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            notes.forEach((freq, i) => {
+                const osc = c.createOscillator();
+                const gain = c.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0, c.currentTime + i * 0.12);
+                gain.gain.linearRampToValueAtTime(0.25, c.currentTime + i * 0.12 + 0.03);
+                gain.gain.linearRampToValueAtTime(0, c.currentTime + i * 0.12 + 0.4);
+                osc.connect(gain);
+                gain.connect(c.destination);
+                osc.start(c.currentTime + i * 0.12);
+                osc.stop(c.currentTime + i * 0.12 + 0.5);
+            });
+        }
+
+        // Option 2: Sparkle Magic
+        function playOption2() {
+            const c = getCtx();
+            for (let i = 0; i < 8; i++) {
+                const osc = c.createOscillator();
+                const gain = c.createGain();
+                osc.type = 'triangle';
+                osc.frequency.value = 800 + i * 200;
+                gain.gain.setValueAtTime(0.15, c.currentTime + i * 0.04);
+                gain.gain.linearRampToValueAtTime(0, c.currentTime + i * 0.04 + 0.15);
+                osc.connect(gain);
+                gain.connect(c.destination);
+                osc.start(c.currentTime + i * 0.04);
+                osc.stop(c.currentTime + i * 0.04 + 0.2);
+            }
+        }
+
+        // Option 3: Stadium Horn (cleaner version)
+        function playOption3() {
+            const c = getCtx();
+            const osc = c.createOscillator();
+            const gain = c.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(349.23, c.currentTime); // F4
+            osc.frequency.setValueAtTime(440, c.currentTime + 0.15); // A4
+            gain.gain.setValueAtTime(0.2, c.currentTime);
+            gain.gain.linearRampToValueAtTime(0.2, c.currentTime + 0.25);
+            gain.gain.linearRampToValueAtTime(0, c.currentTime + 0.35);
+            osc.connect(gain);
+            gain.connect(c.destination);
+            osc.start();
+            osc.stop(c.currentTime + 0.4);
+        }
+
+        // Option 4: Gentle Bell
+        function playOption4() {
+            const c = getCtx();
+            const osc = c.createOscillator();
+            const gain = c.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 523.25; // C5
+            gain.gain.setValueAtTime(0.4, c.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, c.currentTime + 1.5);
+            osc.connect(gain);
+            gain.connect(c.destination);
+            osc.start();
+            osc.stop(c.currentTime + 1.5);
+        }
+
+        // Option 5: 8-bit Fanfare
+        function playOption5() {
+            const c = getCtx();
+            const notes = [262, 330, 392, 523, 659]; // C4, E4, G4, C5, E5
+            notes.forEach((freq, i) => {
+                const osc = c.createOscillator();
+                const gain = c.createGain();
+                osc.type = 'square';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.12, c.currentTime + i * 0.08);
+                gain.gain.linearRampToValueAtTime(0, c.currentTime + i * 0.08 + 0.1);
+                osc.connect(gain);
+                gain.connect(c.destination);
+                osc.start(c.currentTime + i * 0.08);
+                osc.stop(c.currentTime + i * 0.08 + 0.15);
+            });
+        }
+    </script>
+</body>
+
+</html>

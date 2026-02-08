@@ -107,7 +107,8 @@
             </div>
         </main>
         <footer class="copyright-footer">
-            <span>© 2025 Rishi Khullar / Unusual Insights Inc. | v1.34</span>
+            <span>© 2025 Rishi Khullar / Unusual Insights Inc. | <a href="#" onclick="showChangelog()"
+                    class="version-link">BETA v{{ version }}</a></span>
             <span id="debate-config" class="debate-config hidden"></span>
             <div class="footer-right">
                 <a href="#" onclick="showHistory()" class="footer-link">History</a>
@@ -274,6 +275,33 @@
                 <p class="prediction-skip"><a href="#" onclick="submitPrediction(null)">Skip prediction →</a></p>
             </div>
         </div>
+
+    </div>
+
+    <!-- Changelog Modal -->
+    <div id="changelog-modal" class="modal hidden">
+        <div class="modal-content glass-panel" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>📋 Changelog</h2>
+                <button onclick="closeChangelog()" class="close-btn">&times;</button>
+            </div>
+            <div class="changelog-content" style="max-height: 400px; overflow-y: auto; padding: 20px;">
+                {% for entry in changelog %}
+                <div class="changelog-entry" style="margin-bottom: 20px;">
+                    <div style="font-weight: 700; color: var(--accent-gold); margin-bottom: 8px;">
+                        v{{ entry.version }} <span style="color: #666; font-weight: 400; font-size: 0.9rem;">({{
+                            entry.date }})</span>
+                    </div>
+                    <ul style="margin: 0; padding-left: 20px; color: #aaa; line-height: 1.6;">
+                        {% for change in entry.changes %}
+                        <li>{{ change }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
 
     </div>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>

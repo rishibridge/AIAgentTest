@@ -716,7 +716,24 @@ def generate_turn():
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    # Read version info
+    version_data = {"version": "unknown", "changelog": []}
+    try:
+        with open('version.json', 'r') as f:
+            version_data = json.load(f)
+    except:
+        pass
+    return render_template('index.html', 
+                           version=version_data.get('version', 'unknown'),
+                           changelog=version_data.get('changelog', []))
+
+@app.route('/api/version')
+def get_version():
+    try:
+        with open('version.json', 'r') as f:
+            return json.load(f)
+    except:
+        return {"version": "unknown", "changelog": []}
 
 @app.route('/landing')
 def landing():

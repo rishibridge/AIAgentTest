@@ -1,0 +1,13 @@
+{
+    "name": "debate-arena-tests",
+    "version": "1.0.0",
+    "scripts": {
+        "test": "npx playwright test",
+        "test:smoke": "npx playwright test --grep @smoke",
+        "test:regression": "npx playwright test --grep @regression",
+        "test:all": "npx playwright test --workers=8"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.40.0"
+    }
+}

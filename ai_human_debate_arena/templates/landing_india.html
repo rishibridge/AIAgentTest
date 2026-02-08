@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>दोनों पक्ष देखें - Think For Yourself</title>
+    <meta name="description"
+        content="Engage with diverse viewpoints, understand the issues, and form your own informed opinions.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --saffron: #FF9933;
+            --white: #FFFFFF;
+            --green: #138808;
+            --navy: #000080;
+            --chakra-blue: #000080;
+            --light-saffron: rgba(255, 153, 51, 0.15);
+            --light-green: rgba(19, 136, 8, 0.15);
+        }
+
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(180deg, #0a0a1a 0%, #1a1a2e 100%);
+            color: var(--white);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px 20px;
+            position: relative;
+            background:
+                radial-gradient(ellipse at 20% 30%, var(--light-saffron) 0%, transparent 40%),
+                radial-gradient(ellipse at 80% 70%, var(--light-green) 0%, transparent 40%),
+                linear-gradient(180deg, #0a0a1a 0%, #1a1a2e 100%);
+        }
+
+        /* Ashoka Chakra */
+        .chakra {
+            width: 140px;
+            height: 140px;
+            margin-bottom: 32px;
+            animation: spin 30s linear infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .hero-title {
+            font-size: clamp(2.2rem, 5vw, 3.5rem);
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            margin-bottom: 16px;
+        }
+
+        .hero-title .saffron {
+            color: var(--saffron);
+        }
+
+        .hero-title .green {
+            color: var(--green);
+        }
+
+        .hero-subtitle {
+            font-size: clamp(1rem, 2vw, 1.25rem);
+            color: rgba(255, 255, 255, 0.75);
+            max-width: 550px;
+            margin-bottom: 40px;
+            line-height: 1.7;
+        }
+
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 36px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--white);
+            background: linear-gradient(135deg, var(--saffron) 0%, var(--green) 100%);
+            border: none;
+            border-radius: 50px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 30px rgba(255, 153, 51, 0.3);
+        }
+
+        .cta-button:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 12px 40px rgba(19, 136, 8, 0.4);
+        }
+
+        /* Debaters Section */
+        .debaters {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 60px;
+            margin-top: 60px;
+            padding: 0 20px;
+        }
+
+        .debater {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .debater-avatar {
+            width: 120px;
+            height: 180px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            margin-bottom: 12px;
+        }
+
+        .debater.left .debater-avatar {
+            background: linear-gradient(145deg, var(--saffron), rgba(255, 153, 51, 0.6));
+            box-shadow: 0 10px 40px rgba(255, 153, 51, 0.3);
+        }
+
+        .debater.right .debater-avatar {
+            background: linear-gradient(145deg, var(--green), rgba(19, 136, 8, 0.6));
+            box-shadow: 0 10px 40px rgba(19, 136, 8, 0.3);
+        }
+
+        .debater-label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .center-scales {
+            width: 80px;
+            height: 80px;
+            color: var(--chakra-blue);
+            margin-bottom: 50px;
+        }
+
+        /* Features Section */
+        .features {
+            padding: 80px 20px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .features-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            font-size: clamp(1.5rem, 3.5vw, 2rem);
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .section-title .saffron {
+            color: var(--saffron);
+        }
+
+        .section-title .green {
+            color: var(--green);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 32px 24px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(255, 153, 51, 0.4);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+        }
+
+        .feature-card:nth-child(1) .feature-icon {
+            color: var(--saffron);
+        }
+
+        .feature-card:nth-child(2) .feature-icon {
+            color: var(--chakra-blue);
+            filter: brightness(3);
+        }
+
+        .feature-card:nth-child(3) .feature-icon {
+            color: var(--green);
+        }
+
+        .feature-icon {
+            width: 56px;
+            height: 56px;
+            margin-bottom: 20px;
+        }
+
+        .feature-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .feature-text {
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.6);
+            line-height: 1.6;
+        }
+
+        .feature-btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 24px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--white);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 25px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .feature-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Footer */
+        .footer {
+            padding: 40px 20px;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .footer p {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85rem;
+        }
+
+        .tricolor-bar {
+            height: 4px;
+            background: linear-gradient(90deg, var(--saffron) 33%, var(--white) 33%, var(--white) 66%, var(--green) 66%);
+            width: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 100;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .debaters {
+                gap: 30px;
+            }
+
+            .debater-avatar {
+                width: 90px;
+                height: 140px;
+                font-size: 3rem;
+            }
+
+            .center-scales {
+                width: 60px;
+                height: 60px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="tricolor-bar"></div>
+
+    <!-- Hero -->
+    <section class="hero">
+        <!-- Ashoka Chakra SVG -->
+        <svg class="chakra" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="50" cy="50" r="48" stroke="#000080" stroke-width="2" />
+            <circle cx="50" cy="50" r="8" fill="#000080" />
+            <!-- 24 Spokes -->
+            <g stroke="#000080" stroke-width="2">
+                <line x1="50" y1="10" x2="50" y2="42" />
+                <line x1="50" y1="58" x2="50" y2="90" transform="rotate(180 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(15 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(30 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(45 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(60 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(75 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(90 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(105 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(120 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(135 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(150 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(165 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(180 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(195 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(210 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(225 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(240 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(255 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(270 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(285 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(300 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(315 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(330 50 50)" />
+                <line x1="50" y1="10" x2="50" y2="42" transform="rotate(345 50 50)" />
+            </g>
+        </svg>
+
+        <h1 class="hero-title">
+            <span class="saffron">See Both Sides.</span> Think For Yourself.
+        </h1>
+        <p class="hero-subtitle">
+            Engage with diverse viewpoints, understand the issues, and form your own informed opinions. Democracy
+            thrives on debate.
+        </p>
+
+        <a href="/" class="cta-button">
+            Start Exploring
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+        </a>
+
+        <!-- Debaters -->
+        <div class="debaters">
+            <div class="debater left">
+                <div class="debater-avatar">🧑‍💼</div>
+                <span class="debater-label">पक्ष में</span>
+            </div>
+
+            <svg class="center-scales" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="3">
+                <path d="M50 10V80" />
+                <path d="M50 20L20 35" />
+                <path d="M50 20L80 35" />
+                <ellipse cx="20" cy="45" rx="15" ry="8" />
+                <ellipse cx="80" cy="45" rx="15" ry="8" />
+                <rect x="35" y="78" width="30" height="12" rx="3" />
+            </svg>
+
+            <div class="debater right">
+                <div class="debater-avatar">👩‍💼</div>
+                <span class="debater-label">विपक्ष में</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="features">
+        <div class="features-container">
+            <h2 class="section-title">
+                <span class="saffron">Explore</span> · <span>Watch</span> · <span class="green">Decide</span>
+            </h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 6v6l4 2" />
+                    </svg>
+                    <h3 class="feature-title">1. Explore Both Sides</h3>
+                    <p class="feature-text">Dive into curated arguments from multiple perspectives on key civic topics.
+                    </p>
+                    <a href="/" class="feature-btn">Learn More</a>
+                </div>
+
+                <div class="feature-card">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="2" y="4" width="20" height="16" rx="2" />
+                        <polygon points="10,8 16,12 10,16" />
+                    </svg>
+                    <h3 class="feature-title">2. Watch AI Debate</h3>
+                    <p class="feature-text">Experience real-time AI-powered debates to see how different arguments
+                        interact.</p>
+                    <a href="/" class="feature-btn">Watch Demo</a>
+                </div>
+
+                <div class="feature-card">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="12" cy="13" r="8" />
+                        <path d="M12 5V3" />
+                        <path d="M5 11l-2-1" />
+                        <path d="M19 11l2-1" />
+                        <path d="M12 13l3 3" />
+                    </svg>
+                    <h3 class="feature-title">3. Judge For Yourself</h3>
+                    <p class="feature-text">Analyze the information, weigh the evidence, and form your own well-reasoned
+                        conclusions.</p>
+                    <a href="/" class="feature-btn">Get Started</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>जय हिंद 🇮🇳 | © 2026 BothSides India | Empowering Informed Citizens</p>
+    </footer>
+</body>
+
+</html>
