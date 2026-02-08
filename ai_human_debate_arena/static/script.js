@@ -1720,11 +1720,53 @@ function getHistory() {
 
 function saveDebateToHistory(topic, winner) {
     const history = getHistory();
+
+    // Build transcript with voice metadata for audio playback
+    const transcriptWithVoice = debateState.history.map(line => {
+        // Parse role from line format "Role: text"
+        let role = 'judge';
+        let text = line;
+
+        if (line.toLowerCase().startsWith('advocate:')) {
+            role = 'advocate';
+            text = line.substring(9).trim();
+        } else if (line.toLowerCase().startsWith('skeptic:')) {
+            role = 'skeptic';
+            text = line.substring(8).trim();
+        } else if (line.toLowerCase().startsWith('judge:')) {
+            role = 'judge';
+            text = line.substring(6).trim();
+        }
+
+        // Map role to voice settings key
+        const roleKey = role === 'advocate' ? 'for' : role === 'skeptic' ? 'against' : 'judge';
+        const settings = voiceSettings[roleKey] || voiceSettings['judge'];
+
+        // Get selected voice name for this role
+        let voiceName = null;
+        if (role === 'advocate') voiceName = document.getElementById('advocate-voice')?.value || null;
+        else if (role === 'skeptic') voiceName = document.getElementById('skeptic-voice')?.value || null;
+        else if (role === 'judge') voiceName = document.getElementById('judge-voice')?.value || null;
+
+        return {
+            role: role,
+            text: text,
+            fullLine: line,  // Keep original for display
+            voiceSettings: {
+                voiceName: voiceName,
+                pitch: settings.pitch,
+                rate: settings.rate,
+                female: settings.female
+            }
+        };
+    });
+
     const newEntry = {
-        topic: debateState.topic, // Fix: Use global state topic
+        topic: debateState.topic,
         winner: winner,
         date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        transcript: debateState.history
+        transcript: debateState.history,  // Keep original format for backwards compatibility
+        messages: transcriptWithVoice     // New enhanced format with voice data
     };
 
     // Add to top
@@ -1747,6 +1789,148 @@ function closeChangelog() {
     if (modal) modal.classList.add('hidden');
 }
 
+// --- HISTORY AUDIO PLAYBACK ---
+let isPlayingHistory = false;
+let currentHistoryIndex = null;  // Tracks which history item is being viewed
+let currentMessageIndex = 0;     // Tracks current message during playback
+
+function toggleHistoryAudio() {
+    if (isPlayingHistory) {
+        stopHistoryAudio();
+    } else {
+        playHistoryAudio();
+    }
+}
+
+function playHistoryAudio() {
+    if (currentHistoryIndex === null) return;
+
+    const history = getHistory();
+    const item = history[currentHistoryIndex];
+    if (!item) return;
+
+    // Use enhanced messages array if available, otherwise parse transcript
+    const messages = item.messages || parseTranscriptToMessages(item.transcript);
+    if (!messages || messages.length === 0) return;
+
+    isPlayingHistory = true;
+    currentMessageIndex = 0;
+    updatePlayButton(true);
+
+    playMessagesSequentially(messages);
+}
+
+function parseTranscriptToMessages(transcript) {
+    if (!transcript) return [];
+    return transcript.map(line => {
+        let role = 'judge';
+        let text = line;
+
+        if (line.toLowerCase().startsWith('advocate:')) {
+            role = 'advocate';
+            text = line.substring(9).trim();
+        } else if (line.toLowerCase().startsWith('skeptic:')) {
+            role = 'skeptic';
+            text = line.substring(8).trim();
+        } else if (line.toLowerCase().startsWith('judge:')) {
+            role = 'judge';
+            text = line.substring(6).trim();
+        }
+
+        return { role, text, voiceSettings: null };
+    });
+}
+
+function stopHistoryAudio() {
+    window.speechSynthesis.cancel();
+    isPlayingHistory = false;
+    updatePlayButton(false);
+
+    // Remove playing highlight from all messages
+    document.querySelectorAll('.transcript-msg.playing').forEach(el => {
+        el.classList.remove('playing');
+    });
+}
+
+function updatePlayButton(isPlaying) {
+    const btn = document.getElementById('history-play-btn');
+    if (btn) {
+        btn.textContent = isPlaying ? '⏹️ Stop' : '🔊 Play';
+    }
+}
+
+async function playMessagesSequentially(messages) {
+    if (!isPlayingHistory || currentMessageIndex >= messages.length) {
+        stopHistoryAudio();
+        return;
+    }
+
+    const msg = messages[currentMessageIndex];
+    highlightCurrentMessage(currentMessageIndex);
+
+    await speakMessageWithHighlight(msg);
+
+    currentMessageIndex++;
+    playMessagesSequentially(messages);
+}
+
+function highlightCurrentMessage(index) {
+    // Remove previous highlights
+    document.querySelectorAll('.transcript-msg.playing').forEach(el => {
+        el.classList.remove('playing');
+    });
+
+    // Add highlight to current message and scroll into view
+    const container = document.getElementById('transcript-container');
+    if (container) {
+        const messages = container.querySelectorAll('.transcript-msg');
+        if (messages[index]) {
+            messages[index].classList.add('playing');
+            messages[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+}
+
+function speakMessageWithHighlight(msg) {
+    return new Promise(resolve => {
+        const cleanText = sanitizeForSpeech(msg.text);
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+
+        // Use saved voice settings if available, otherwise use defaults
+        const voiceSettings = msg.voiceSettings;
+        const roleKey = msg.role === 'advocate' ? 'for' : msg.role === 'skeptic' ? 'against' : 'judge';
+        const defaults = window.voiceSettings?.[roleKey] || { pitch: 1.0, rate: 1.0, female: false };
+
+        if (voiceSettings) {
+            utterance.pitch = voiceSettings.pitch || defaults.pitch;
+            utterance.rate = voiceSettings.rate || defaults.rate;
+
+            // Try to find saved voice, fall back to default
+            if (voiceSettings.voiceName) {
+                const savedVoice = voices.find(v => v.name === voiceSettings.voiceName);
+                if (savedVoice) utterance.voice = savedVoice;
+            } else {
+                const fallbackVoice = findVoice(voiceSettings.female ?? defaults.female);
+                if (fallbackVoice) utterance.voice = fallbackVoice;
+            }
+        } else {
+            utterance.pitch = defaults.pitch;
+            utterance.rate = defaults.rate;
+            const fallbackVoice = findVoice(defaults.female);
+            if (fallbackVoice) utterance.voice = fallbackVoice;
+        }
+
+        utterance.onend = () => {
+            if (!isPlayingHistory) return resolve();
+            // Small pause between messages
+            setTimeout(resolve, 300);
+        };
+
+        utterance.onerror = () => resolve();
+
+        window.speechSynthesis.speak(utterance);
+    });
+}
 function showHistory() {
     const modal = document.getElementById('history-modal');
     const listView = document.getElementById('history-list-view');
@@ -1805,6 +1989,10 @@ function viewTranscript(index) {
     const history = getHistory();
     const item = history[index];
     if (!item) return;
+
+    // Track current history item for audio playback
+    currentHistoryIndex = index;
+    stopHistoryAudio();  // Stop any playing audio and reset button
 
     const listView = document.getElementById('history-list-view');
     const detailView = document.getElementById('history-detail-view');

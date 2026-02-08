@@ -1127,6 +1127,59 @@ body {
     color: var(--text-primary);
 }
 
+/* History Audio Playback Button */
+.history-play-btn {
+    background: linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(56, 189, 248, 0.2));
+    border: 1px solid rgba(52, 211, 153, 0.4);
+    color: #34d399;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.history-play-btn:hover {
+    background: rgba(52, 211, 153, 0.3);
+    transform: scale(1.05);
+}
+
+/* Playing Message Highlight */
+.transcript-msg.playing {
+    animation: pulseHighlight 1.5s ease-in-out infinite;
+}
+
+.transcript-msg.playing .transcript-bubble {
+    border-left-width: 4px !important;
+    box-shadow: 0 0 20px rgba(52, 211, 153, 0.2);
+}
+
+.transcript-msg.msg-for.playing .transcript-bubble {
+    background: rgba(52, 211, 153, 0.15);
+}
+
+.transcript-msg.msg-against.playing .transcript-bubble {
+    background: rgba(251, 113, 133, 0.15);
+}
+
+.transcript-msg.msg-judge.playing .transcript-bubble {
+    background: rgba(251, 191, 36, 0.1);
+}
+
+@keyframes pulseHighlight {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.85;
+    }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .history-modal .history-content {
