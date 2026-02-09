@@ -1,7 +1,25 @@
 {
-    "version": "1.41.2",
+    "version": "1.41.4",
     "date": "2026-02-08",
     "changelog": [
+        {
+            "version": "1.41.4",
+            "date": "2026-02-08",
+            "changes": [
+                "HOTFIX: Aggressive visual block for pause state",
+                "Pause overlay is now 98% opaque to hide any browser-specific ghost typing",
+                "Increased blur to 20px for better visual feedback"
+            ]
+        },
+        {
+            "version": "1.41.3",
+            "date": "2026-02-08",
+            "changes": [
+                "Fixed: Ghost typing while paused (browser speech buffer)",
+                "Forced strict pause check in audio sync handler",
+                "Improved fallback logic for early pauses"
+            ]
+        },
         {
             "version": "1.41.2",
             "date": "2026-02-08",
@@ -9,24 +27,6 @@
                 "Fixed: Pause now halts mid-sentence typing immediately",
                 "Fixed: Speech now pauses/resumes instead of cancelling abruptly",
                 "Refined: Audio sync robustness during pause/resume cycles"
-            ]
-        },
-        {
-            "version": "1.41.1",
-            "date": "2026-02-08",
-            "changes": [
-                "CRITICAL: Fixed audio overlap race condition",
-                "App now properly waits for speech to finish before starting next turn even in fallback mode"
-            ]
-        },
-        {
-            "version": "1.41",
-            "date": "2026-02-08",
-            "changes": [
-                "Pause/Resume for core debate: PAUSE button during debate",
-                "STOP button separate from PAUSE for clean termination",
-                "Visual pause overlay with round indicator",
-                "Graceful pause between turns (not mid-message)"
             ]
         }
     ]

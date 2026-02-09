@@ -2700,8 +2700,8 @@ body.debate-fullscreen .score-bar-container {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(11, 15, 25, 0.85);
-    backdrop-filter: blur(4px);
+    background: rgba(11, 15, 25, 0.98);
+    backdrop-filter: blur(20px);
     display: flex;
     align-items: center;
     justify-content: center;
