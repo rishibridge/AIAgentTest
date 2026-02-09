@@ -607,9 +607,10 @@ function pauseDebate() {
     console.log("Pausing debate...");
     debateState.paused = true;
 
-    // Cancel current speech
-    window.speechSynthesis.cancel();
-    speechQueue = [];
+    // Pause speech instead of cancelling
+    if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.pause();
+    }
     isSpeaking = false;
 
     // Update UI
@@ -629,7 +630,13 @@ function resumeDebate() {
     console.log("Resuming debate...");
     debateState.paused = false;
 
-    // Resolve the pause promise to continue the loop
+    // Resume speech
+    if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+    }
+    isSpeaking = true;
+
+    // Resolve the pause promise to continue the loop (if waiting between turns)
     if (debateState.pauseResolve) {
         debateState.pauseResolve();
         debateState.pauseResolve = null;
@@ -1726,6 +1733,12 @@ async function renderWithWPMTiming(target, text, msgDiv) {
         // Auto-scroll every 30 characters
         if (i % 30 === 0) {
             handleScrollPostRender(true);
+        }
+
+        // Check for pause\n        await waitIfPaused();
+        if (!debateState.active) {
+            msgDiv.remove();
+            return;
         }
 
         // Calculate delay based on CURRENT WPM (real-time reading for instant changes)

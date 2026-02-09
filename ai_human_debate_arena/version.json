@@ -1,7 +1,15 @@
 {
-    "version": "1.41",
+    "version": "1.41.1",
     "date": "2026-02-08",
     "changelog": [
+        {
+            "version": "1.41.1",
+            "date": "2026-02-08",
+            "changes": [
+                "CRITICAL: Fixed audio overlap race condition",
+                "App now properly waits for speech to finish before starting next turn even in fallback mode"
+            ]
+        },
         {
             "version": "1.41",
             "date": "2026-02-08",
@@ -29,15 +37,6 @@
                 "Voice selector for history playback",
                 "Progress status display during playback",
                 "Text-only debates can now be played as audio"
-            ]
-        },
-        {
-            "version": "1.38",
-            "date": "2026-02-08",
-            "changes": [
-                "History audio playback: replay any saved debate with speech",
-                "Play button in history detail view with highlight tracking",
-                "Voice metadata saved with debates for accurate re-synthesis"
             ]
         }
     ]
