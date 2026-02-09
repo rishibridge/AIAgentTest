@@ -1831,6 +1831,12 @@ function setPlaybackVoice() {
 function playHistoryAudio() {
     if (currentHistoryIndex === null) return;
 
+    // Block playback during active debate
+    if (debateState.active) {
+        updateAudioStatus('Cannot play during active debate');
+        return;
+    }
+
     const history = getHistory();
     const item = history[currentHistoryIndex];
     if (!item) return;
@@ -2158,6 +2164,8 @@ function viewTranscript(index) {
 }
 
 function backToHistoryList() {
+    stopHistoryAudio();  // Stop any playing audio
+
     const listView = document.getElementById('history-list-view');
     const detailView = document.getElementById('history-detail-view');
 
@@ -2166,6 +2174,8 @@ function backToHistoryList() {
 }
 
 function closeHistory() {
+    stopHistoryAudio();  // Stop any playing audio
+
     const modal = document.getElementById('history-modal');
     modal.classList.remove('visible');
     setTimeout(() => {

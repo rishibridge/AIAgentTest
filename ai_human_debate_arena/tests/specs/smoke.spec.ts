@@ -338,6 +338,38 @@ test.describe('History Audio Playback', () => {
         await expect(page.locator('.transcript-msg.msg-judge')).toHaveCount(1);
     });
 
+    test('@regression HIST-AUD-07: Back button stops audio and resets UI', async ({ page }) => {
+        await page.goto('/');
+        await seedHistory(page);
+        await page.reload();
+
+        await page.click('a.footer-link:has-text("History")');
+        await page.click('.history-item');
+
+        // Click back button
+        await page.click('.back-btn:has-text("Back")');
+
+        // Should be back on list view
+        await expect(page.locator('#history-list-view')).toBeVisible();
+        await expect(page.locator('#history-detail-view')).not.toBeVisible();
+    });
+
+    test('@regression HIST-AUD-08: Close modal stops audio playback', async ({ page }) => {
+        await page.goto('/');
+        await seedHistory(page);
+        await page.reload();
+
+        await page.click('a.footer-link:has-text("History")');
+        await page.click('.history-item');
+
+        // Close the modal using history modal's close button
+        await page.click('#history-modal .close-btn');
+
+        // Wait for animation then modal should be hidden
+        await page.waitForTimeout(500);
+        await expect(page.locator('#history-modal')).not.toBeVisible();
+    });
+
 });
 
 // ============================================

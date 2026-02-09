@@ -1,7 +1,16 @@
 {
-    "version": "1.39",
+    "version": "1.40",
     "date": "2026-02-08",
     "changelog": [
+        {
+            "version": "1.40",
+            "date": "2026-02-08",
+            "changes": [
+                "Fixed: Audio stops when history modal closes or back button pressed",
+                "Fixed: History playback blocked during active debates",
+                "Added 8 automated tests for history audio playback"
+            ]
+        },
         {
             "version": "1.39",
             "date": "2026-02-08",
@@ -28,18 +37,6 @@
                 "Audio-synced typewriter: words now appear exactly as spoken",
                 "Uses SpeechSynthesis boundary events for true real-time sync",
                 "Fallback to WPM timing when audio disabled or unsupported"
-            ]
-        },
-        {
-            "version": "1.36",
-            "date": "2026-01-27",
-            "changes": [
-                "Fixed draw banner showing after one side wins",
-                "Added kick-ass win celebration (confetti, flash, shake, badge)",
-                "Settings lock notice during debates",
-                "Typewriter stops immediately on STOP button",
-                "History modal fullscreen redesign with rich transcript view",
-                "Added changelog system"
             ]
         }
     ]
