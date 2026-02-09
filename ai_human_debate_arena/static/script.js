@@ -1656,25 +1656,20 @@ async function renderWithAudioSync(target, text, role, msgDiv) {
             resolve();
         };
 
-        utterance.onerror = (e) => {
-            console.warn('Speech synthesis error:', e);
-            // Fallback: show full text immediately
-            target.innerHTML = markdownToHtml(text);
-            resolve();
-        };
-
-        // Start speech
-        window.speechSynthesis.speak(utterance);
-
-        // Fallback timeout: if no boundary events after 500ms, 
-        // the browser may not support them (Firefox issue)
-        setTimeout(() => {
+        // Fallback timeout: if no boundary events after 800ms, 
+        // the browser may not support them (Firefox/Headless)
+        const fallbackTimer = setTimeout(() => {
             if (!boundaryEventFired && debateState.active) {
-                console.log('No boundary events detected, falling back to WPM timing');
-                window.speechSynthesis.cancel();
-                // Fall back to WPM mode but run speech in parallel
-                speakText(text, role);
-                renderWithWPMTiming(target, text, msgDiv).then(resolve);
+                console.log('No boundary events detected, falling back to WPM timing BUT waiting for speech');
+
+                // Don't cancel speech! It's already playing. Just switch visualization mode.
+                // We let the original utterance continue playing.
+
+                // Start typing visual text in parallel with the speech
+                renderWithWPMTiming(target, text, msgDiv);
+
+                // IMPORTANT: We do NOT resolve here. We wait for utterance.onend to resolve.
+                // This ensures the next turn doesn't start until audio finishes.
             }
         }, 800);
 
@@ -1683,6 +1678,7 @@ async function renderWithAudioSync(target, text, role, msgDiv) {
             if (!debateState.active) {
                 window.speechSynthesis.cancel();
                 clearInterval(abortCheck);
+                clearTimeout(fallbackTimer);
                 msgDiv.remove();
                 resolve();
             }
@@ -1691,9 +1687,22 @@ async function renderWithAudioSync(target, text, role, msgDiv) {
         // Clear interval when speech ends
         utterance.onend = () => {
             clearInterval(abortCheck);
+            clearTimeout(fallbackTimer);
+            target.innerHTML = markdownToHtml(text); // Ensure full text is shown
+            console.log("Speech finished, resolving turn.");
+            resolve();
+        };
+
+        utterance.onerror = (e) => {
+            console.warn('Speech synthesis error:', e);
+            clearInterval(abortCheck);
+            clearTimeout(fallbackTimer);
             target.innerHTML = markdownToHtml(text);
             resolve();
         };
+
+        // Start speech
+        window.speechSynthesis.speak(utterance);
     });
 }
 
