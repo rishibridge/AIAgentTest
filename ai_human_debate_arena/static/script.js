@@ -1642,7 +1642,8 @@ async function renderWithAudioSync(target, text, role, msgDiv) {
 
         // Real-time sync: reveal words as they're spoken
         utterance.onboundary = (event) => {
-            if (event.name === 'word' && debateState.active) {
+            // STRICT PAUSE CHECK: Do not update if paused!
+            if (event.name === 'word' && debateState.active && !debateState.paused) {
                 boundaryEventFired = true;
                 wordIndex++;
                 // Build displayed text from original (with formatting)

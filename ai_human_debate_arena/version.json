@@ -1,7 +1,16 @@
 {
-    "version": "1.41.1",
+    "version": "1.41.2",
     "date": "2026-02-08",
     "changelog": [
+        {
+            "version": "1.41.2",
+            "date": "2026-02-08",
+            "changes": [
+                "Fixed: Pause now halts mid-sentence typing immediately",
+                "Fixed: Speech now pauses/resumes instead of cancelling abruptly",
+                "Refined: Audio sync robustness during pause/resume cycles"
+            ]
+        },
         {
             "version": "1.41.1",
             "date": "2026-02-08",
@@ -18,25 +27,6 @@
                 "STOP button separate from PAUSE for clean termination",
                 "Visual pause overlay with round indicator",
                 "Graceful pause between turns (not mid-message)"
-            ]
-        },
-        {
-            "version": "1.40",
-            "date": "2026-02-08",
-            "changes": [
-                "Fixed: Audio stops when history modal closes or back button pressed",
-                "Fixed: History playback blocked during active debates",
-                "Added 8 automated tests for history audio playback"
-            ]
-        },
-        {
-            "version": "1.39",
-            "date": "2026-02-08",
-            "changes": [
-                "Enhanced audio controls: play, pause, resume, stop",
-                "Voice selector for history playback",
-                "Progress status display during playback",
-                "Text-only debates can now be played as audio"
             ]
         }
     ]
