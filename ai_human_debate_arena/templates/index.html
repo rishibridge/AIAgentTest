@@ -21,7 +21,8 @@
                 <button onclick="triggerChaos()" class="chaos-btnGlass" title="Random Hot Topic">🔥</button>
                 <input type="text" id="topic-input" class="inputGlass"
                     placeholder="What topic would you like to debate?" autocomplete="off">
-                <button onclick="handleDebateButton()" class="debate-btnGlass">DEBATE</button>
+                <button onclick="handleDebateButton()" id="debate-btn" class="debate-btnGlass">DEBATE</button>
+                <button onclick="stopDebate()" id="stop-btn" class="stop-btnGlass hidden" title="Stop Debate">⏹</button>
             </div>
 
             <div class="settings-controls">

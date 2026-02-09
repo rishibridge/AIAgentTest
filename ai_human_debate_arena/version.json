@@ -1,7 +1,17 @@
 {
-    "version": "1.40",
+    "version": "1.41",
     "date": "2026-02-08",
     "changelog": [
+        {
+            "version": "1.41",
+            "date": "2026-02-08",
+            "changes": [
+                "Pause/Resume for core debate: PAUSE button during debate",
+                "STOP button separate from PAUSE for clean termination",
+                "Visual pause overlay with round indicator",
+                "Graceful pause between turns (not mid-message)"
+            ]
+        },
         {
             "version": "1.40",
             "date": "2026-02-08",
@@ -28,15 +38,6 @@
                 "History audio playback: replay any saved debate with speech",
                 "Play button in history detail view with highlight tracking",
                 "Voice metadata saved with debates for accurate re-synthesis"
-            ]
-        },
-        {
-            "version": "1.37",
-            "date": "2026-02-08",
-            "changes": [
-                "Audio-synced typewriter: words now appear exactly as spoken",
-                "Uses SpeechSynthesis boundary events for true real-time sync",
-                "Fallback to WPM timing when audio disabled or unsupported"
             ]
         }
     ]

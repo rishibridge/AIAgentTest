@@ -70,7 +70,7 @@ test.describe('Debate Flows', () => {
         // Verify debate started:
         // 1. Button should say STOP
         const debateBtn = page.locator('.debate-btnGlass');
-        await expect(debateBtn).toHaveText('STOP');
+        await expect(debateBtn).toContainText('PAUSE');
 
         // 2. Scoreboard should be visible
         const scoreboard = page.locator('#score-container');
@@ -84,7 +84,7 @@ test.describe('Debate Flows', () => {
         expect(count).toBeGreaterThan(0);
 
         // Stop the debate for test speed
-        await page.click('.debate-btnGlass');
+        await page.click('#stop-btn');
 
         // Verify stopped
         await expect(debateBtn).toHaveText('DEBATE');
@@ -108,10 +108,10 @@ test.describe('Debate Flows', () => {
 
         // Verify debate running
         const debateBtn = page.locator('.debate-btnGlass');
-        await expect(debateBtn).toHaveText('STOP');
+        await expect(debateBtn).toContainText('PAUSE');
 
         // Click STOP
-        await page.click('.debate-btnGlass');
+        await page.click('#stop-btn');
 
         // Verify stopped
         await expect(debateBtn).toHaveText('DEBATE');
@@ -145,7 +145,7 @@ test.describe('Debate Flows', () => {
         await expect(fireBtn).toBeDisabled();
 
         // Stop and verify re-enabled
-        await page.click('.debate-btnGlass');
+        await page.click('#stop-btn');
         await page.waitForTimeout(1000);
 
         await expect(topicInput).toBeEnabled();
@@ -270,7 +270,7 @@ test.describe('Prediction Modal', () => {
         await expect(predictionModal).not.toBeVisible();
 
         // Cleanup - stop debate
-        await page.click('.debate-btnGlass');
+        await page.click('#stop-btn');
     });
 
 });
@@ -300,7 +300,69 @@ test.describe('Human Input Dock', () => {
         await expect(inputDock).toBeVisible();
 
         // Cleanup
-        await page.click('.debate-btnGlass');
+        await page.click('#stop-btn');
+    });
+
+});
+
+// ============================================
+// PAUSE/RESUME TESTS
+// ============================================
+
+test.describe('Debate Pause/Resume', () => {
+
+    test('@regression PAUSE-01: Pause button shows during active debate', async ({ page }) => {
+        await page.goto('/');
+
+        await page.click('.chaos-btnGlass');
+        await page.waitForTimeout(2000);
+        await page.click('#settings-modal button:has-text("Start")');
+
+        // Handle prediction modal
+        const predictionModal = page.locator('#prediction-modal');
+        if (await predictionModal.isVisible().catch(() => false)) {
+            await page.click('#prediction-modal >> text=Skip');
+        }
+
+        await page.waitForTimeout(2000);
+
+        // Verify button shows PAUSE
+        const debateBtn = page.locator('.debate-btnGlass');
+        await expect(debateBtn).toContainText('PAUSE');
+
+        // Cleanup
+        await page.click('#stop-btn');
+    });
+
+    test('@regression PAUSE-02: Stop button visible during debate', async ({ page }) => {
+        await page.goto('/');
+
+        await page.click('.chaos-btnGlass');
+        await page.waitForTimeout(2000);
+        await page.click('#settings-modal button:has-text("Start")');
+
+        // Handle prediction modal  
+        const predictionModal = page.locator('#prediction-modal');
+        if (await predictionModal.isVisible().catch(() => false)) {
+            await page.click('#prediction-modal >> text=Skip');
+        }
+
+        await page.waitForTimeout(2000);
+
+        // Stop button should be visible
+        const stopBtn = page.locator('#stop-btn');
+        await expect(stopBtn).toBeVisible();
+
+        // Cleanup
+        await stopBtn.click();
+    });
+
+    test('@regression PAUSE-03: Stop button hidden when idle', async ({ page }) => {
+        await page.goto('/');
+
+        // Stop button should be hidden when not debating
+        const stopBtn = page.locator('#stop-btn');
+        await expect(stopBtn).not.toBeVisible();
     });
 
 });

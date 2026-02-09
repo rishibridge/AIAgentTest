@@ -504,8 +504,10 @@ let debateState = {
     topic: "",
     config: {},
     active: false,
-    resolveHumanInput: null, // Function to resolve the Promise when human submits
-    resolveJudgeInput: null  // Function to resolve the Promise when human judge submits
+    paused: false,              // NEW: debate is paused
+    pauseResolve: null,         // NEW: resolves when resumed
+    resolveHumanInput: null,    // Function to resolve the Promise when human submits
+    resolveJudgeInput: null     // Function to resolve the Promise when human judge submits
 };
 
 // Enable/disable controls that can't change during an active debate
@@ -538,17 +540,107 @@ function setDebateControlsEnabled(enabled) {
     if (fireBtn) fireBtn.disabled = !enabled;
 }
 
-// Handle DEBATE/STOP button click - routes to correct function based on state
+// Handle DEBATE/PAUSE/RESUME button click - routes to correct function based on state
 function handleDebateButton() {
-    if (debateState.active || debateState.isDebating) {
-        stopDebate();
+    if (debateState.paused) {
+        resumeDebate();
+    } else if (debateState.active || debateState.isDebating) {
+        pauseDebate();
     } else {
         showSettings();
     }
 }
 
+// Update the main debate button text based on state
+function updateDebateButtonUI() {
+    const btn = document.querySelector('.debate-btnGlass');
+    const stopBtn = document.getElementById('stop-btn');
+    if (!btn) return;
+
+    if (debateState.paused) {
+        btn.textContent = '▶ RESUME';
+        btn.classList.add('paused');
+        if (stopBtn) stopBtn.classList.remove('hidden');
+    } else if (debateState.active) {
+        btn.textContent = '⏸ PAUSE';
+        btn.classList.remove('paused');
+        if (stopBtn) stopBtn.classList.remove('hidden');
+    } else {
+        btn.textContent = 'DEBATE';
+        btn.classList.remove('paused');
+        if (stopBtn) stopBtn.classList.add('hidden');
+    }
+}
+
+// Show/hide the pause overlay
+function setPauseOverlay(visible) {
+    let overlay = document.getElementById('pause-overlay');
+
+    if (visible) {
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'pause-overlay';
+            overlay.className = 'pause-overlay';
+            overlay.innerHTML = `
+                <div class="pause-indicator">
+                    <span class="pause-icon">⏸</span>
+                    <span class="pause-text">PAUSED</span>
+                    <span class="pause-round">Round ${debateState.round}</span>
+                </div>
+            `;
+            document.querySelector('.discussion-container').appendChild(overlay);
+        }
+        overlay.classList.add('visible');
+    } else if (overlay) {
+        overlay.classList.remove('visible');
+        setTimeout(() => overlay.remove(), 300);
+    }
+}
+
 // Global reference for aborting pending fetch requests
 let currentAbortController = null;
+
+// Pause the debate - waits at end of current message
+function pauseDebate() {
+    if (!debateState.active || debateState.paused) return;
+
+    console.log("Pausing debate...");
+    debateState.paused = true;
+
+    // Cancel current speech
+    window.speechSynthesis.cancel();
+    speechQueue = [];
+    isSpeaking = false;
+
+    // Update UI
+    updateDebateButtonUI();
+    setPauseOverlay(true);
+
+    // Hide human input if visible
+    setInputState('waiting');
+
+    console.log("Debate paused");
+}
+
+// Resume the debate from where we left off
+function resumeDebate() {
+    if (!debateState.active || !debateState.paused) return;
+
+    console.log("Resuming debate...");
+    debateState.paused = false;
+
+    // Resolve the pause promise to continue the loop
+    if (debateState.pauseResolve) {
+        debateState.pauseResolve();
+        debateState.pauseResolve = null;
+    }
+
+    // Update UI
+    updateDebateButtonUI();
+    setPauseOverlay(false);
+
+    console.log("Debate resumed");
+}
 
 function stopDebate() {
     console.log("Stopping debate...");
@@ -567,6 +659,13 @@ function stopDebate() {
     // Reset debate state
     debateState.active = false;
     debateState.isDebating = false;
+    debateState.paused = false;
+
+    // Resolve any pending pause promise
+    if (debateState.pauseResolve) {
+        debateState.pauseResolve();
+        debateState.pauseResolve = null;
+    }
 
     // Re-enable controls
     setDebateControlsEnabled(true);
@@ -578,6 +677,8 @@ function stopDebate() {
     // Cleanup UI
     removeLoadingMessages();
     setInputState('hidden');
+    setPauseOverlay(false);
+    updateDebateButtonUI();
 
     // Hide footer config
     const debateConfig = document.getElementById('debate-config');
@@ -653,10 +754,15 @@ async function startDebate() {
         topic: topic,
         config: config,
         active: true,
+        paused: false,              // Reset pause state
+        pauseResolve: null,         // Reset pause resolver
         resolveHumanInput: null,
         isDebating: true,
         score: 0 // Range: -10 (Skeptic) to +10 (Advocate)
     };
+
+    // Update button to show PAUSE mode
+    updateDebateButtonUI();
 
     // Dynamic Tagline
     const tagline = document.getElementById('tagline');
@@ -757,6 +863,17 @@ async function startDebate() {
     }
 }
 
+// Wait if debate is paused (returns a Promise that resolves when resumed)
+async function waitIfPaused() {
+    if (debateState.paused) {
+        console.log("Waiting for resume...");
+        await new Promise(resolve => {
+            debateState.pauseResolve = resolve;
+        });
+        console.log("Resumed from pause");
+    }
+}
+
 async function runDebateProtocol() {
     try {
         const { config } = debateState;
@@ -769,10 +886,14 @@ async function runDebateProtocol() {
         // Advocate Opening
         await executeTurn('advocate', true, false, false);
         await new Promise(r => setTimeout(r, 1500));
+        await waitIfPaused();  // Check for pause after each turn
+        if (!debateState.active) return;
 
         // Skeptic Opening
         await executeTurn('skeptic', true, false, false);
         await new Promise(r => setTimeout(r, 1500));
+        await waitIfPaused();  // Check for pause after each turn
+        if (!debateState.active) return;
 
         removeLoadingMessages();
 
@@ -781,13 +902,20 @@ async function runDebateProtocol() {
         debateState.round = 1;
 
         while (!debateEnded && debateState.round <= maxRounds && debateState.active) {
+            await waitIfPaused();  // Check for pause at start of each round
+            if (!debateState.active) return;
+
             // Advocate Turn - typewriter effect handles pacing
             await executeTurn('advocate', false, false, false);
             await new Promise(r => setTimeout(r, 500)); // Small buffer between turns
+            await waitIfPaused();  // Check for pause after advocate turn
+            if (!debateState.active) return;
 
             // Skeptic Turn - typewriter effect handles pacing
             await executeTurn('skeptic', false, false, false);
             await new Promise(r => setTimeout(r, 500)); // Small buffer between turns
+            await waitIfPaused();  // Check for pause after skeptic turn
+            if (!debateState.active) return;
 
             // Judge Evaluation - Human judges from round 1, AI from round 2
             const shouldJudge = config.judgeModel === 'human' || debateState.round >= 2;
