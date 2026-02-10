@@ -27,8 +27,10 @@
 
             <div class="settings-controls">
                 <div class="wpm-controlGlass" title="Reading Speed (WPM)">
+                    <span class="wpm-label">⚡ Type Speed:</span>
                     <button class="wpm-btn" onclick="adjustWPM(-25)">−</button>
                     <span id="wpm-display">250</span>
+                    <span class="wpm-unit">WPM</span>
                     <button class="wpm-btn" onclick="adjustWPM(25)">+</button>
                 </div>
             </div>
@@ -112,6 +114,7 @@
                     class="version-link">BETA v{{ version }}</a></span>
             <span id="debate-config" class="debate-config hidden"></span>
             <div class="footer-right">
+                <a href="#" onclick="showFlowSheet()" class="footer-link" id="flow-link">Flow</a>
                 <a href="#" onclick="showHistory()" class="footer-link">History</a>
                 <button onclick="showSettings()" id="settings-btn" class="settings-btn" title="Debate Settings">⚙️
                     Settings</button>
@@ -150,6 +153,7 @@
                         <select id="advocate-tone" class="settings-select">
                             <option value="casual">Casual</option>
                             <option value="scholar" selected>Scholar</option>
+                            <option value="pro">Pro 🏆</option>
                             <option value="simple">Simple</option>
                             <option value="witty">Witty</option>
                             <option value="ab-initio">Ab-Initio</option>
@@ -182,6 +186,7 @@
                         <select id="skeptic-tone" class="settings-select">
                             <option value="casual">Casual</option>
                             <option value="scholar" selected>Scholar</option>
+                            <option value="pro">Pro 🏆</option>
                             <option value="simple">Simple</option>
                             <option value="witty">Witty</option>
                             <option value="ab-initio">Ab-Initio</option>
@@ -212,6 +217,24 @@
                         </select>
                     </div>
                 </div>
+
+                <!-- Case Upload Section -->
+                <div class="case-upload-section">
+                    <div class="case-upload-header" onclick="toggleCaseSection()">
+                        <span>📄 Load Debate Case</span>
+                        <span id="case-toggle-icon" class="case-toggle-icon">▶</span>
+                    </div>
+                    <div id="case-upload-body" class="case-upload-body hidden">
+                        <textarea id="case-text" class="case-textarea"
+                            placeholder="Paste your debate case here (from Google Docs, Word, etc.)..."
+                            rows="6"></textarea>
+                        <div class="case-actions">
+                            <span id="case-char-count" class="case-char-count">0 chars</span>
+                            <button onclick="clearCaseText()" class="case-clear-btn">Clear</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="settings-topic" class="settings-topic hidden"></div>
                 <div class="settings-buttons">
                     <button onclick="closeSettings()" class="settings-cancel-btn">Cancel</button>
@@ -302,6 +325,24 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- Flow Sheet Modal -->
+    <div id="flow-modal" class="modal hidden">
+        <div class="modal-content glass-panel" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>📋 Flow Sheet</h2>
+                <button onclick="closeFlowSheet()" class="close-btn">&times;</button>
+            </div>
+            <div class="flow-sheet-actions">
+                <button onclick="copyFlowSheet()" class="flow-action-btn" id="flow-copy-btn">📋 Copy to
+                    Clipboard</button>
+                <button onclick="downloadFlowSheet()" class="flow-action-btn">💾 Download CSV</button>
+            </div>
+            <div class="flow-sheet-container" id="flow-sheet-container">
+                <p class="flow-empty">Start a debate to see the flow sheet.</p>
+            </div>
+        </div>
     </div>
 
     <!-- Changelog Modal -->

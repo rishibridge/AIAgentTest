@@ -198,6 +198,95 @@ test.describe('Settings Modal', () => {
         await expect(advocateModel.locator('option[value="human"]')).toBeAttached();
     });
 
+    test('@regression Pro style option exists in tone dropdowns', async ({ page }) => {
+        await page.goto('/');
+        await page.click('#settings-btn');
+
+        const advocateTone = page.locator('#advocate-tone');
+        await expect(advocateTone.locator('option[value="pro"]')).toBeAttached();
+
+        const skepticTone = page.locator('#skeptic-tone');
+        await expect(skepticTone.locator('option[value="pro"]')).toBeAttached();
+    });
+
+    test('@regression CASE-01: Case upload section exists in settings', async ({ page }) => {
+        await page.goto('/');
+        await page.click('#settings-btn');
+
+        await expect(page.locator('.case-upload-header')).toBeVisible();
+        // Body should be hidden initially (collapsed)
+        await expect(page.locator('#case-upload-body')).toHaveClass(/hidden/);
+    });
+
+    test('@regression CASE-02: Case textarea toggles open and closed', async ({ page }) => {
+        await page.goto('/');
+        await page.click('#settings-btn');
+
+        // Click to expand
+        await page.click('.case-upload-header');
+        await expect(page.locator('#case-upload-body')).not.toHaveClass(/hidden/);
+        await expect(page.locator('#case-text')).toBeVisible();
+
+        // Click to collapse
+        await page.click('.case-upload-header');
+        await expect(page.locator('#case-upload-body')).toHaveClass(/hidden/);
+    });
+
+    test('@regression CASE-03: Pasting text updates character count', async ({ page }) => {
+        await page.goto('/');
+        await page.click('#settings-btn');
+        await page.click('.case-upload-header');
+
+        await page.fill('#case-text', 'This is my debate case argument.');
+        // Trigger input event
+        await page.locator('#case-text').dispatchEvent('input');
+
+        const charCount = page.locator('#case-char-count');
+        await expect(charCount).not.toHaveText('0 chars');
+    });
+
+    test('@regression CASE-04: Clear button empties textarea', async ({ page }) => {
+        await page.goto('/');
+        await page.click('#settings-btn');
+        await page.click('.case-upload-header');
+
+        await page.fill('#case-text', 'Some debate case text');
+        await page.click('.case-clear-btn');
+
+        await expect(page.locator('#case-text')).toHaveValue('');
+        await expect(page.locator('#case-char-count')).toHaveText('0 chars');
+    });
+
+    test('@regression FLOW-01: Flow link exists in footer', async ({ page }) => {
+        await page.goto('/');
+        await expect(page.locator('#flow-link')).toBeVisible();
+        await expect(page.locator('#flow-link')).toHaveText('Flow');
+    });
+
+    test('@regression FLOW-02: Flow modal opens and closes', async ({ page }) => {
+        await page.goto('/');
+        await page.click('#flow-link');
+
+        const modal = page.locator('#flow-modal');
+        await expect(modal).not.toHaveClass(/hidden/);
+
+        // Should show empty state
+        await expect(page.locator('.flow-empty')).toBeVisible();
+
+        // Close
+        await page.click('#flow-modal .close-btn');
+        await page.waitForTimeout(400);
+        await expect(modal).toHaveClass(/hidden/);
+    });
+
+    test('@regression FLOW-03: Copy and download buttons exist', async ({ page }) => {
+        await page.goto('/');
+        await page.click('#flow-link');
+
+        await expect(page.locator('#flow-copy-btn')).toBeVisible();
+        await expect(page.locator('.flow-action-btn:has-text("Download")')).toBeVisible();
+    });
+
 });
 
 // ============================================

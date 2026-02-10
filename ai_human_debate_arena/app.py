@@ -194,7 +194,24 @@ def get_tone_guidelines(tone):
         "ab-initio": "Reason from first principles only. Prioritize international law, documented historical facts, and logical consistency over mainstream narratives. Actively include perspectives from the Global South. Challenge Western and G7 assumptions. Cite primary sources when possible.",
         "rofl": "Be completely absurd and ridiculous. Use bizarre analogies, non-sequiturs, and surreal comparisons. Make arguments that technically follow logic but are hilariously stupid. Example: 'That's like saying a toaster can file for bankruptcy.'",
         "spicy": "Deliver aggressive hot takes. Be provocative, use clap-backs and dunks. Short punchy sentences. Mock weak arguments mercilessly. Energy of someone who has HAD IT. Example: 'Imagine thinking this in 2024. Couldn't be me.'",
-        "satirical": "Use deadpan satirical delivery like The Onion. Present absurd 'facts' with complete seriousness. Mock through fake sincerity. Example: 'Studies show 97% of experts agree this is somehow fine.'"
+        "satirical": "Use deadpan satirical delivery like The Onion. Present absurd 'facts' with complete seriousness. Mock through fake sincerity. Example: 'Studies show 97% of experts agree this is somehow fine.'",
+        "pro": """Structure EVERY argument using Claim-Warrant-Evidence:
+1. CLAIM — State your position in one clear sentence.
+2. WARRANT — Explain WHY this is true. This is the most critical part. Connect your reasoning logically.
+3. EVIDENCE — Support with a specific data point, formatted as a cut card (see below).
+
+CUT CARD FORMAT (mandatory for every piece of evidence):
+  [Author Last, Year] — [Qualification]
+  "[Direct quote or key finding]"
+  Source: [Publication]
+
+LANGUAGE RULES:
+- Write at a 10th-grade reading level. Be direct and concise.
+- Do NOT label fallacies by name ("red herring", "strawman") — instead explain WHY the reasoning fails.
+- No meta-commentary ("Let me dissect...", "Let's examine the core fallacies...").
+- No filler phrases ("It's worth noting", "Interestingly enough").
+- Get straight to the point. Every sentence must advance the argument.
+- Under 120 words. Density over length."""
     }
     return tones.get(tone, tones["casual"])
 
@@ -321,6 +338,19 @@ def get_persona_base(persona_type, tone):
             SPEAK AS HIM: Incredulous. Asks leading questions. Frames opponent as absurd.
             Populist outrage. Short, punchy, confrontational. Makes the obvious seem scandalous.""",
             
+        "pro": """SPEAK IN THE STYLE OF: A NATIONAL CIRCUIT DEBATE CHAMPION
+            WHO: A top-ranked debater on the national high school circuit (TOC qualifier).
+            Trained in Lincoln-Douglas, Public Forum, and Policy debate formats.
+            WHERE THEY COME FROM: Years of competitive rounds, flowing arguments, cutting cards.
+            Judges love them because every word counts and every claim has backing.
+            HOW THEY THINK: Structured. Claim-Warrant-Evidence on every point.
+            Never asserts without explaining WHY. Never cites without proper card format.
+            Treats dropped arguments as concessions. Tracks the flow.
+            STYLE: Pro
+            SPEAK AS THEM: Clean, precise, no wasted words. Structure is visible.
+            Every argument has a clear tag line, a warrant, and a card.
+            No showmanship — just devastating logic delivered efficiently.""",
+            
         "satirical": """SPEAK IN THE STYLE OF: STEPHEN COLBERT (as "Stephen Colbert" from THE COLBERT REPORT, 2005-2014)
             WHO: The CHARACTER, not the man. Right-wing pundit parody. "Truthiness" inventor.
             Roasted George W. Bush at White House Correspondents Dinner in character.
@@ -339,7 +369,7 @@ def get_persona_base(persona_type, tone):
     else:
         return tone_personas.get(tone, tone_personas["casual"])
 
-def get_llm_turn(persona_type, topic, role_data, conversation_history, category, tone="casual", is_final=False, is_reaction=False, is_evaluation=False, is_opening=False, model_provider="gemini"):
+def get_llm_turn(persona_type, topic, role_data, conversation_history, category, tone="casual", is_final=False, is_reaction=False, is_evaluation=False, is_opening=False, model_provider="gemini", case_text=""):
     """Generate a debate turn using the specified model provider (gemini or deepseek)"""
     
     domain_guidelines = {
@@ -388,6 +418,12 @@ def get_llm_turn(persona_type, topic, role_data, conversation_history, category,
         You MUST end your response with a score shift for the Advocate.
         Format: || SCORE_DELTA: [number from -5 to +5]
         +5 = Advocate crushed it. +3 = Strong point. +1 = Slight edge. 0 = Even. Negatives for Skeptic.
+        
+        FALLACY FLAGGING (when applicable):
+        If either side used flawed reasoning, briefly call it out in your commentary.
+        Do NOT just label it ("strawman", "red herring") — explain WHY the reasoning fails.
+        Example: "The Advocate claimed X proves Y, but X only shows correlation, not causation."
+        Only flag fallacies that actually weaken the argument. Don't nitpick.
         
         Example Output:
         "The Skeptic made a compelling point about economic impact that the Advocate failed to address. Continue. || SCORE_DELTA: -2"
@@ -500,6 +536,9 @@ def get_llm_turn(persona_type, topic, role_data, conversation_history, category,
     RESEARCH DATA (Use for current context, but rely PRIMARILY on your deep pre-trained expertise):
     {role_data}
     
+    {f"""📄 USER DEBATE CASE (The user has provided their prepared debate case below. Use it as your PRIMARY source material — argue from or against its specific claims and evidence):
+    {case_text}
+    """ if case_text else ""}
     COMPACT HISTORY:
     {conversation_history}
     
@@ -696,6 +735,9 @@ def generate_turn():
         "judge": "judge"
     }
     
+    # Case text (user's pasted debate case)
+    case_text = data.get('case_text', '')
+    
     response_text = get_llm_turn(
         persona_type=persona_map.get(role, "judge"),
         topic=topic,
@@ -706,7 +748,8 @@ def generate_turn():
         is_opening=is_opening,
         is_final=is_final,
         is_evaluation=is_evaluation,
-        model_provider=model_provider
+        model_provider=model_provider,
+        case_text=case_text
     )
     
     return json.dumps({
@@ -896,6 +939,14 @@ def debate():
         yield json.dumps({"role": "judge", "state": "online", "text": "Session closed.", "round": "SYSTEM"}) + "\n"
 
     return Response(generate(), mimetype='application/x-ndjson')
+
+@app.route('/_dev/mobile')
+def mobile_concepts():
+    return render_template('mobile_concepts.html')
+
+@app.route('/_dev/mobile_zen')
+def mobile_zen():
+    return render_template('mobile_zen.html')
 
 if __name__ == '__main__':
     # Cloud Run provides the port in the PORT environment variable

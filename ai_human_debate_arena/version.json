@@ -1,7 +1,16 @@
 {
-    "version": "1.41.4",
-    "date": "2026-02-08",
+    "version": "1.42.0",
+    "date": "2026-02-10",
     "changelog": [
+        {
+            "version": "1.42.0",
+            "date": "2026-02-10",
+            "changes": [
+                "Feature: Case Upload (Settings -> Load Debate Case)",
+                "Feature: Fallacy Flagging (Judge now explains logical errors)",
+                "Reverted: Experimental UI changes (Onboarding, Flow Sheet, Citation Formatting)"
+            ]
+        },
         {
             "version": "1.41.4",
             "date": "2026-02-08",

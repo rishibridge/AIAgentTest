@@ -1,6 +1,6 @@
 flask
 google-genai
-playwright
 python-dotenv
 gunicorn
 openai
+playwright

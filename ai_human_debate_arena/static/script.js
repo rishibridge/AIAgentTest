@@ -1,5 +1,6 @@
 // Speech synthesis state
 let soundEnabled = false;
+let currentFlowHistory = null; // For viewing flow from history
 let speechQueue = [];
 let isSpeaking = false;
 let voices = [];
@@ -722,7 +723,8 @@ async function startDebate() {
         skepticTone: document.getElementById('skeptic-tone').value,
         advocateModel: document.getElementById('advocate-model').value,
         skepticModel: document.getElementById('skeptic-model').value,
-        judgeModel: document.getElementById('judge-model').value
+        judgeModel: document.getElementById('judge-model').value,
+        caseText: (document.getElementById('case-text')?.value || '').trim()
     };
 
     // UI Setup
@@ -1112,7 +1114,8 @@ async function executeTurn(role, isOpening, isFinal, isEvaluation) {
             tone: tone,
             is_opening: isOpening,
             is_final: isFinal,
-            is_evaluation: isEvaluation
+            is_evaluation: isEvaluation,
+            case_text: debateState.config.caseText || ''
         };
 
         const res = await fetch('/api/turn', {
@@ -2259,6 +2262,23 @@ function viewTranscript(index) {
         item.winner === 'skeptic' ? '🔴 Skeptic Wins' : '⚖️ Draw';
     metaEl.textContent = `${winnerText} • ${item.date || ''}`;
 
+    // Add View Flow Button
+    const flowBtn = document.createElement('button');
+    flowBtn.className = 'history-flow-btn';
+    flowBtn.innerHTML = '📋 View Flow';
+    flowBtn.onclick = (e) => {
+        e.stopPropagation();
+        // Extract transcript in format compatible with parseHistoryToFlow
+        // item.transcript is already ["Role: text", ...]
+        showFlowSheet(item.transcript);
+    };
+
+    // Check if button already exists to prevent duplicates
+    const existingBtn = document.querySelector('.history-flow-btn');
+    if (existingBtn) existingBtn.remove();
+
+
+
     // Render transcript with rich styling
     container.innerHTML = '';
 
@@ -2536,6 +2556,181 @@ function confirmAndStartDebate() {
     closeSettings();
     pendingDebateTopic = null;
     startDebate();
+}
+
+// ============================================
+// CASE UPLOAD FUNCTIONS
+// ============================================
+
+function toggleCaseSection() {
+    const body = document.getElementById('case-upload-body');
+    const icon = document.getElementById('case-toggle-icon');
+    if (body.classList.contains('hidden')) {
+        body.classList.remove('hidden');
+        icon.classList.add('open');
+    } else {
+        body.classList.add('hidden');
+        icon.classList.remove('open');
+    }
+}
+
+function clearCaseText() {
+    const textarea = document.getElementById('case-text');
+    textarea.value = '';
+    document.getElementById('case-char-count').textContent = '0 chars';
+}
+
+// Character count listener
+document.addEventListener('DOMContentLoaded', () => {
+    const caseTextarea = document.getElementById('case-text');
+    if (caseTextarea) {
+        caseTextarea.addEventListener('input', () => {
+            const len = caseTextarea.value.length;
+            document.getElementById('case-char-count').textContent =
+                len > 1000 ? `${(len / 1000).toFixed(1)}k chars` : `${len} chars`;
+        });
+    }
+});
+
+// ============================================
+// FLOW SHEET FUNCTIONS
+// ============================================
+
+function showFlowSheet() {
+    const modal = document.getElementById('flow-modal');
+    const container = document.getElementById('flow-sheet-container');
+
+    // Parse history into rows
+    const rows = parseHistoryToFlow();
+
+    if (rows.length === 0) {
+        container.innerHTML = '<p class="flow-empty">Start a debate to see the flow sheet.</p>';
+    } else {
+        container.innerHTML = renderFlowTable(rows);
+    }
+
+    modal.classList.remove('hidden');
+    setTimeout(() => modal.classList.add('visible'), 10);
+}
+
+function closeFlowSheet() {
+    const modal = document.getElementById('flow-modal');
+    modal.classList.remove('visible');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 300);
+}
+
+function parseHistoryToFlow() {
+    const history = debateState.history || [];
+    if (history.length === 0) return [];
+
+    const rows = [];
+    let currentRow = { round: 'Opening', for: '', against: '', judge: '' };
+    let roundNum = 0;
+
+    for (const entry of history) {
+        const colonIdx = entry.indexOf(':');
+        if (colonIdx === -1) continue;
+
+        const role = entry.substring(0, colonIdx).trim().toLowerCase();
+        const text = entry.substring(colonIdx + 1).trim();
+
+        // Clean score delta from judge text
+        const cleanText = text.replace(/\|\| SCORE_DELTA:\s*-?\d+/g, '').trim();
+
+        if (role === 'advocate') {
+            if (currentRow.for && currentRow.against) {
+                // Previous row is full, start new one
+                rows.push(currentRow);
+                roundNum++;
+                currentRow = { round: `Round ${roundNum}`, for: '', against: '', judge: '' };
+            }
+            currentRow.for = cleanText;
+        } else if (role === 'skeptic') {
+            currentRow.against = cleanText;
+        } else if (role === 'judge') {
+            currentRow.judge = cleanText;
+            rows.push(currentRow);
+            roundNum++;
+            currentRow = { round: `Round ${roundNum}`, for: '', against: '', judge: '' };
+        }
+    }
+
+    // Push last row if it has content
+    if (currentRow.for || currentRow.against || currentRow.judge) {
+        rows.push(currentRow);
+    }
+
+    return rows;
+}
+
+function renderFlowTable(rows) {
+    let html = `<table class="flow-table">
+        <thead><tr>
+            <th>Round</th>
+            <th class="col-for">🟢 FOR</th>
+            <th class="col-against">🔴 AGAINST</th>
+            <th class="col-judge">⚖️ Judge</th>
+        </tr></thead><tbody>`;
+
+    for (const row of rows) {
+        html += `<tr>
+            <td class="round-cell">${row.round}</td>
+            <td>${truncate(row.for, 200)}</td>
+            <td>${truncate(row.against, 200)}</td>
+            <td>${truncate(row.judge, 150)}</td>
+        </tr>`;
+    }
+
+    html += '</tbody></table>';
+    return html;
+}
+
+function truncate(text, maxLen) {
+    if (!text) return '—';
+    if (text.length <= maxLen) return escapeHtml(text);
+    return escapeHtml(text.substring(0, maxLen)) + '…';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function copyFlowSheet() {
+    const rows = parseHistoryToFlow();
+    if (rows.length === 0) return;
+
+    let tsv = 'Round\tFOR\tAGAINST\tJudge\n';
+    for (const row of rows) {
+        tsv += `${row.round}\t${row.for || ''}\t${row.against || ''}\t${row.judge || ''}\n`;
+    }
+
+    navigator.clipboard.writeText(tsv).then(() => {
+        const btn = document.getElementById('flow-copy-btn');
+        btn.textContent = '✅ Copied!';
+        setTimeout(() => btn.textContent = '📋 Copy to Clipboard', 2000);
+    });
+}
+
+function downloadFlowSheet() {
+    const rows = parseHistoryToFlow();
+    if (rows.length === 0) return;
+
+    let csv = '"Round","FOR","AGAINST","Judge"\n';
+    for (const row of rows) {
+        csv += `"${row.round}","${(row.for || '').replace(/"/g, '""')}","${(row.against || '').replace(/"/g, '""')}","${(row.judge || '').replace(/"/g, '""')}"\n`;
+    }
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `flow_sheet_${debateState.topic || 'debate'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
 }
 
 // Update tagline when model dropdowns change

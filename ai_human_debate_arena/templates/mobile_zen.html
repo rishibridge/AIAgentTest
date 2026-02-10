@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Voice First + RSVP</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --advocate-hue: 150;
+            --skeptic-hue: 340;
+        }
+
+        body {
+            margin: 0;
+            background: #000;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- AMBIENT VOICE ORB (Gemini / Siri Style) --- */
+        .orb-container {
+            position: absolute;
+            bottom: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0.8;
+            transition: all 0.5s;
+            cursor: pointer;
+            /* Interaction hint */
+        }
+
+        .orb {
+            width: 60px;
+            height: 60px;
+            border-radius: 30px;
+            background: #fff;
+            /* Default state */
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            animation: pulse-idle 2s infinite ease-in-out;
+        }
+
+        .orb.listening {
+            width: 80px;
+            height: 80px;
+            border-radius: 40px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            box-shadow: 0 0 50px rgba(139, 92, 246, 0.6);
+            animation: pulse-listening 1s infinite alternate;
+        }
+
+        /* Speaker Colors */
+        body.advocate .orb {
+            background: #34d399;
+            box-shadow: 0 0 60px rgba(52, 211, 153, 0.6);
+            width: 70px;
+            height: 70px;
+        }
+
+        body.skeptic .orb {
+            background: #f43f5e;
+            box-shadow: 0 0 60px rgba(244, 63, 94, 0.6);
+            width: 70px;
+            height: 70px;
+        }
+
+        @keyframes pulse-idle {
+            0% {
+                transform: scale(1);
+                opacity: 0.5;
+            }
+
+            50% {
+                transform: scale(1.1);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 0.5;
+            }
+        }
+
+        @keyframes pulse-listening {
+            0% {
+                transform: scale(1);
+            }
+
+            100% {
+                transform: scale(1.2);
+            }
+        }
+
+        /* --- RSVP READER (Spritz Style) --- */
+        .rsvp-container {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            text-align: center;
+            z-index: 10;
+        }
+
+        .rsvp-word {
+            font-size: 3.5rem;
+            font-weight: 700;
+            letter-spacing: -1px;
+            color: #fff;
+            white-space: nowrap;
+            display: inline-block;
+        }
+
+        /* Speaker Label */
+        .speaker-label {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: rgba(255, 255, 255, 0.5);
+            transition: color 0.3s;
+        }
+
+        body.advocate .speaker-label {
+            color: #34d399;
+        }
+
+        body.skeptic .speaker-label {
+            color: #f43f5e;
+        }
+
+
+        /* --- CONTROLS --- */
+        .controls {
+            position: absolute;
+            bottom: 40px;
+            display: flex;
+            gap: 20px;
+            z-index: 20;
+        }
+
+        .btn-minimal {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.8);
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.2s;
+        }
+
+        .btn-minimal:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+
+<body class="advocate" onclick="togglePlay()">
+
+    <!-- SETTINGS HEADER (Minimal) -->
+    <div style="position: fixed; top: 20px; right: 20px; z-index: 50; cursor: pointer;"
+        onclick="event.stopPropagation(); toggleSettings()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+            </path>
+        </svg>
+    </div>
+
+    <!-- SETTINGS SHEET (Bottom Sheet) -->
+    <div id="settings-sheet"
+        style="position: fixed; bottom: -100%; left: 0; width: 100%; background: #1a1a1a; padding: 30px; border-top-left-radius: 30px; border-top-right-radius: 30px; transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 60; border-top: 1px solid #333; box-shadow: 0 -10px 40px rgba(0,0,0,0.5);">
+        <h3 style="margin-top:0; color:#fff; margin-bottom: 20px;">Configuration</h3>
+
+        <div style="margin-bottom: 20px;">
+            <label
+                style="color: #888; font-size: 0.7rem; font-weight:bold; letter-spacing:1px; display: block; margin-bottom: 10px;">TOPIC</label>
+            <input type="text" value="Universal Basic Income"
+                style="width: 100%; border: 1px solid #444; background: #222; color: white; padding: 12px; border-radius: 12px; font-family:'Inter'; outline:none;">
+        </div>
+
+        <div style="display: flex; gap: 20px; margin-bottom: 30px;">
+            <div style="flex:1">
+                <label
+                    style="color: #888; font-size: 0.7rem; font-weight:bold; letter-spacing:1px; display: block; margin-bottom: 10px;">ADVOCATE</label>
+                <div
+                    style="padding: 12px; background: #222; border: 1px solid #34d399; border-radius: 12px; color: #34d399; font-weight:bold; text-align:center;">
+                    Gemini Pro</div>
+            </div>
+            <div style="flex:1">
+                <label
+                    style="color: #888; font-size: 0.7rem; font-weight:bold; letter-spacing:1px; display: block; margin-bottom: 10px;">SKEPTIC</label>
+                <div
+                    style="padding: 12px; background: #222; border: 1px solid #f43f5e; border-radius: 12px; color: #f43f5e; font-weight:bold; text-align:center;">
+                    DeepSeek V3</div>
+            </div>
+        </div>
+
+        <button onclick="toggleSettings()"
+            style="width: 100%; padding: 16px; background: #fff; border: none; border-radius: 16px; font-weight: bold; font-size:1rem; cursor: pointer;">Apply
+            Changes</button>
+    </div>
+
+    <!-- Dimmer for settings -->
+    <div id="dimmer" onclick="toggleSettings()"
+        style="position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); backdrop-filter:blur(5px); z-index: 55; opacity: 0; pointer-events: none; transition: opacity 0.4s;">
+    </div>
+
+
+    <!-- RSVP Reader -->
+    <div class="rsvp-container">
+        <!-- GUIDES (Optional lines for focus) -->
+        <div style="width: 200px; height: 2px; background: #333; margin: 0 auto 10px auto;"></div>
+        <div style="width: 200px; height: 2px; background: #333; margin: 10px auto 0 auto;"></div>
+
+        <div class="rsvp-word" id="word-display">Focus</div>
+
+        <div class="speaker-label" id="speaker-label">ADVOCATE</div>
+    </div>
+
+    <!-- Voice Orb -->
+    <div class="orb-container" id="orb-container">
+        <div class="orb" id="orb"></div>
+    </div>
+
+    <!-- Hint -->
+    <div style="position: absolute; bottom: 100px; opacity: 0.3; font-size: 0.8rem; letter-spacing:1px;">
+        TAP ORB TO SPEAK • TAP BG TO PAUSE
+    </div>
+
+    <!-- WPM Control -->
+    <div class="controls">
+        <button class="btn-minimal" onclick="changeSpeed(-50); event.stopPropagation()">Slower</button>
+        <button class="btn-minimal" id="wpm-display" style="border:none; background:transparent;">400 WPM</button>
+        <button class="btn-minimal" onclick="changeSpeed(50); event.stopPropagation()">Faster</button>
+    </div>
+
+    <script>
+        // RSVP LOGIC
+        const textFlow = [
+            { role: "advocate", text: "Universal Basic Income is an acknowledgement of human dignity in the age of machines." },
+            { role: "skeptic", text: "Dignity is forged in contribution, not consumption. A stipend is a sedative." },
+            { role: "advocate", text: "That is a cynical view from the industrial age. We are entering the age of abundance." },
+            { role: "skeptic", text: "Abundance without purpose leads to nihilism. Look at the data." }
+        ];
+
+        let wpm = 400; // Reader Speed
+        let isPlaying = true;
+        let isHumanTurn = false;
+
+        // Pointers
+        let turnIndex = 0;
+        let wordIndex = 0;
+        let words = [];
+        let currentRole = "advocate";
+        let timer = null;
+
+        function loadTurn() {
+            const turn = textFlow[turnIndex % textFlow.length];
+            currentRole = turn.role;
+            words = turn.text.split(" ");
+            wordIndex = 0;
+
+            // Update UI for Role
+            document.body.className = currentRole;
+            document.getElementById('speaker-label').innerText = currentRole.toUpperCase();
+        }
+
+        function playWord() {
+            if (!isPlaying || isHumanTurn) return;
+
+            if (wordIndex >= words.length) {
+                // End of turn, pause briefly then next turn
+                turnIndex++;
+                loadTurn();
+                // Pause for 600ms between turns for "breath"
+                clearInterval(timer);
+                setTimeout(() => {
+                    startTimer();
+                }, 600);
+                return;
+            }
+
+            const rawWord = words[wordIndex];
+
+            document.getElementById('word-display').innerHTML = rawWord;
+
+            wordIndex++;
+        }
+
+        function startTimer() {
+            if (timer) clearInterval(timer);
+            const msPerWord = 60000 / wpm;
+            timer = setInterval(playWord, msPerWord);
+        }
+
+        function togglePlay() {
+            if (isHumanTurn) return;
+
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                startTimer();
+                document.getElementById('orb').style.opacity = 1;
+                document.getElementById('word-display').style.opacity = 1;
+            } else {
+                clearInterval(timer);
+                document.getElementById('orb').style.opacity = 0.2;
+                document.getElementById('word-display').innerText = "PAUSED";
+            }
+        }
+
+        function changeSpeed(delta) {
+            wpm += delta;
+            if (wpm < 100) wpm = 100;
+            if (wpm > 1000) wpm = 1000;
+            document.getElementById('wpm-display').innerText = wpm + " WPM";
+            if (isPlaying) startTimer();
+        }
+
+        // --- ORB INTERACTION (Human Mode) ---
+        const orbContainer = document.getElementById('orb-container');
+
+        orbContainer.onclick = (e) => {
+            e.stopPropagation(); // Prevent body click toggle
+            startHumanTurn();
+        };
+
+        function startHumanTurn() {
+            if (isHumanTurn) return;
+
+            console.log("Starting Human Turn");
+            isHumanTurn = true;
+            isPlaying = false;
+            clearInterval(timer);
+
+            // Visuals
+            document.body.className = ""; // Neutral body color
+            document.getElementById('speaker-label').innerText = "LISTENING...";
+            document.getElementById('word-display').style.opacity = 0.3; // Dim text
+
+            const orb = document.getElementById('orb');
+            orb.classList.add('listening'); // Pulse Check
+            orb.style.opacity = 1;
+
+            // Simulate AI Listening...
+            setTimeout(() => {
+                // Simulate Human Finished
+                endHumanTurn();
+            }, 3000);
+        }
+
+        function endHumanTurn() {
+            isHumanTurn = false;
+            document.getElementById('orb').classList.remove('listening');
+
+            // Resume Debate
+            isPlaying = true;
+            // Maybe skip to response after human turn
+            turnIndex++;
+            loadTurn();
+            startTimer();
+            document.getElementById('word-display').style.opacity = 1;
+        }
+
+        // --- SETTINGS ---
+        function toggleSettings() {
+            const sheet = document.getElementById('settings-sheet');
+            const dim = document.getElementById('dimmer');
+            if (sheet.style.bottom === "0px") {
+                sheet.style.bottom = "-100%";
+                dim.style.opacity = "0";
+                dim.style.pointerEvents = "none";
+                if (!isPlaying) togglePlay(); // Resume on close? Optional
+            } else {
+                sheet.style.bottom = "0px";
+                dim.style.opacity = "1";
+                dim.style.pointerEvents = "all";
+                if (isPlaying) togglePlay(); // Pause on open
+            }
+        }
+
+        // Init
+        loadTurn();
+        startTimer();
+
+    </script>
+</body>
+
+</html>

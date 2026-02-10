@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Design Concepts</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --advocate: #34d399;
+            --skeptic: #f43f5e;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        body {
+            margin: 0;
+            background: #000;
+            font-family: 'Inter', sans-serif;
+            color: var(--text-main);
+            overflow: hidden;
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Concept Switcher */
+        .switcher {
+            width: 200px;
+            background: #111;
+            border-right: 1px solid #333;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .switcher button {
+            padding: 15px;
+            background: #222;
+            border: 1px solid #444;
+            color: white;
+            cursor: pointer;
+            text-align: left;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .switcher button.active {
+            background: var(--advocate);
+            color: #000;
+            font-weight: bold;
+            border-color: var(--advocate);
+        }
+
+        /* Device Frame */
+        .preview-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            background-image: radial-gradient(#222 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .phone-frame {
+            width: 375px;
+            height: 812px;
+            background: var(--bg-dark);
+            border: 12px solid #333;
+            border-radius: 40px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            display: none;
+            /* Toggled via JS */
+        }
+
+        .phone-frame.visible {
+            display: block;
+        }
+
+        /* --- CONCEPT 1: THE FEED (Chat Style) --- */
+        #c1 .c1-header {
+            height: 60px;
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            border-bottom: 1px solid #333;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        #c1 .score-pill {
+            background: #000;
+            border-radius: 20px;
+            padding: 5px 15px;
+            font-size: 0.8rem;
+            display: flex;
+            gap: 10px;
+        }
+
+        #c1 .feed-content {
+            padding: 20px;
+            overflow-y: auto;
+            height: calc(100% - 140px);
+            padding-bottom: 100px;
+        }
+
+        #c1 .msg {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        #c1 .msg.right {
+            flex-direction: row-reverse;
+        }
+
+        #c1 .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 20px;
+            background: #333;
+            flex-shrink: 0;
+        }
+
+        #c1 .bubble {
+            background: var(--bg-card);
+            padding: 12px 16px;
+            border-radius: 18px;
+            border-top-left-radius: 4px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            max-width: 80%;
+        }
+
+        #c1 .msg.right .bubble {
+            background: #3f1a20;
+            /* Dark Red tint */
+            border-radius: 18px;
+            border-top-right-radius: 4px;
+            color: #ffddd7;
+        }
+
+        #c1 .c1-footer {
+            height: 80px;
+            background: var(--bg-card);
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            border-top: 1px solid #333;
+        }
+
+        #c1 .action-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 25px;
+            background: var(--advocate);
+            border: none;
+            color: #000;
+            font-size: 1.2rem;
+        }
+
+        /* --- CONCEPT 2: THE FACE-OFF (Split Screen) --- */
+        #c2 {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        #c2 .avatars-area {
+            height: 35%;
+            display: flex;
+            border-bottom: 2px solid var(--advocate);
+            /* Active speaker color */
+        }
+
+        #c2 .avatar-split {
+            flex: 1;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        #c2 .avatar-split.left {
+            background-image: url('/static/avatars/advocate_default.png');
+            /* Placeholder */
+            background-color: #1a4d3a;
+        }
+
+        #c2 .avatar-split.right {
+            background-image: url('/static/avatars/skeptic_default.png');
+            background-color: #4a1a20;
+            filter: grayscale(0.8) brightness(0.5);
+            /* Inactive style */
+        }
+
+        #c2 .meta-overlay {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+
+        #c2 .transcript-area {
+            flex: 1;
+            background: var(--bg-dark);
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        #c2 .current-word {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--advocate);
+        }
+
+        #c2 .history-text {
+            color: var(--text-muted);
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+
+        #c2 .controls-overlay {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* --- CONCEPT 3: THE FOCUS (Card Stack) --- */
+        #c3 {
+            background: linear-gradient(160deg, #1a4d3a 0%, #000 60%);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        #c3 .card-stack {
+            width: 300px;
+            height: 480px;
+            position: relative;
+        }
+
+        #c3 .card {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 24px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+
+        #c3 .card-avatar {
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 80px;
+            border-radius: 40px;
+            background: #333;
+            border: 4px solid var(--bg-dark);
+        }
+
+        #c3 .big-text {
+            font-size: 1.5rem;
+            font-weight: 600;
+            line-height: 1.4;
+            color: #fff;
+            margin-bottom: 20px;
+        }
+
+        #c3 .swipe-hint {
+            position: absolute;
+            bottom: 40px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 40px;
+            font-size: 0.8rem;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="switcher">
+        <h3 style="color: #666; font-size: 0.8rem; text-transform: uppercase;">Design Options</h3>
+        <button onclick="show('1')" class="active">1. The Feed (Social)</button>
+        <button onclick="show('2')">2. The Face-Off (Split)</button>
+        <button onclick="show('3')">3. The Focus (Cards)</button>
+    </div>
+
+    <div class="preview-area">
+
+        <!-- CONCEPT 1 -->
+        <div id="frame-1" class="phone-frame visible">
+            <div id="c1">
+                <div class="c1-header">
+                    <div style="font-weight:800;">DEBATE<span style="color:var(--advocate)">AI</span></div>
+                    <div class="score-pill">
+                        <span style="color:var(--advocate)">12</span>
+                        <span style="color:#666">|</span>
+                        <span style="color:var(--skeptic)">10</span>
+                    </div>
+                </div>
+                <div class="feed-content">
+                    <div style="text-align: center; color: #666; font-size: 0.75rem; margin: 20px 0;">Round 1 Started
+                    </div>
+
+                    <div class="msg">
+                        <div class="avatar" style="background-color: var(--advocate)"></div>
+                        <div class="bubble">
+                            Universal Basic Income is not just an economic policy; it is a fundamental acknowledgment of
+                            human dignity in the age of automation.
+                        </div>
+                    </div>
+
+                    <div class="msg right">
+                        <div class="avatar" style="background-color: var(--skeptic)"></div>
+                        <div class="bubble">
+                            Dignity comes from contribution, not handouts. If you disconnect income from work, you risk
+                            creating a permanent dependency class.
+                        </div>
+                    </div>
+
+                    <div class="msg">
+                        <div class="avatar" style="background-color: var(--advocate)"></div>
+                        <div class="bubble">
+                            That's a cynical view. When people are freed from survival anxiety...
+                            <span class="cursor">|</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="c1-footer">
+                    <button class="action-btn" style="background:#222; color:#fff;">⏸</button>
+                    <button class="action-btn"
+                        style="width:120px; border-radius:30px; font-size:0.9rem; font-weight:bold;">Interject</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONCEPT 2 -->
+        <div id="frame-2" class="phone-frame">
+            <div id="c2">
+                <div class="avatars-area">
+                    <div class="avatar-split left">
+                        <div class="meta-overlay">FOR</div>
+                    </div>
+                    <div class="avatar-split right">
+                        <div class="meta-overlay">AGAINST</div>
+                    </div>
+                </div>
+                <div class="transcript-area">
+                    <div
+                        style="color: var(--advocate); font-size: 0.8rem; margin-bottom: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
+                        Advocate is speaking...</div>
+                    <div style="line-height: 1.5;">
+                        <span class="history-text">We must look beyond the traditional models of scarcity. </span>
+                        <span class="current-word">Automation</span> <span class="current-word">provides</span> <span
+                            class="current-word">abundance</span>...
+                    </div>
+                </div>
+                <div class="controls-overlay">
+                    <button
+                        style="width:50px; height:50px; border-radius:25px; background:rgba(0,0,0,0.6); backdrop-filter:blur(5px); border:1px solid #fff; color:white;">⏸</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONCEPT 3 -->
+        <div id="frame-3" class="phone-frame">
+            <div id="c3">
+                <div style="position: absolute; top: 40px; text-align: center;">
+                    <div style="font-size: 0.8rem; color: rgba(255,255,255,0.6); text-transform: uppercase;">Current
+                        Topic</div>
+                    <div style="font-weight: 800;">Is AI Dangerous?</div>
+                </div>
+
+                <div class="card-stack">
+                    <!-- Background card -->
+                    <div class="card" style="transform: scale(0.9) translateY(20px); opacity: 0.5; z-index: 1;"></div>
+
+                    <!-- Active card -->
+                    <div class="card" style="z-index: 2;">
+                        <div class="card-avatar" style="background-color: var(--advocate)"></div>
+                        <div style="flex:1"></div>
+                        <div class="big-text">
+                            "The alignment problem isn't unsolvable. We just need to define 'human values'
+                            mathematically."
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 20px; height: 3px; background: var(--advocate);"></div>
+                            <div style="color: var(--advocate); font-size: 0.8rem; font-weight: bold;">ADVOCATE</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="swipe-hint">
+                    <span>← Disagree</span>
+                    <span>Agree →</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function show(id) {
+            // Update buttons
+            document.querySelectorAll('.switcher button').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Update frames
+            document.querySelectorAll('.phone-frame').forEach(f => f.classList.remove('visible'));
+            document.getElementById('frame-' + id).classList.add('visible');
+        }
+    </script>
+</body>
+
+</html>
