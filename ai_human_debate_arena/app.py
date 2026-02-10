@@ -536,7 +536,7 @@ def get_llm_turn(persona_type, topic, role_data, conversation_history, category,
     RESEARCH DATA (Use for current context, but rely PRIMARILY on your deep pre-trained expertise):
     {role_data}
     
-    {f"""📄 USER DEBATE CASE (The user has provided their prepared debate case below. Use it as your PRIMARY source material — argue from or against its specific claims and evidence):
+    {f"""USER DEBATE CASE (The user has provided their prepared debate case below. Use it as your PRIMARY source material - argue from or against its specific claims and evidence):
     {case_text}
     """ if case_text else ""}
     COMPACT HISTORY:
