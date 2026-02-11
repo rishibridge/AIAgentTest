@@ -209,7 +209,8 @@ test.describe('Settings Modal', () => {
         await expect(skepticTone.locator('option[value="pro"]')).toBeAttached();
     });
 
-    test('@regression CASE-01: Case upload section exists in settings', async ({ page }) => {
+    // CASE tests skipped — feature hidden pending redesign
+    test.skip('@regression CASE-01: Case upload section exists in settings', async ({ page }) => {
         await page.goto('/');
         await page.click('#settings-btn');
 
@@ -218,7 +219,7 @@ test.describe('Settings Modal', () => {
         await expect(page.locator('#case-upload-body')).toHaveClass(/hidden/);
     });
 
-    test('@regression CASE-02: Case textarea toggles open and closed', async ({ page }) => {
+    test.skip('@regression CASE-02: Case textarea toggles open and closed', async ({ page }) => {
         await page.goto('/');
         await page.click('#settings-btn');
 
@@ -232,7 +233,7 @@ test.describe('Settings Modal', () => {
         await expect(page.locator('#case-upload-body')).toHaveClass(/hidden/);
     });
 
-    test('@regression CASE-03: Pasting text updates character count', async ({ page }) => {
+    test.skip('@regression CASE-03: Pasting text updates character count', async ({ page }) => {
         await page.goto('/');
         await page.click('#settings-btn');
         await page.click('.case-upload-header');
@@ -245,7 +246,7 @@ test.describe('Settings Modal', () => {
         await expect(charCount).not.toHaveText('0 chars');
     });
 
-    test('@regression CASE-04: Clear button empties textarea', async ({ page }) => {
+    test.skip('@regression CASE-04: Clear button empties textarea', async ({ page }) => {
         await page.goto('/');
         await page.click('#settings-btn');
         await page.click('.case-upload-header');
