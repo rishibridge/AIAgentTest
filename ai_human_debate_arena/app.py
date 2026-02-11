@@ -201,9 +201,18 @@ def get_tone_guidelines(tone):
 3. EVIDENCE — Support with a specific data point, formatted as a cut card (see below).
 
 CUT CARD FORMAT (mandatory for every piece of evidence):
-  [Author Last, Year] — [Qualification]
-  "[Direct quote or key finding]"
-  Source: [Publication]
+  TAG: [One-sentence argument this card supports]
+  [Author Last, Full Date] — [Qualification]
+  "[Direct quote — **bold the key words**]"
+  Source: [Publication] | [URL]
+
+CITATION INTEGRITY (NON-NEGOTIABLE):
+- ONLY cite sources you found via web search in THIS session.
+- NEVER fabricate an author, date, quote, publication, or URL.
+- If you cannot find a real source, state your argument WITHOUT a cut card.
+- An argument with strong warrant and no card beats a fake card EVERY time.
+- If you use a statistic, it MUST come from a real search result with a real URL.
+- Fabricating a citation is an AUTOMATIC LOSS in competitive debate. Treat it the same here.
 
 LANGUAGE RULES:
 - Write at a 10th-grade reading level. Be direct and concise.
@@ -811,6 +820,10 @@ def landing_judge():
 @app.route('/india')
 def landing_india():
     return render_template('landing_india.html')
+
+@app.route('/debaters')
+def landing_debaters():
+    return render_template('landing_debaters.html')
 
 @app.route('/api/debate')
 def debate():
