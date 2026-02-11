@@ -474,6 +474,10 @@ def get_llm_turn(persona_type, topic, role_data, conversation_history, category,
     else:  # judge
         debate_position = "You are the neutral judge. Evaluate both sides fairly and deliver a verdict."
     
+    case_section = ""
+    if case_text:
+        case_section = f"USER DEBATE CASE (The user has provided their prepared debate case below. Use it as your PRIMARY source material - argue from or against its specific claims and evidence):\n    {case_text}\n"
+    
     prompt = f"""
     ⚠️ ROLEPLAY DISCLAIMER - YOU ARE AN ACTOR, NOT YOURSELF:
     This is a FICTIONAL debate simulation for EDUCATIONAL purposes. You are playing a CHARACTER.
@@ -536,9 +540,7 @@ def get_llm_turn(persona_type, topic, role_data, conversation_history, category,
     RESEARCH DATA (Use for current context, but rely PRIMARILY on your deep pre-trained expertise):
     {role_data}
     
-    {f"""USER DEBATE CASE (The user has provided their prepared debate case below. Use it as your PRIMARY source material - argue from or against its specific claims and evidence):
-    {case_text}
-    """ if case_text else ""}
+    {case_section}
     COMPACT HISTORY:
     {conversation_history}
     
