@@ -116,6 +116,9 @@
             <div class="footer-right">
                 <a href="#" onclick="showFlowSheet()" class="footer-link" id="flow-link">Flow</a>
                 <a href="#" onclick="showHistory()" class="footer-link">History</a>
+                <button onclick="showPracticeModal()" id="practice-btn" class="practice-btn"
+                    title="Practice with Case">📄
+                    Practice</button>
                 <button onclick="showSettings()" id="settings-btn" class="settings-btn" title="Debate Settings">⚙️
                     Settings</button>
             </div>
@@ -345,6 +348,94 @@
         </div>
     </div>
 
+    <!-- Practice Modal -->
+    <div id="practice-modal" class="modal hidden">
+        <div class="modal-content glass-panel settings-panel practice-modal-content">
+            <div class="modal-header">
+                <h2>📄 Practice with a Case</h2>
+                <button onclick="closePracticeModal()" class="close-btn">&times;</button>
+            </div>
+
+            <div class="practice-two-column">
+                <!-- Left Column: Load Case -->
+                <div class="practice-left-column">
+                    <h3 class="practice-section-title">📁 Load Your Case</h3>
+                    <div id="case-dropzone" class="case-dropzone"
+                        onclick="document.getElementById('case-file-input').click()">
+                        <input type="file" id="case-file-input" accept=".pdf,.docx,.txt" style="display:none"
+                            onchange="handleCaseFile(this)">
+                        <div id="dropzone-content" class="dropzone-content">
+                            <span class="dropzone-icon">📁</span>
+                            <span class="dropzone-text">Drop PDF, DOCX, or TXT here — or click to browse</span>
+                        </div>
+                        <div id="dropzone-loaded" class="dropzone-loaded hidden">
+                            <span class="dropzone-check">✅</span>
+                            <span id="loaded-filename" class="loaded-filename"></span>
+                            <span id="loaded-wordcount" class="loaded-wordcount"></span>
+                        </div>
+                    </div>
+                    <div class="case-paste-divider">
+                        <span>or paste your case</span>
+                    </div>
+                    <textarea id="practice-case-text" class="practice-textarea"
+                        placeholder="Paste your constructive case here..." rows="8"></textarea>
+                    <div class="practice-case-meta">
+                        <span id="practice-word-count" class="practice-word-count">0 words</span>
+                        <button onclick="clearPracticeCase()" class="case-clear-btn"
+                            style="font-size:0.75rem">Clear</button>
+                    </div>
+                </div>
+
+                <!-- Right Column: Mode + Opponent + Start -->
+                <div class="practice-right-column">
+                    <h3 class="practice-section-title">🎯 Practice Mode</h3>
+                    <div class="practice-modes-vertical">
+                        <label class="practice-mode-card selected" onclick="selectPracticeMode('defend')">
+                            <input type="radio" name="practice-mode" value="defend" checked style="display:none">
+                            <div class="mode-icon">🛡️</div>
+                            <div class="mode-text">
+                                <div class="mode-label">Defend</div>
+                                <div class="mode-desc">You defend your case (FOR side)</div>
+                            </div>
+                        </label>
+                        <label class="practice-mode-card" onclick="selectPracticeMode('attack')">
+                            <input type="radio" name="practice-mode" value="attack" style="display:none">
+                            <div class="mode-icon">⚔️</div>
+                            <div class="mode-text">
+                                <div class="mode-label">Attack</div>
+                                <div class="mode-desc">You attack the case (AGAINST side)</div>
+                            </div>
+                        </label>
+                        <label class="practice-mode-card" onclick="selectPracticeMode('watch')">
+                            <input type="radio" name="practice-mode" value="watch" style="display:none">
+                            <div class="mode-icon">👁️</div>
+                            <div class="mode-text">
+                                <div class="mode-label">Watch</div>
+                                <div class="mode-desc">AI vs AI — watch the case get attacked</div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <h3 class="practice-section-title" style="margin-top: 20px;">🤖 AI Opponent</h3>
+                    <div class="practice-opponent-row">
+                        <label>Model</label>
+                        <select id="practice-opponent-model" class="settings-select">
+                            <option value="gemini">Gemini 🇺🇸</option>
+                            <option value="deepseek">DeepSeek 🇨🇳</option>
+                            <option value="kimi" selected>Kimi K2 🇨🇳</option>
+                        </select>
+                    </div>
+                    <div class="practice-note">
+                        Style is auto-set to <strong>Pro 🏆</strong> for both sides</div>
+
+                    <button id="start-practice-btn" class="practice-start-btn" onclick="startPractice()">
+                        ⚔️ Start Practice Round
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Changelog Modal -->
     <div id="changelog-modal" class="modal hidden">
         <div class="modal-content glass-panel" style="max-width: 500px;">
@@ -372,7 +463,7 @@
 
     </div>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <script src="/static/script.js?v=1.41.4"></script>
+    <script src="/static/script.js?v=1.45.1"></script>
 </body>
 
 </html>

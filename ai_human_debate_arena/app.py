@@ -1,6 +1,8 @@
 import os
 import re
-from flask import Flask, render_template, request, Response, stream_with_context
+import io
+import tempfile
+from flask import Flask, render_template, request, Response, stream_with_context, jsonify
 import time
 import json
 import random
@@ -378,7 +380,7 @@ def get_persona_base(persona_type, tone):
     else:
         return tone_personas.get(tone, tone_personas["casual"])
 
-def get_llm_turn(persona_type, topic, role_data, conversation_history, category, tone="casual", is_final=False, is_reaction=False, is_evaluation=False, is_opening=False, model_provider="gemini", case_text=""):
+def get_llm_turn(persona_type, topic, role_data, conversation_history, category, tone="casual", is_final=False, is_reaction=False, is_evaluation=False, is_opening=False, model_provider="gemini", case_text="", case_owner=""):
     """Generate a debate turn using the specified model provider (gemini or deepseek)"""
     
     domain_guidelines = {
@@ -483,9 +485,64 @@ def get_llm_turn(persona_type, topic, role_data, conversation_history, category,
     else:  # judge
         debate_position = "You are the neutral judge. Evaluate both sides fairly and deliver a verdict."
     
+    # Role-specific case injection (positioned right after debate_position for maximum impact)
     case_section = ""
-    if case_text:
-        case_section = f"USER DEBATE CASE (The user has provided their prepared debate case below. Use it as your PRIMARY source material - argue from or against its specific claims and evidence):\n    {case_text}\n"
+    if case_text and case_owner:
+        if case_owner == "advocate" and persona_type == "advocate":
+            case_section = f"""\n\nYOUR PREPARED CASE (MANDATORY):
+Below is your prepared constructive. Your OPENING STATEMENT must present
+the arguments from this case. In subsequent rounds, DEFEND these specific
+claims when attacked. Do NOT abandon your case for generic arguments.
+Reference specific evidence and warrants from YOUR case.
+
+--- CASE TEXT ---
+{case_text}
+--- END CASE TEXT ---\n"""
+        elif case_owner == "advocate" and persona_type == "skeptic":
+            case_section = f"""\n\nOPPONENT'S PREPARED CASE (READ CAREFULLY):
+Your opponent submitted the case below. Your job is to DESTROY it.
+- Target their SPECIFIC claims, warrants, and evidence
+- Find logical gaps, missing evidence, weak assumptions
+- Do NOT make generic counter-arguments — attack THEIR case directly
+- Quote their exact words when exposing flaws
+
+--- OPPONENT'S CASE TEXT ---
+{case_text}
+--- END CASE TEXT ---\n"""
+        elif case_owner == "skeptic" and persona_type == "skeptic":
+            case_section = f"""\n\nYOUR PREPARED CASE (MANDATORY):
+Below is your prepared constructive AGAINST the topic. Your OPENING STATEMENT must present
+the arguments from this case. In subsequent rounds, DEFEND these specific
+claims when attacked. Do NOT abandon your case for generic arguments.
+Reference specific evidence and warrants from YOUR case.
+
+--- CASE TEXT ---
+{case_text}
+--- END CASE TEXT ---\n"""
+        elif case_owner == "skeptic" and persona_type == "advocate":
+            case_section = f"""\n\nOPPONENT'S PREPARED CASE (READ CAREFULLY):
+Your opponent submitted the case below. Your job is to DESTROY it.
+- Target their SPECIFIC claims, warrants, and evidence
+- Find logical gaps, missing evidence, weak assumptions
+- Do NOT make generic counter-arguments — attack THEIR case directly
+- Quote their exact words when exposing flaws
+
+--- OPPONENT'S CASE TEXT ---
+{case_text}
+--- END CASE TEXT ---\n"""
+        elif persona_type == "judge":
+            case_section = f"""\n\nCASE-BASED EVALUATION:
+The {'FOR' if case_owner == 'advocate' else 'AGAINST'} side submitted a prepared case. Evaluate:
+1. Did the case owner effectively defend their prepared arguments?
+2. Did the opponent effectively attack the specific claims?
+3. Were case-specific warrants and evidence addressed?
+
+--- SUBMITTED CASE TEXT ---
+{case_text}
+--- END CASE TEXT ---\n"""
+        else:
+            # Legacy fallback
+            case_section = f"""\n\nUSER DEBATE CASE:\n{case_text}\n"""
     
     prompt = f"""
     ⚠️ ROLEPLAY DISCLAIMER - YOU ARE AN ACTOR, NOT YOURSELF:
@@ -544,12 +601,12 @@ def get_llm_turn(persona_type, topic, role_data, conversation_history, category,
     DOMAIN GUIDELINES: {domain_guide}
     TONE: {get_tone_guidelines(tone)}
     STYLE GUIDE: {get_persona_base(persona_type, tone)}
+    {case_section}
     TASK: {goal}
     
     RESEARCH DATA (Use for current context, but rely PRIMARILY on your deep pre-trained expertise):
     {role_data}
     
-    {case_section}
     COMPACT HISTORY:
     {conversation_history}
     
@@ -746,8 +803,9 @@ def generate_turn():
         "judge": "judge"
     }
     
-    # Case text (user's pasted debate case)
+    # Case text and ownership
     case_text = data.get('case_text', '')
+    case_owner = data.get('case_owner', '')
     
     response_text = get_llm_turn(
         persona_type=persona_map.get(role, "judge"),
@@ -760,13 +818,64 @@ def generate_turn():
         is_final=is_final,
         is_evaluation=is_evaluation,
         model_provider=model_provider,
-        case_text=case_text
+        case_text=case_text,
+        case_owner=case_owner
     )
     
     return json.dumps({
         "role": role,
         "text": response_text
     })
+
+@app.route('/api/upload_case', methods=['POST'])
+def upload_case():
+    """Extract text from uploaded PDF, DOCX, or TXT file."""
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+    
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({"error": "No file selected"}), 400
+    
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    
+    try:
+        if ext == 'txt':
+            text = file.read().decode('utf-8', errors='replace')
+        elif ext == 'pdf':
+            import PyPDF2
+            reader = PyPDF2.PdfReader(io.BytesIO(file.read()))
+            text = '\n'.join(page.extract_text() or '' for page in reader.pages)
+        elif ext == 'docx':
+            import docx
+            doc = docx.Document(io.BytesIO(file.read()))
+            text = '\n'.join(para.text for para in doc.paragraphs)
+        else:
+            return jsonify({"error": f"Unsupported file type: .{ext}. Use PDF, DOCX, or TXT."}), 400
+        
+        # Clean up and enforce word limit
+        text = text.strip()
+        words = text.split()
+        word_count = len(words)
+        
+        if word_count > 15000:
+            text = ' '.join(words[:15000])
+            word_count = 15000
+            truncated = True
+        else:
+            truncated = False
+        
+        if word_count < 10:
+            return jsonify({"error": "File appears empty or too short to be a debate case."}), 400
+        
+        return jsonify({
+            "text": text,
+            "word_count": word_count,
+            "truncated": truncated,
+            "filename": file.filename
+        })
+    except Exception as e:
+        return jsonify({"error": f"Failed to extract text: {str(e)}"}), 500
 
 @app.route('/')
 def index():

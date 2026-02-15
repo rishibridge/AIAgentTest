@@ -718,14 +718,18 @@ async function startDebate() {
     const topic = topicInput.value || "Is Buddhism a religion?";
 
     // Config
+    const practiceConfig = window._practiceConfig || {};
     const config = {
         advocateTone: document.getElementById('advocate-tone').value,
         skepticTone: document.getElementById('skeptic-tone').value,
         advocateModel: document.getElementById('advocate-model').value,
         skepticModel: document.getElementById('skeptic-model').value,
         judgeModel: document.getElementById('judge-model').value,
-        caseText: (document.getElementById('case-text')?.value || '').trim()
+        caseText: practiceConfig.caseText || (document.getElementById('case-text')?.value || '').trim(),
+        caseOwner: practiceConfig.caseOwner || ''
     };
+    // Clear practice config after use
+    window._practiceConfig = null;
 
     // UI Setup
     currentAdvocateTone = config.advocateTone.charAt(0).toUpperCase() + config.advocateTone.slice(1);
@@ -1115,7 +1119,8 @@ async function executeTurn(role, isOpening, isFinal, isEvaluation) {
             is_opening: isOpening,
             is_final: isFinal,
             is_evaluation: isEvaluation,
-            case_text: debateState.config.caseText || ''
+            case_text: debateState.config.caseText || '',
+            case_owner: debateState.config.caseOwner || ''
         };
 
         const res = await fetch('/api/turn', {
@@ -1935,12 +1940,14 @@ function saveDebateToHistory(topic, winner) {
 // --- CHANGELOG MODAL ---
 function showChangelog() {
     const modal = document.getElementById('changelog-modal');
-    if (modal) modal.classList.remove('hidden');
+    modal.classList.remove('hidden');
+    setTimeout(() => modal.classList.add('visible'), 10);
 }
 
 function closeChangelog() {
     const modal = document.getElementById('changelog-modal');
-    if (modal) modal.classList.add('hidden');
+    modal.classList.remove('visible');
+    setTimeout(() => modal.classList.add('hidden'), 300);
 }
 
 // --- HISTORY AUDIO PLAYBACK ---
@@ -2429,11 +2436,19 @@ function closeSettings() {
 window.onclick = function (event) {
     const historyModal = document.getElementById('history-modal');
     const settingsModal = document.getElementById('settings-modal');
+    const practiceModal = document.getElementById('practice-modal');
+    const changelogModal = document.getElementById('changelog-modal');
     if (event.target === historyModal) {
         closeHistory();
     }
     if (event.target === settingsModal) {
         closeSettings();
+    }
+    if (event.target === practiceModal) {
+        closePracticeModal();
+    }
+    if (event.target === changelogModal) {
+        closeChangelog();
     }
 }
 
@@ -2754,3 +2769,215 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('skeptic-model').addEventListener('change', updateTaglineFromDropdowns);
     setupSmartScroll(); // Initialize scroll indicator
 });
+
+// ============================================
+// Practice Modal Functions
+// ============================================
+
+let practiceState = {
+    caseText: '',
+    mode: 'defend', // defend | attack | watch
+    filename: ''
+};
+
+function showPracticeModal() {
+    const modal = document.getElementById('practice-modal');
+    modal.classList.remove('hidden');
+    setTimeout(() => modal.classList.add('visible'), 10);
+}
+
+function closePracticeModal() {
+    const modal = document.getElementById('practice-modal');
+    modal.classList.remove('visible');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+}
+
+function selectPracticeMode(mode) {
+    practiceState.mode = mode;
+    document.querySelectorAll('.practice-mode-card').forEach(card => {
+        const input = card.querySelector('input');
+        if (input.value === mode) {
+            card.classList.add('selected');
+            input.checked = true;
+        } else {
+            card.classList.remove('selected');
+            input.checked = false;
+        }
+    });
+}
+
+// File upload handling
+async function handleCaseFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const dropzone = document.getElementById('case-dropzone');
+    const content = document.getElementById('dropzone-content');
+    const loaded = document.getElementById('dropzone-loaded');
+
+    // Show loading state
+    content.innerHTML = '<span class="dropzone-icon">⏳</span><span class="dropzone-text">Extracting text...</span>';
+
+    try {
+        const res = await fetch('/api/upload_case', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+
+        if (data.error) {
+            content.innerHTML = `<span class="dropzone-icon">❌</span><span class="dropzone-text">${data.error}</span>`;
+            setTimeout(() => resetDropzone(), 3000);
+            return;
+        }
+
+        // Success - show loaded state
+        practiceState.caseText = data.text;
+        practiceState.filename = data.filename;
+        content.classList.add('hidden');
+        loaded.classList.remove('hidden');
+        document.getElementById('loaded-filename').textContent = data.filename;
+        document.getElementById('loaded-wordcount').textContent = `(${data.word_count.toLocaleString()} words${data.truncated ? ' — truncated' : ''})`;
+
+        // Also populate textarea as preview
+        const textarea = document.getElementById('practice-case-text');
+        textarea.value = data.text;
+        updatePracticeWordCount();
+
+    } catch (err) {
+        content.innerHTML = `<span class="dropzone-icon">❌</span><span class="dropzone-text">Upload failed: ${err.message}</span>`;
+        setTimeout(() => resetDropzone(), 3000);
+    }
+}
+
+function resetDropzone() {
+    const content = document.getElementById('dropzone-content');
+    const loaded = document.getElementById('dropzone-loaded');
+    content.innerHTML = '<span class="dropzone-icon">📁</span><span class="dropzone-text">Drop PDF, DOCX, or TXT here — or click to browse</span>';
+    content.classList.remove('hidden');
+    loaded.classList.add('hidden');
+}
+
+// Drag & drop
+document.addEventListener('DOMContentLoaded', () => {
+    const dropzone = document.getElementById('case-dropzone');
+    if (!dropzone) return;
+
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('drag-over');
+    });
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('drag-over');
+    });
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            const input = document.getElementById('case-file-input');
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            input.files = dt.files;
+            handleCaseFile(input);
+        }
+    });
+
+    // Paste textarea word count
+    const textarea = document.getElementById('practice-case-text');
+    if (textarea) {
+        textarea.addEventListener('input', () => {
+            practiceState.caseText = textarea.value.trim();
+            practiceState.filename = '';
+            updatePracticeWordCount();
+        });
+    }
+});
+
+function updatePracticeWordCount() {
+    const textarea = document.getElementById('practice-case-text');
+    const count = textarea.value.trim() ? textarea.value.trim().split(/\s+/).length : 0;
+    document.getElementById('practice-word-count').textContent = `${count.toLocaleString()} words`;
+}
+
+function clearPracticeCase() {
+    practiceState.caseText = '';
+    practiceState.filename = '';
+    document.getElementById('practice-case-text').value = '';
+    document.getElementById('practice-word-count').textContent = '0 words';
+    resetDropzone();
+    document.getElementById('case-file-input').value = '';
+}
+
+// Start Practice - configures the debate with case-specific settings
+function startPractice() {
+    const caseText = document.getElementById('practice-case-text').value.trim();
+    if (!caseText) {
+        alert('Please upload or paste a debate case first.');
+        return;
+    }
+
+    const mode = practiceState.mode;
+    const opponentModel = document.getElementById('practice-opponent-model').value;
+
+    // Extract topic from case text (first sentence or line)
+    let topic = caseText.split(/[.\n]/)[0].trim();
+    if (topic.length > 150) topic = topic.substring(0, 147) + '...';
+    if (topic.length < 10) topic = 'Debate Case Practice';
+
+    // Configure settings based on practice mode
+    const advocateModel = document.getElementById('advocate-model');
+    const skepticModel = document.getElementById('skeptic-model');
+    const advocateTone = document.getElementById('advocate-tone');
+    const skepticTone = document.getElementById('skeptic-tone');
+
+    // Auto-set Pro style for both sides
+    advocateTone.value = 'pro';
+    skepticTone.value = 'pro';
+
+    // In PRACTICE mode:
+    // - case_owner = 'advocate' (the FOR side always owns the uploaded case)
+    // - Defend: human is FOR (advocate), AI is AGAINST (skeptic)
+    // - Attack: human is AGAINST (skeptic), AI is FOR (advocate)
+    // - Watch: AI vs AI
+    if (mode === 'defend') {
+        advocateModel.value = 'human';
+        skepticModel.value = opponentModel;
+    } else if (mode === 'attack') {
+        advocateModel.value = opponentModel;
+        skepticModel.value = 'human';
+    } else { // watch
+        advocateModel.value = opponentModel;
+        skepticModel.value = opponentModel; // Use same model for both sides
+    }
+
+    // Set the topic
+    document.getElementById('topic-input').value = topic;
+
+    // Close the practice modal
+    closePracticeModal();
+
+    // Override startDebate's config to include case info
+    // We store practice state so the config picks it up
+    const caseTextEl = document.getElementById('case-text');
+    if (caseTextEl) caseTextEl.value = caseText;
+
+    // Inject case_owner into debateState config manually after startDebate creates it
+    const originalStartDebate = window._originalStartDebate || startDebate;
+
+    // Temporarily monkey-patch startDebate to add case info
+    const realStartDebate = startDebate;
+
+    // Just start it — we'll intercept config creation
+    // Instead of monkey-patching, we'll store practice config globally
+    window._practiceConfig = {
+        caseText: caseText,
+        caseOwner: 'advocate'  // FOR side always owns the case
+    };
+
+    // Trigger the debate
+    handleDebateButton();
+}

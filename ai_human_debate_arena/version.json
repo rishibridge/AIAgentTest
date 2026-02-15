@@ -1,7 +1,33 @@
 {
-    "version": "1.43.0",
-    "date": "2026-02-10",
+    "version": "1.45.1",
+    "date": "2026-02-14",
     "changelog": [
+        {
+            "version": "1.45.1",
+            "date": "2026-02-14",
+            "changes": [
+                "Fix: Practice Watch mode now uses same model (K2) for both FOR and AGAINST sides",
+                "Enhancement: Send button styling improvements (proper icon sizing, hover/active states, shadow)"
+            ]
+        },
+        {
+            "version": "1.45.0",
+            "date": "2026-02-14",
+            "changes": [
+                "Feature: Practice with Case Modal (Upload PDF/DOCX/TXT and practice defending, attacking, or watching AI vs AI)",
+                "UX: Two-column modal layout for better user experience (no scrolling needed)",
+                "Enhancement: Updated landing pages to showcase Practice feature"
+            ]
+        },
+        {
+            "version": "1.43.0",
+            "date": "2026-02-10",
+            "changes": [
+                "Feature: Debater Landing Page with 9 debate styles",
+                "Enhancement: Cut card fix for Pro mode",
+                "UX: Landing page visual improvements"
+            ]
+        },
         {
             "version": "1.42.0",
             "date": "2026-02-10",
