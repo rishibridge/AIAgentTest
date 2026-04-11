@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with Remy — NatureCure</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        body { overflow: hidden; background: var(--bg-primary); }
+        .remy-container { display: flex; flex-direction: column; height: 100vh; padding-top: 64px; max-width: 800px; margin: 0 auto; }
+        .chat-header { padding: 16px 24px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; gap: 12px; background: rgba(10,15,13,0.8); backdrop-filter: blur(10px); }
+        .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--emerald-600); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; box-shadow: var(--shadow-glow); }
+        .header-info h2 { font-size: 1.1rem; font-weight: 600; margin: 0; color: var(--text-primary); }
+        .header-info p { font-size: 0.8rem; color: var(--emerald-400); margin: 0; }
+        
+        .chat-area { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+        
+        .message-row { display: flex; width: 100%; animation: fadeInUp 0.3s ease; }
+        .msg-remy { justify-content: flex-start; }
+        .msg-user { justify-content: flex-end; }
+        
+        .bubble { max-width: 75%; padding: 14px 18px; border-radius: var(--radius-lg); font-size: 0.95rem; line-height: 1.5; }
+        .msg-remy .bubble { background: rgba(16, 28, 22, 0.8); border: 1px solid var(--border-subtle); border-top-left-radius: 4px; box-shadow: var(--shadow-md); color: var(--text-primary); }
+        .msg-user .bubble { background: var(--emerald-600); color: white; border-top-right-radius: 4px; }
+        
+        .typing-indicator { display: flex; gap: 4px; padding: 8px 12px; }
+        .dot { width: 6px; height: 6px; background: var(--emerald-400); border-radius: 50%; opacity: 0.4; animation: blink 1.4s infinite; }
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.2); } }
+        
+        .action-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+        .chip-btn { background: rgba(52, 211, 153, 0.1); border: 1px solid var(--emerald-500); color: var(--emerald-300); padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-family: var(--font); cursor: pointer; transition: var(--transition); }
+        .chip-btn:hover { background: var(--emerald-600); color: white; }
+        
+        .inline-card { background: linear-gradient(145deg, rgba(16,28,22,0.9), rgba(10,15,13,0.95)); border: 1px solid var(--border-medium); border-radius: var(--radius-md); padding: 16px; margin-top: 12px; width: 100%; box-sizing: border-box; }
+        .inline-card h4 { margin: 0 0 8px 0; font-size: 1rem; color: var(--text-primary); display: flex; justify-content: space-between; align-items: center; }
+        .inline-card p { margin: 0 0 12px 0; font-size: 0.85rem; color: var(--text-secondary); }
+        
+        .input-area { padding: 16px 24px; background: rgba(10,15,13,0.9); border-top: 1px solid var(--border-subtle); display: flex; gap: 12px; align-items: center; }
+        .chat-input { flex: 1; background: var(--bg-card); border: 1px solid var(--border-medium); padding: 14px 20px; border-radius: 30px; color: white; font-family: var(--font); font-size: 0.95rem; outline: none; transition: var(--transition); }
+        .chat-input:focus { border-color: var(--emerald-400); box-shadow: 0 0 0 2px rgba(52,211,153,0.2); }
+        .send-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--emerald-500); border: none; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition); }
+        .send-btn:hover { background: var(--emerald-400); transform: scale(1.05); }
+        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-logo"><span class="logo-icon">🌿</span><span class="logo-text">NatureCure</span></a>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/questionnaire" class="btn btn-ghost" style="padding: 6px 12px;">Switch to Wizard</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="remy-container">
+        <div class="chat-header">
+            <div class="avatar">🌿</div>
+            <div class="header-info">
+                <h2>Remy</h2>
+                <p>Ayurvedic AI Specialist</p>
+            </div>
+        </div>
+        
+        <div class="chat-area" id="chat">
+            <!-- Messages inserted here via JS -->
+        </div>
+        
+        <div class="input-area">
+            <input type="text" class="chat-input" id="input" placeholder="Type a message..." autocomplete="off" onkeypress="if(event.key === 'Enter') sendMessage()">
+            <button class="send-btn" id="sendBtn" onclick="sendMessage()">↑</button>
+        </div>
+    </div>
+
+    <script>
+        const chat = document.getElementById('chat');
+        const input = document.getElementById('input');
+        const btn = document.getElementById('sendBtn');
+        let step = 0;
+
+        function scrollToBottom() {
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function appendRemy(html, delay = 500) {
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    const row = document.createElement('div');
+                    row.className = 'message-row msg-remy';
+                    row.innerHTML = `<div class="bubble">${html}</div>`;
+                    chat.appendChild(row);
+                    scrollToBottom();
+                    resolve();
+                }, delay);
+            });
+        }
+
+        function appendUser(text) {
+            const row = document.createElement('div');
+            row.className = 'message-row msg-user';
+            row.innerHTML = `<div class="bubble">${text}</div>`;
+            chat.appendChild(row);
+            scrollToBottom();
+        }
+
+        function showTyping() {
+            const row = document.createElement('div');
+            row.className = 'message-row msg-remy';
+            row.id = 'typing';
+            row.innerHTML = `<div class="bubble"><div class="typing-indicator"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
+            chat.appendChild(row);
+            scrollToBottom();
+        }
+
+        function hideTyping() {
+            const t = document.getElementById('typing');
+            if (t) t.remove();
+        }
+
+        async function initChat() {
+            showTyping();
+            await new Promise(r => setTimeout(r, 1000));
+            hideTyping();
+            await appendRemy("Hi there! I'm Remy. Whether it's a persistent headache or gut discomfort, tell me what you're feeling today.");
+        }
+
+        async function handlePhase1() {
+            input.disabled = true;
+            btn.disabled = true;
+            showTyping();
+            await new Promise(r => setTimeout(r, 1500));
+            hideTyping();
+            
+            const reply = `
+                I can definitely help with both the headache and bloating. 
+                <br><br>
+                Just to ensure my recommendations are completely safe—are you currently pregnant, nursing, or taking any prescription medications (like blood thinners or SSRIs)?
+                <div class="action-chips">
+                    <button class="chip-btn" onclick="handleChip('No, I am not')">No, I am not</button>
+                    <button class="chip-btn" onclick="handleChip('Yes, I take medication')">Yes, I take medication</button>
+                    <button class="chip-btn" onclick="handleChip('I am pregnant')">I am pregnant</button>
+                </div>
+            `;
+            await appendRemy(reply, 0);
+        }
+
+        function handleChip(text) {
+            // Remove buttons to prevent double click
+            const chips = document.querySelector('.action-chips');
+            if(chips) chips.remove();
+            
+            appendUser(text);
+            handlePhase2();
+        }
+
+        async function handlePhase2() {
+            showTyping();
+            await new Promise(r => setTimeout(r, 2000));
+            hideTyping();
+            
+            const card1 = `
+                <div class="inline-card">
+                    <h4>Peppermint <span style="background:rgba(34,197,94,0.15);color:#22c55e;padding:2px 8px;border-radius:12px;font-size:0.65rem;font-weight:700;">🟢 STRONG</span></h4>
+                    <p>Excellent for relaxing the gut and easing tension headaches. Menthol acts as a natural muscle relaxant.</p>
+                    <a href="#" class="btn-ghost" style="padding: 6px 12px; font-size: 0.8rem; border-radius:12px; border:1px solid var(--emerald-500); color:var(--emerald-400); text-decoration:none; display:inline-block;">View Research</a>
+                </div>
+            `;
+            const card2 = `
+                <div class="inline-card">
+                    <h4>Ginger Root <span style="background:rgba(34,197,94,0.15);color:#22c55e;padding:2px 8px;border-radius:12px;font-size:0.65rem;font-weight:700;">🟢 STRONG</span></h4>
+                    <p>Relieves stomach bloating and decreases inflammation that can trigger migraines.</p>
+                    <a href="#" class="btn-ghost" style="padding: 6px 12px; font-size: 0.8rem; border-radius:12px; border:1px solid var(--emerald-500); color:var(--emerald-400); text-decoration:none; display:inline-block;">View Research</a>
+                </div>
+            `;
+            
+            await appendRemy("Thanks for confirming! Based on your symptoms and safety profile, here are the top natural options I recommend:" + card1 + card2, 0);
+            
+            setTimeout(() => {
+                appendRemy("Let me know if you want to know more about either of these!", 800);
+            }, 500);
+            
+            input.disabled = false;
+            btn.disabled = false;
+            input.focus();
+        }
+
+        function sendMessage() {
+            const text = input.value.trim();
+            if (!text) return;
+            
+            appendUser(text);
+            input.value = '';
+            
+            if (step === 0) {
+                step = 1;
+                handlePhase1();
+            } else {
+                // generic fallback
+                showTyping();
+                setTimeout(() => {
+                    hideTyping();
+                    appendRemy("That's interesting. I'm just an interactive UX prototype right now, so my backend brain isn't plugged in yet! Let's get this interface approved first. 🌿");
+                }, 1000);
+            }
+        }
+
+        // Start
+        window.onload = initChat;
+    </script>
+</body>
+</html>

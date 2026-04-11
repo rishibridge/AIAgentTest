@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Lora:ital,wght@0,400;0,500;1,400&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --black: #0e0e0e;
+    --charcoal: #1a1a1a;
+    --stone: #2a2a2a;
+    --gold: #c4973b;
+    --gold-dim: #8a7030;
+    --cream: #e8dfc8;
+    --sage: #5a7c50;
+    --text-light: #d0c8b4;
+    --text-dim: #5a5a5a;
+  }
+  body { background: #080808; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; font-family: 'Lora', Georgia, serif; }
+
+  .ad {
+    width: 100%; max-width: 800px; aspect-ratio: 1/1; position: relative; overflow: hidden;
+    background: var(--black);
+  }
+  .ad::after {
+    content: ''; position: absolute; inset: 0; opacity: 0.12;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 2;
+  }
+  .frame { position: absolute; inset: 28px; border: 1px solid rgba(196,151,59,0.08); z-index: 3; pointer-events: none; }
+
+  .content {
+    position: relative; z-index: 5; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; height: 100%;
+    padding: 100px 100px; text-align: center;
+  }
+
+  .line {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 62px; font-weight: 700; color: var(--text-light);
+    line-height: 1.15; margin-bottom: 24px; letter-spacing: -0.5px;
+  }
+  .line .no {
+    color: var(--gold); font-weight: 700;
+  }
+  .line .struck {
+    color: var(--text-dim); position: relative; font-weight: 400;
+  }
+  .line .struck::after {
+    content: ''; position: absolute; left: -3px; right: -3px; top: 54%;
+    height: 2px; background: var(--gold); opacity: 0.4;
+  }
+
+  .line-1 { margin-bottom: 20px; }
+  .line-2 { margin-bottom: 20px; }
+  .line-3 { margin-bottom: 0; }
+
+  .spacer { height: 56px; }
+
+  .brand-name {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 48px; font-weight: 700; color: var(--sage);
+    letter-spacing: 4px; margin-top: 0;
+  }
+
+  .leaf-icon { margin: 32px 0 24px 0; opacity: 0.2; }
+
+  .cta-area { margin-top: 40px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .cta-button {
+    font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18px;
+    font-weight: 600; letter-spacing: 5px; text-transform: uppercase;
+    color: var(--black); background: var(--gold); border: none;
+    padding: 16px 48px; cursor: pointer; text-decoration: none; display: inline-block;
+    transition: all 0.3s ease; position: relative;
+  }
+  .cta-button::before { content: ''; position: absolute; inset: -3px; border: 1px solid var(--gold); opacity: 0.2; }
+  .cta-url { font-size: 13px; color: var(--text-dim); letter-spacing: 2px; opacity: 0.4; }
+
+  .brand-bottom {
+    position: absolute; bottom: 48px; left: 0; right: 0; text-align: center;
+    font-family: 'Cormorant Garamond', Georgia, serif; font-size: 16px;
+    letter-spacing: 8px; text-transform: uppercase; color: var(--text-dim);
+    opacity: 0.2; z-index: 5;
+  }
+</style>
+</head>
+<body>
+<div class="ad">
+  <div class="frame"></div>
+  <div class="content">
+    <p class="line line-1"><span class="no">No</span> <span class="struck">prescription</span>.</p>
+    <p class="line line-2"><span class="no">No</span> <span class="struck">co-pay</span>.</p>
+    <p class="line line-3"><span class="no">No</span> <span class="struck">permission needed</span>.</p>
+
+    <div class="spacer"></div>
+
+    <div class="leaf-icon">
+      <svg width="40" height="50" viewBox="0 0 40 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 48 C20 48 20 30 20 20 C20 10 8 2 8 2 C8 2 24 6 28 16 C32 26 20 48 20 48Z" stroke="#5a7c50" stroke-width="1.2" fill="none"/>
+        <path d="M20 48 C20 48 20 30 20 20 C20 10 32 2 32 2 C32 2 16 6 12 16 C8 26 20 48 20 48Z" stroke="#5a7c50" stroke-width="1.2" fill="none" opacity="0.5"/>
+        <path d="M20 20 L20 48" stroke="#5a7c50" stroke-width="0.8" opacity="0.4"/>
+      </svg>
+    </div>
+
+    <p class="brand-name">NatureCure</p>
+
+    <div class="cta-area">
+      <a href="/questionnaire" class="cta-button">Find Your Remedy</a>
+      <span class="cta-url">naturecure.app</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

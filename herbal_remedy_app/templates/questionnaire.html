@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Symptom Questionnaire — NatureCure</title>
+    <meta name="description" content="Enter your symptoms and answer a few questions to get personalized natural remedy suggestions.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- NAV -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-logo">
+                <span class="logo-icon">🌿</span>
+                <span class="logo-text">NatureCure</span>
+            </a>
+            <div class="nav-links">
+                <a href="/">Home</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="questionnaire-page">
+        <div class="container">
+            <!-- Progress bar -->
+            <div class="progress-bar-container" id="progress-container">
+                <div class="progress-steps">
+                    <div class="progress-step active" data-step="1">
+                        <div class="step-dot">1</div>
+                        <span>Symptoms</span>
+                    </div>
+                    <div class="progress-line"><div class="progress-line-fill" id="progress-line-1"></div></div>
+                    <div class="progress-step" data-step="2">
+                        <div class="step-dot">2</div>
+                        <span>Questions</span>
+                    </div>
+                    <div class="progress-line"><div class="progress-line-fill" id="progress-line-2"></div></div>
+                    <div class="progress-step" data-step="3">
+                        <div class="step-dot">3</div>
+                        <span>Results</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 1: Symptom Input -->
+            <div class="form-step active" id="step-1">
+                <div class="form-card">
+                    <div class="form-header">
+                        <h1>What are you experiencing?</h1>
+                        <p>Type your symptoms below. Add as many as you'd like for better results.</p>
+                    </div>
+
+                    <div class="symptom-input-area">
+                        <div class="chips-container" id="chips-container">
+                            <input
+                                type="text"
+                                id="symptom-input"
+                                class="chip-input"
+                                placeholder="Type a symptom (e.g., headache, bloating, insomnia)..."
+                                autocomplete="off"
+                            >
+                        </div>
+                        <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
+                    </div>
+
+                    <div class="popular-symptoms">
+                        <p class="popular-label">Common symptoms:</p>
+                        <div class="popular-chips">
+                            <button class="popular-chip" data-symptom="headache">headache</button>
+                            <button class="popular-chip" data-symptom="fatigue">fatigue</button>
+                            <button class="popular-chip" data-symptom="insomnia">insomnia</button>
+                            <button class="popular-chip" data-symptom="bloating">bloating</button>
+                            <button class="popular-chip" data-symptom="anxiety">anxiety</button>
+                            <button class="popular-chip" data-symptom="joint pain">joint pain</button>
+                            <button class="popular-chip" data-symptom="back pain">back pain</button>
+                            <button class="popular-chip" data-symptom="low energy">low energy</button>
+                            <button class="popular-chip" data-symptom="acne">acne</button>
+                            <button class="popular-chip" data-symptom="stress">stress</button>
+                            <button class="popular-chip" data-symptom="cold">cold</button>
+                            <button class="popular-chip" data-symptom="brain fog">brain fog</button>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button class="btn btn-primary btn-lg" id="btn-next-step" disabled>
+                            Continue
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 2: Follow-up Questions -->
+            <div class="form-step" id="step-2">
+                <div class="form-card">
+                    <div class="form-header">
+                        <h1>A few quick questions</h1>
+                        <p>Help us tailor your recommendations.</p>
+                    </div>
+
+                    <div class="questions-container" id="questions-container">
+                        {% for q in questions %}
+                        <div class="question-block" data-question-id="{{ q.id }}">
+                            <label class="question-label">{{ q.question }}</label>
+                            <div class="options-grid">
+                                {% for opt in q.options %}
+                                <button
+                                    class="option-btn"
+                                    data-question="{{ q.id }}"
+                                    data-value="{{ opt }}"
+                                >{{ opt }}</button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="form-actions">
+                        <button class="btn btn-ghost" id="btn-back-step-1">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                            Back
+                        </button>
+                        <button class="btn btn-primary btn-lg" id="btn-get-results">
+                            <span>Get My Remedies</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading state -->
+            <div class="form-step" id="step-loading">
+                <div class="loading-card">
+                    <div class="loading-spinner"></div>
+                    <h2>Analyzing your symptoms...</h2>
+                    <p>Matching you with the best natural remedies</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Pass symptoms data from the server
+        window.ALL_SYMPTOMS = {{ symptoms|safe }};
+    </script>
+    <script src="/static/script.js"></script>
+</body>
+</html>

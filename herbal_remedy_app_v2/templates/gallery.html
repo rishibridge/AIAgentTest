@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NatureCure Ad Gallery</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .gallery-page { padding: 100px 0 60px; min-height: 100vh; }
+        .gallery-header { text-align: center; margin-bottom: 48px; }
+        .gallery-header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
+        .gallery-header p { color: var(--text-secondary); }
+        .ad-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; margin-bottom: 48px; }
+        .ad-link-card { display: flex; align-items: center; justify-content: space-between; padding: 24px; border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); background: var(--bg-card); text-decoration: none; transition: var(--transition); }
+        .ad-link-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-glow); border-color: var(--border-medium); }
+        .ad-info h3 { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+        .ad-info span { font-size: 0.85rem; color: var(--text-secondary); }
+        .ad-icon { font-size: 2rem; margin-right: 16px; opacity: 0.8; }
+        .ad-arrow { color: var(--emerald-400); font-weight: 600; }
+        .gallery-cta { text-align: center; }
+    </style>
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-logo"><span class="logo-icon">🌿</span><span class="logo-text">NatureCure</span></a>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/questionnaire" class="btn btn-nav">Get Started</a>
+            </div>
+            <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+        </div>
+    </nav>
+    <main class="gallery-page">
+        <div class="container">
+            <div class="gallery-header">
+                <span class="section-badge">Campaigns</span>
+                <h1>NatureCure Ad Gallery</h1>
+                <p>Browse our collection of wellness campaign creatives</p>
+            </div>
+            <div class="ad-grid">
+                <a href="/ads/ad1_choice" class="ad-link-card">
+                    <div style="display: flex; align-items: center;">
+                        <div class="ad-icon">✨</div>
+                        <div class="ad-info">
+                            <h3>Your Body. Your Call.</h3>
+                            <span>Campaign: Choice</span>
+                        </div>
+                    </div>
+                    <div class="ad-arrow">→</div>
+                </a>
+                <a href="/ads/ad2_dismissal" class="ad-link-card">
+                    <div style="display: flex; align-items: center;">
+                        <div class="ad-icon">✨</div>
+                        <div class="ad-info">
+                            <h3>Your Doctor Said It's Nothing</h3>
+                            <span>Campaign: Dismissal</span>
+                        </div>
+                    </div>
+                    <div class="ad-arrow">→</div>
+                </a>
+                <a href="/ads/ad3_caretaker" class="ad-link-card">
+                    <div style="display: flex; align-items: center;">
+                        <div class="ad-icon">✨</div>
+                        <div class="ad-info">
+                            <h3>Mom's Been on 6 Medications</h3>
+                            <span>Campaign: Caretaker</span>
+                        </div>
+                    </div>
+                    <div class="ad-arrow">→</div>
+                </a>
+                <a href="/ads/ad4_side_effects" class="ad-link-card">
+                    <div style="display: flex; align-items: center;">
+                        <div class="ad-icon">✨</div>
+                        <div class="ad-info">
+                            <h3>Side Effects</h3>
+                            <span>Campaign: Side Effects</span>
+                        </div>
+                    </div>
+                    <div class="ad-arrow">→</div>
+                </a>
+                <a href="/ads/ad5_tribal" class="ad-link-card">
+                    <div style="display: flex; align-items: center;">
+                        <div class="ad-icon">✨</div>
+                        <div class="ad-info">
+                            <h3>They'll Call You Crazy</h3>
+                            <span>Campaign: Tribal</span>
+                        </div>
+                    </div>
+                    <div class="ad-arrow">→</div>
+                </a>
+                <a href="/ads/ad6_overwhelm" class="ad-link-card">
+                    <div style="display: flex; align-items: center;">
+                        <div class="ad-icon">✨</div>
+                        <div class="ad-info">
+                            <h3>Overwhelm</h3>
+                            <span>Campaign: Overwhelm</span>
+                        </div>
+                    </div>
+                    <div class="ad-arrow">→</div>
+                </a>
+                <a href="/ads/ad7_quiet_rebellion" class="ad-link-card">
+                    <div style="display: flex; align-items: center;">
+                        <div class="ad-icon">✨</div>
+                        <div class="ad-info">
+                            <h3>No Prescription. No Co-pay.</h3>
+                            <span>Campaign: Rebellion</span>
+                        </div>
+                    </div>
+                    <div class="ad-arrow">→</div>
+                </a>
+            </div>
+            <div class="gallery-cta">
+                <a href="/questionnaire" class="btn btn-primary btn-lg">Find Your Remedy →</a>
+            </div>
+        </div>
+    </main>
+    <script src="/static/script.js"></script>
+</body>
+</html>

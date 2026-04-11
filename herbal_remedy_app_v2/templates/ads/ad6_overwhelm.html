@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Lora:ital,wght@0,400;0,500;1,400&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --parchment: #f5ede0;
+    --sand: #e0d5c0;
+    --ink: #2a2318;
+    --amber: #b8943e;
+    --sage: #5a7c50;
+    --rust: #8a5a3a;
+    --text-mid: #5a5040;
+    --text-faded: #9a8d78;
+  }
+  body { background: #1a1a1a; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; font-family: 'Lora', Georgia, serif; }
+
+  .ad {
+    width: 100%; max-width: 800px; aspect-ratio: 1/1; position: relative; overflow: hidden;
+    background: var(--parchment);
+  }
+  .ad::after {
+    content: ''; position: absolute; inset: 0; opacity: 0.3;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 2;
+  }
+  .frame { position: absolute; inset: 28px; border: 1px solid rgba(90,80,64,0.15); z-index: 3; pointer-events: none; }
+
+  .content {
+    position: relative; z-index: 5; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; height: 100%;
+    padding: 100px 80px; text-align: center;
+  }
+
+  /* Scattered supplement names in background */
+  .scatter {
+    position: absolute; z-index: 4; pointer-events: none;
+  }
+  .scatter-item {
+    position: absolute; font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 400; font-style: italic; opacity: 0.08;
+    white-space: nowrap; color: var(--ink);
+  }
+  .scatter-item:nth-child(1) { font-size: 28px; top: 70px; left: 50px; transform: rotate(-8deg); }
+  .scatter-item:nth-child(2) { font-size: 32px; top: 110px; right: 60px; transform: rotate(5deg); }
+  .scatter-item:nth-child(3) { font-size: 24px; top: 160px; left: 180px; transform: rotate(-3deg); }
+  .scatter-item:nth-child(4) { font-size: 26px; top: 55px; left: 380px; transform: rotate(2deg); }
+  .scatter-item:nth-child(5) { font-size: 30px; bottom: 130px; left: 60px; transform: rotate(6deg); }
+  .scatter-item:nth-child(6) { font-size: 22px; bottom: 100px; right: 90px; transform: rotate(-4deg); }
+  .scatter-item:nth-child(7) { font-size: 28px; top: 200px; right: 180px; transform: rotate(3deg); }
+  .scatter-item:nth-child(8) { font-size: 26px; bottom: 170px; left: 280px; transform: rotate(-5deg); }
+  .scatter-item:nth-child(9) { font-size: 20px; top: 130px; left: 60px; transform: rotate(4deg); }
+  .scatter-item:nth-child(10) { font-size: 24px; bottom: 80px; left: 400px; transform: rotate(-2deg); }
+  .scatter-item:nth-child(11) { font-size: 22px; top: 80px; right: 280px; transform: rotate(7deg); }
+  .scatter-item:nth-child(12) { font-size: 28px; bottom: 140px; right: 250px; transform: rotate(-6deg); }
+
+  .chaos-line {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 46px; font-weight: 400; color: var(--text-mid);
+    line-height: 1.3; margin-bottom: 8px;
+  }
+  .chaos-line .supplement {
+    font-weight: 600; color: var(--rust);
+  }
+  .chaos-line .dot {
+    color: var(--amber); font-weight: 700;
+  }
+
+  .which-one {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 62px; font-weight: 700; font-style: italic;
+    color: var(--ink); margin-top: 16px; margin-bottom: 44px;
+  }
+
+  .divider {
+    display: flex; align-items: center; gap: 20px;
+    margin-bottom: 44px; width: 45%;
+  }
+  .divider-line { flex: 1; height: 1.5px; background: linear-gradient(to right, transparent, var(--amber), transparent); opacity: 0.3; }
+  .divider-icon { color: var(--sage); font-size: 18px; opacity: 0.5; }
+
+  .answer {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 72px; font-weight: 700; color: var(--sage);
+    line-height: 1.1; margin-bottom: 6px;
+  }
+  .matched {
+    font-family: 'Lora', Georgia, serif; font-size: 28px;
+    color: var(--amber); font-style: italic; font-weight: 400;
+  }
+
+  .cta-area { margin-top: 52px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .cta-button {
+    font-family: 'Cormorant Garamond', Georgia, serif; font-size: 19px;
+    font-weight: 600; letter-spacing: 4px; text-transform: uppercase;
+    color: var(--parchment); background: var(--ink); border: none;
+    padding: 18px 52px; cursor: pointer; text-decoration: none; display: inline-block;
+    transition: all 0.3s ease; position: relative;
+  }
+  .cta-button::before { content: ''; position: absolute; inset: -3px; border: 1px solid var(--amber); opacity: 0.3; }
+  .cta-url { font-size: 13px; color: var(--text-faded); letter-spacing: 2px; opacity: 0.5; }
+
+  .brand {
+    position: absolute; bottom: 48px; left: 0; right: 0; text-align: center;
+    font-family: 'Cormorant Garamond', Georgia, serif; font-size: 16px;
+    letter-spacing: 8px; text-transform: uppercase; color: var(--text-faded);
+    opacity: 0.3; z-index: 5;
+  }
+</style>
+</head>
+<body>
+<div class="ad">
+  <div class="frame"></div>
+
+  <div class="scatter">
+    <span class="scatter-item">turmeric</span>
+    <span class="scatter-item">ashwagandha</span>
+    <span class="scatter-item">magnesium</span>
+    <span class="scatter-item">probiotics</span>
+    <span class="scatter-item">elderberry</span>
+    <span class="scatter-item">vitamin D</span>
+    <span class="scatter-item">lion's mane</span>
+    <span class="scatter-item">omega-3</span>
+    <span class="scatter-item">rhodiola</span>
+    <span class="scatter-item">zinc</span>
+    <span class="scatter-item">berberine</span>
+    <span class="scatter-item">black seed oil</span>
+  </div>
+
+  <div class="content">
+    <p class="chaos-line">
+      <span class="supplement">Turmeric</span><span class="dot">.</span>
+      <span class="supplement">Ashwagandha</span><span class="dot">.</span>
+      <span class="supplement">Magnesium</span><span class="dot">.</span>
+    </p>
+    <p class="chaos-line">
+      <span class="supplement">Probiotics</span><span class="dot">.</span>
+    </p>
+    <p class="which-one">Which one?</p>
+
+    <div class="divider">
+      <span class="divider-line"></span>
+      <span class="divider-icon">☙</span>
+      <span class="divider-line"></span>
+    </div>
+
+    <h1 class="answer">Stop guessing.</h1>
+    <p class="matched">Get matched.</p>
+
+    <div class="cta-area">
+      <a href="/questionnaire" class="cta-button">Find Your Remedy</a>
+      <span class="cta-url">naturecure.app</span>
+    </div>
+  </div>
+  <div class="brand">NatureCure</div>
+</div>
+</body>
+</html>
