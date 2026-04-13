@@ -83,10 +83,12 @@ function initQuestionnaire() {
         if (!s || state.symptoms.includes(s)) return;
         state.symptoms.push(s);
         renderChips(); updatePopularChips(); updateNextBtn();
+        saveWizardContext();
     }
     function removeSymptom(s) {
         state.symptoms = state.symptoms.filter(x => x !== s);
         renderChips(); updatePopularChips(); updateNextBtn();
+        saveWizardContext();
     }
     function renderChips() {
         chipsContainer.querySelectorAll('.chip').forEach(c => c.remove());
@@ -146,6 +148,8 @@ function initQuestionnaire() {
 
     if (getResultsBtn) {
         getResultsBtn.addEventListener('click', async () => {
+            // Save wizard context to localStorage so Remy can pick it up
+            saveWizardContext();
             document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
             document.getElementById('step-loading').classList.add('active');
             document.querySelectorAll('.progress-step').forEach(ps => { ps.classList.add('completed'); ps.classList.remove('active'); });
@@ -173,6 +177,26 @@ function initQuestionnaire() {
             }
         });
     }
+
+    // Save wizard context anytime answers change (also called on submit)
+    function saveWizardContext() {
+        const ctx = {
+            source: 'wizard',
+            timestamp: Date.now(),
+            symptoms: state.symptoms,
+            answers: state.answers
+        };
+        localStorage.setItem('nc_patient_context', JSON.stringify(ctx));
+    }
+
+    // Also save context whenever an option is selected
+    const origOptionHandler = document.querySelectorAll('.option-btn');
+    origOptionHandler.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Small delay to let the state update
+            setTimeout(saveWizardContext, 50);
+        });
+    });
 }
 
 function initResults() {

@@ -279,6 +279,35 @@ FOLLOW_UP_QUESTIONS = [
         ]
     },
     {
+        "id": "supplements",
+        "question": "Are you currently taking any supplements?",
+        "options": [
+            "No supplements",
+            "Multivitamin",
+            "Fish oil / Omega-3",
+            "Vitamin D",
+            "Magnesium",
+            "Probiotics",
+            "Turmeric / Curcumin",
+            "Herbal supplements",
+            "Other supplements"
+        ]
+    },
+    {
+        "id": "conditions",
+        "question": "Have you been diagnosed with any of these conditions?",
+        "options": [
+            "None",
+            "High blood pressure",
+            "Diabetes / blood sugar issues",
+            "Thyroid disorder",
+            "Liver or kidney condition",
+            "Autoimmune condition",
+            "Anxiety or depression",
+            "Other condition"
+        ]
+    },
+    {
         "id": "pregnancy",
         "question": "Are you pregnant or nursing?",
         "options": [
