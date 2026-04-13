@@ -1,0 +1,177 @@
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+FINALLY.
+An AI that knows you.
+DEMO SCRIPT
+By Rishi Khullar | Unusual Insights Inc
+Confidential  |  Not for distribution
+BEFORE YOU BEGIN
+Three rules. Non-negotiable.
+Never explain how it works. The magic dies the moment you mention a graph database.
+Never rush the pauses. The silence is the demo.
+Never fake the data. Every word on screen must come from your real conversation history.
+Total runtime: 6 minutes. Not one second more.
+SETUP CHECKLIST  (before anyone enters the room)
+App is open. Black screen. Cursor in input field.
+Your 6-month conversation history is ingested.
+Old conversation showing the 'goldfish moment' is open in a separate tab.
+All five demo queries are saved — ready to paste, not type.
+Model switcher is set to Claude.
+Phone on silent. Notifications off. Do not disturb on.
+Video recording running as backup.
+ACT 1  THE PAIN   45 seconds
+→
+Say nothing. Walk to the screen. Open the old conversation tab.
+→
+Show the exact moment the AI forgot everything. Let it sit on screen.
+◉
+PAUSE 3 seconds  — Do not speak. Let them feel it.
+▶
+Every conversation you have ever had with AI started from zero.
+◉
+PAUSE 2 seconds
+▶
+It does not know what you told it yesterday.
+▶
+It does not know what you decided last month.
+▶
+It does not know you.
+◉
+PAUSE 2 seconds  — Longest pause so far. Hold it.
+▶
+Until now.
+→
+Switch to the app tab. Black screen. Cursor waiting.
+⚠  Do NOT explain what the app is. Do not say 'I built a memory system.' Just move.
+ACT 2  THE MEMORY   90 seconds
+→
+Type the first query. Slowly. Let them read it as you type.
+>_
+Where did we leave off on the debate app?
+◉
+PAUSE 3 seconds  — Let the response load. Do not fill the silence.
+→
+Response appears. Do not read it aloud. Let them read.
+→
+Point to a specific detail — an architectural decision, a constraint — something precise.
+▶
+That conversation was six months ago.
+◉
+PAUSE 2 seconds
+▶
+I never told it to remember.
+◉
+PAUSE 2 seconds
+▶
+It understood what mattered.
+◉
+PAUSE 3 seconds  — This is the first wow. Let it land completely before moving.
+ACT 3  THE CORRECTION   45 seconds
+▶
+Watch what happens when I change my mind.
+>_
+We abandoned the debate app. We are building something else now.
+◉
+PAUSE 2 seconds
+>_
+What am I working on?
+◉
+PAUSE 3 seconds  — Response loads. The debate app is gone.
+→
+Let them read the response. New direction. Old project: vanished.
+▶
+It forgot what I told it to forget.
+◉
+PAUSE 2 seconds
+▶
+That is not a bug.
+◉
+PAUSE 1 second
+▶
+That is the point.
+◉
+PAUSE 3 seconds
+ACT 4  THE CROSSING   60 seconds
+▶
+Everything I just showed you — that was one AI.
+◉
+PAUSE 1 second
+▶
+Now watch.
+→
+Switch model selector from Claude to GPT. Do it slowly. Let them see it change.
+◉
+PAUSE 2 seconds  — Let the model switch register.
+>_
+What are the constraints on my current project?
+◉
+PAUSE 3 seconds  — Response loads from GPT. With your context. Things you never told GPT.
+→
+Let them read. Point to something specific that GPT could not have known on its own.
+▶
+That is a completely different AI.
+◉
+PAUSE 1 second
+▶
+It has never seen any of this before.
+◉
+PAUSE 2 seconds
+▶
+Different model. Same memory.
+◉
+PAUSE 2 seconds
+▶
+Your context belongs to you now. Not to a platform.
+◉
+PAUSE 3 seconds
+ACT 5  THE ONE MORE THING   60 seconds
+→
+Step back from the screen. Change your posture. Change your tone entirely. Slower. Quieter.
+◉
+PAUSE 3 seconds  — Full reset. This is a different moment.
+▶
+Here is what I did not expect when I built this.
+◉
+PAUSE 3 seconds
+→
+Switch model back to Claude. Type the final query. Slower than everything before.
+>_
+What does this person need to hear right now?
+◉
+PAUSE 4 seconds  — Longest wait in the demo. Do not fill it. Do not explain what is happening.
+→
+Response appears. Step away from the laptop. Do not read it aloud. Do not gesture. Just let them read.
+◉
+PAUSE 5 seconds  — The most important silence in the demo. The room should be completely still.
+⚠  If anyone speaks during this pause, let them. Do not compete with their reaction. It means the demo worked.
+ 
+▶
+For the first time in the history of artificial intelligence.
+◉
+PAUSE 3 seconds  — The longest pause yet.
+It knows you.
+→
+Close the laptop.
+→
+Say nothing.
+→
+Let the silence hold for as long as it holds.
+ 
+IF THEY ASK HOW IT WORKS
+You have one answer. Use it every time.
+"It works the way human memory works. It understands what matters, remembers what is current, and forgets what you let go. The technology is not interesting. What it does for you is."
+Then redirect:
+"What would it mean for your work if your AI actually knew you?"
+That question is worth more than any technical explanation.
+IF SOMETHING BREAKS
+Say this:
+"This is a four-week prototype running on my laptop. The architecture works. What I am showing you is the proof of concept, not the product. Let me show you the recorded version."
+Then play the pre-recorded video. You always have a pre-recorded video.
+REHEARSE THIS 20 TIMES BEFORE YOU DO IT ONCE.
+The demo is not the product. The demo is the story.
+Tell it like you mean it. Because you do.

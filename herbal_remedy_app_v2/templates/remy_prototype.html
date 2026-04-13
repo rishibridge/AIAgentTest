@@ -112,6 +112,21 @@
         </div>
     </nav>
 
+    <!-- Login Overlay -->
+    <div id="loginOverlay" style="display:none; position:fixed; inset:0; z-index:1000; background:var(--bg-primary); display:flex; align-items:center; justify-content:center;">
+        <div style="max-width:400px; width:90%; text-align:center;">
+            <div style="font-size:3rem; margin-bottom:16px;">🌿</div>
+            <h1 style="font-size:1.8rem; font-weight:700; color:var(--text-primary); margin:0 0 8px 0;">Meet Remy</h1>
+            <p style="color:var(--text-secondary); font-size:0.95rem; margin:0 0 32px 0;">Your Ayurvedic Specialist & Lifestyle Architect.<br>Enter your email to start — Remy will remember you.</p>
+            <div style="display:flex; gap:8px;">
+                <input type="email" id="loginEmail" placeholder="your@email.com" style="flex:1; padding:14px 20px; border-radius:30px; border:1px solid var(--border-medium); background:var(--bg-card); color:white; font-family:var(--font); font-size:0.95rem; outline:none;">
+                <button id="loginBtn" onclick="doLogin()" style="padding:14px 24px; border-radius:30px; background:var(--emerald-500); color:white; border:none; font-family:var(--font); font-weight:600; cursor:pointer; font-size:0.95rem;">Start</button>
+            </div>
+            <p id="loginError" style="color:#f87171; font-size:0.8rem; margin-top:12px; display:none;"></p>
+            <p style="color:rgba(255,255,255,0.3); font-size:0.75rem; margin-top:24px;">Your data stays private. No password needed — just bookmark the link.</p>
+        </div>
+    </div>
+
     <div class="remy-container">
         <div class="chat-header">
             <div class="avatar">🌿</div>
@@ -119,6 +134,7 @@
                 <h2>Remy</h2>
                 <p><span class="status-dot"></span>Ayurvedic Specialist & Lifestyle Architect</p>
             </div>
+            <div id="userBadge" style="margin-left:auto; font-size:0.7rem; color:var(--emerald-400); opacity:0.7; display:none;"></div>
         </div>
         
         <div class="chat-area" id="chat">
@@ -135,7 +151,7 @@
             supplements, or treatment plans. <a href="/#disclaimer-section">Full disclaimer</a>
         </div>
     </div>
-    <div class="version-label">NatureCure v3.1</div>
+    <div class="version-label">NatureCure v4.0</div>
 
     <script>
         // Remedy database injected from server
@@ -146,6 +162,81 @@
         const btn = document.getElementById('sendBtn');
         let sessionId = '';
         let isWaiting = false;
+        let userToken = localStorage.getItem('remy_token') || '';
+        let userEmail = localStorage.getItem('remy_email') || '';
+
+        // ── Identity System ─────────────────────────
+        async function doLogin() {
+            const emailInput = document.getElementById('loginEmail');
+            const errorEl = document.getElementById('loginError');
+            const email = emailInput.value.trim();
+            if (!email || !email.includes('@')) {
+                errorEl.textContent = 'Please enter a valid email.';
+                errorEl.style.display = 'block';
+                return;
+            }
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await res.json();
+                if (data.token) {
+                    userToken = data.token;
+                    userEmail = email;
+                    localStorage.setItem('remy_token', userToken);
+                    localStorage.setItem('remy_email', userEmail);
+                    document.getElementById('loginOverlay').style.display = 'none';
+                    showUserBadge();
+                    initChat();
+                } else {
+                    errorEl.textContent = data.error || 'Login failed.';
+                    errorEl.style.display = 'block';
+                }
+            } catch(e) {
+                errorEl.textContent = 'Connection error. Try again.';
+                errorEl.style.display = 'block';
+            }
+        }
+
+        function showUserBadge() {
+            const badge = document.getElementById('userBadge');
+            if (userEmail) {
+                badge.textContent = '🔑 ' + userEmail;
+                badge.style.display = 'block';
+            }
+        }
+
+        async function checkExistingToken() {
+            if (!userToken) {
+                document.getElementById('loginOverlay').style.display = 'flex';
+                return false;
+            }
+            try {
+                const res = await fetch('/api/auth/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: userToken })
+                });
+                const data = await res.json();
+                if (data.valid) {
+                    showUserBadge();
+                    return true;
+                }
+            } catch(e) {}
+            // Token invalid — show login
+            localStorage.removeItem('remy_token');
+            localStorage.removeItem('remy_email');
+            userToken = '';
+            document.getElementById('loginOverlay').style.display = 'flex';
+            return false;
+        }
+
+        // Login on Enter key
+        document.getElementById('loginEmail').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') doLogin();
+        });
 
         // ── Helpers ──────────────────────────────────
         function scrollToBottom() {
@@ -354,7 +445,7 @@
                 const res = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ session_id: sessionId, message: text })
+                    body: JSON.stringify({ session_id: sessionId, message: text, token: userToken })
                 });
                 const data = await res.json();
 
@@ -415,7 +506,7 @@
                 const res = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ session_id: '', message: initMsg })
+                    body: JSON.stringify({ session_id: '', message: initMsg, token: userToken })
                 });
                 const data = await res.json();
                 hideTyping();
@@ -436,6 +527,15 @@
             setInputEnabled(true);
         }
 
+        // ── Session End (consolidation trigger) ──────
+        function endSession() {
+            if (userToken) {
+                // Use sendBeacon for reliability during page unload
+                const data = JSON.stringify({ token: userToken });
+                navigator.sendBeacon('/api/chat/end', new Blob([data], { type: 'application/json' }));
+            }
+        }
+
         // ── Event Listeners ──────────────────────────
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -445,8 +545,14 @@
         });
         btn.addEventListener('click', () => sendMessage());
 
-        // Start
-        window.addEventListener('load', initChat);
+        // Trigger consolidation when leaving the page
+        window.addEventListener('beforeunload', endSession);
+
+        // Start — check token first, then init
+        window.addEventListener('load', async () => {
+            const valid = await checkExistingToken();
+            if (valid) initChat();
+        });
     </script>
 </body>
 </html>

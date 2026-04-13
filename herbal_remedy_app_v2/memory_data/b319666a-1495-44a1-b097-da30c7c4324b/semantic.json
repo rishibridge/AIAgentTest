@@ -1,0 +1,84 @@
+{
+  "identity": {
+    "name": null,
+    "age": null,
+    "sex": null,
+    "location": null
+  },
+  "health": {
+    "conditions": [],
+    "medications": [],
+    "supplements": [],
+    "allergies": [],
+    "lab_results": []
+  },
+  "lifestyle": {
+    "sleep": {
+      "pattern": null,
+      "quality_trend": null,
+      "interventions_tried": []
+    },
+    "movement": {
+      "level": null,
+      "barriers": [],
+      "interventions_tried": []
+    },
+    "nutrition": {
+      "pattern": null,
+      "restrictions": [],
+      "interventions_tried": []
+    },
+    "digital": {
+      "phone_relationship": null,
+      "screen_time": null,
+      "interventions_tried": []
+    },
+    "social": {
+      "connection_level": null,
+      "tribe_status": null
+    },
+    "stressors": []
+  },
+  "goals": [],
+  "coaching_log": [
+    {
+      "date": "2026-04-13",
+      "session_id": "a207eeff-61b7-439f-8c97-63afcd879e0d",
+      "topic": "The app has constraints of a 6-minute runtime and requires real conversation history.",
+      "insight": null,
+      "intervention": null,
+      "follow_up_needed": null
+    },
+    {
+      "date": "2026-04-13",
+      "session_id": "a207eeff-61b7-439f-8c97-63afcd879e0d",
+      "topic": "The patient abandoned the debate app and is now building a healthcare memory app.",
+      "insight": null,
+      "intervention": null,
+      "follow_up_needed": null
+    }
+  ],
+  "emotional_baseline": {
+    "current_mood_trend": null,
+    "energy_trend": null,
+    "anxiety_trend": null
+  },
+  "breakthroughs": [],
+  "open_loops": [
+    "Understand the goals and requirements for the new healthcare memory app."
+  ],
+  "corrections": [
+    {
+      "date": "2026-04-13",
+      "field": "topic in coaching_log[0]",
+      "old_value": "The app has constraints of a 6-minute runtime and requires real conversation history.",
+      "new_value": "The app has constraints of a 6-minute runtime and requires real conversation history. Project abandoned. New project: healthcare memory app.",
+      "reason": "Project changed from AI Human Debate Arena app to healthcare memory app."
+    }
+  ],
+  "meta": {
+    "created_at": "2026-04-13T08:58:00.753211+00:00",
+    "last_updated": "2026-04-13T08:58:10.978356+00:00",
+    "total_sessions": 2
+  }
+}

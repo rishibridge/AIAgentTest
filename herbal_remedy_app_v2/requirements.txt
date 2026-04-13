@@ -4,3 +4,5 @@ google-genai
 python-dotenv
 requests
 beautifulsoup4
+google-cloud-firestore
+numpy

@@ -1,6 +1,6 @@
 """
-NatureCure V3 — Flask Backend
-Enhanced with Remy AI chatbot powered by Google Gemini.
+NatureCure V4.0 — Flask Backend
+Remy AI chatbot with hippocampus-inspired persistent memory.
 """
 import os
 import json
@@ -8,6 +8,7 @@ import hashlib
 import uuid
 import time
 import re
+import logging
 import requests
 from bs4 import BeautifulSoup
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
@@ -21,6 +22,14 @@ from remedies import (
     get_matching_remedies, REMEDIES
 )
 from remy_agent import get_system_prompt
+from auth import get_or_create_user, verify_token
+from memory import MemoryManager
+from memory.firestore_store import FirestoreStore
+from memory.embeddings import init_embedding_client
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("remy")
 
 # Load API key from parent ../.env (same pattern as debate app)
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"), override=True)
@@ -29,6 +38,10 @@ load_dotenv(override=True)
 
 api_key = os.getenv("GOOGLE_API_KEY")
 gemini_client = genai.Client(api_key=api_key) if api_key else None
+
+# Initialize embedding client
+if api_key:
+    init_embedding_client(api_key)
 
 # Build system prompt once at startup with full remedy knowledge
 REMY_SYSTEM = get_system_prompt(REMEDIES)
@@ -39,9 +52,36 @@ app.secret_key = os.urandom(24)
 # In-memory results cache (keyed by hash)
 _results_cache = {}
 
-# In-memory chat sessions  {session_id: [{"role": ..., "content": ...}, ...]}
-_chat_sessions = {}
+# ── Persistence Layer ──────────────────────────────────
+# Uses Firestore if available, falls back to local JSON files
+_store = FirestoreStore(project_id="dev-dispatch-331019")
 
+# Active memory managers (keyed by user_id)
+_active_managers: dict[str, MemoryManager] = {}
+
+
+def _get_manager(user_id: str, session_id: str = None) -> MemoryManager:
+    """Get or create a MemoryManager for a user."""
+    if user_id in _active_managers:
+        return _active_managers[user_id]
+
+    if not session_id:
+        session_id = str(uuid.uuid4())
+
+    manager = MemoryManager(
+        user_id=user_id,
+        session_id=session_id,
+        gemini_client=gemini_client,
+        store=_store,
+    )
+    manager.load()
+    _active_managers[user_id] = manager
+    return manager
+
+
+# ─────────────────────────────────────────────
+#  PAGE ROUTES
+# ─────────────────────────────────────────────
 
 @app.route("/")
 def index():
@@ -77,164 +117,127 @@ def remy_chat():
 
 
 # ─────────────────────────────────────────────
-#  CONTEXT EXTRACTION (prevents "goldfish memory")
+#  AUTH API
 # ─────────────────────────────────────────────
 
-def _extract_patient_context(history):
+@app.route("/api/auth/login", methods=["POST"])
+def api_auth_login():
     """
-    Scan all user messages in history and extract key patient facts.
-    Returns a concise summary string, or empty string if nothing found.
-    This is injected into each Gemini call so the model never forgets.
+    Email-based login. Creates user if new, returns token.
+    Expects JSON: { "email": "user@example.com" }
+    Returns JSON: { "token": "...", "is_new": true/false, "user_id": "..." }
     """
-    # Collect all user messages
-    user_msgs = [m["content"] for m in history if m["role"] == "user"]
-    if not user_msgs:
-        return ""
+    data = request.get_json()
+    email = data.get("email", "").strip()
 
-    # Simple extraction: concatenate all user messages and let the model
-    # see them. But we also do a quick keyword scan to build a structured
-    # context reminder.
-    facts = []
-    combined = " ".join(user_msgs).lower()
+    if not email or "@" not in email:
+        return jsonify({"error": "Valid email required."}), 400
 
-    # Age detection
-    import re as re_module
-    age_match = re_module.search(r'\b(\d{1,3})\s*(?:years?\s*old|yo|y\.o\.?|yrs?)\b', combined)
-    if not age_match:
-        age_match = re_module.search(r'\bam\s+(\d{2,3})\b', combined)
-    if not age_match:
-        age_match = re_module.search(r'\bage\s*(?:is\s*)?(\d{2,3})\b', combined)
-    if age_match:
-        facts.append(f"Age: {age_match.group(1)}")
+    user_id, token, is_new = get_or_create_user(email, _store)
 
-    # Sex/gender detection
-    sex_keywords = {
-        "male": ["male", "man", "guy", "m "],
-        "female": ["female", "woman", "girl", "f "],
-    }
-    for sex, keywords in sex_keywords.items():
-        for kw in keywords:
-            if kw in combined:
-                facts.append(f"Sex: {sex.capitalize()}")
-                break
-        else:
-            continue
-        break
+    return jsonify({
+        "token": token,
+        "is_new": is_new,
+        "user_id": user_id,
+    })
 
-    # Health conditions
-    conditions = []
-    condition_map = {
-        "ankylosing spondylitis": ["ankylosing spondylitis", " as,", " as ", "a.s."],
-        "diabetes": ["diabetes", "diabetic", "blood sugar"],
-        "atrial fibrillation": ["afib", "a-fib", "atrial fibrillation", "atrial fib"],
-        "hypertension": ["hypertension", "high blood pressure", "hbp"],
-        "anxiety": ["anxiety", "anxious"],
-        "depression": ["depression", "depressed"],
-        "insomnia": ["insomnia", "can't sleep", "can not sleep"],
-        "heart disease": ["heart disease", "cardiac", "heart condition"],
-    }
-    for condition, keywords in condition_map.items():
-        for kw in keywords:
-            if kw in combined:
-                conditions.append(condition)
-                break
-    if conditions:
-        facts.append(f"Health conditions: {', '.join(conditions)}")
 
-    # Lifestyle markers
-    if any(w in combined for w in ["sedentary", "don't move", "sit all day", "no exercise"]):
-        facts.append("Lifestyle: Sedentary")
-    if any(w in combined for w in ["sleep late", "late sleep", "night owl", "stay up late"]):
-        facts.append("Sleep: Late schedule")
-    if any(w in combined for w in ["stress", "stressed"]):
-        facts.append("Mental state: Stressed")
+@app.route("/api/auth/verify", methods=["POST"])
+def api_auth_verify():
+    """
+    Verify a token.
+    Expects JSON: { "token": "..." }
+    Returns JSON: { "valid": true/false, "user_id": "...", "email": "..." }
+    """
+    data = request.get_json()
+    token = data.get("token", "")
 
-    # Financial context
-    money_match = re_module.search(r'\$[\d,.]+\s*[mkb]?\b', combined)
-    if money_match:
-        facts.append(f"Financial context mentioned: {money_match.group(0)}")
-
-    # Goals
-    if any(w in combined for w in ["adventure", "exploration", "carefree", "wholesome"]):
-        facts.append("Goal: Seeking a carefree, wholesome life of exploration")
-
-    if not facts:
-        return ""
-
-    return "\n".join(f"• {f}" for f in facts)
+    user = verify_token(token, _store)
+    if user:
+        return jsonify({
+            "valid": True,
+            "user_id": user["user_id"],
+            "email": user.get("email", ""),
+        })
+    else:
+        return jsonify({"valid": False}), 401
 
 
 # ─────────────────────────────────────────────
-#  REMY CHAT API
+#  REMY CHAT API (hippocampus-backed)
 # ─────────────────────────────────────────────
 
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
     """
-    Conversational chat with Remy via Gemini.
-    Expects JSON: { "session_id": "...", "message": "user text" }
-    Returns JSON: { "session_id": "...", "reply": "Remy's response" }
+    Conversational chat with Remy via Gemini, backed by hippocampal memory.
+    Expects JSON: { "token": "...", "message": "user text", "session_id": "..." }
+    Returns JSON: { "session_id": "...", "reply": "Remy's response", "is_returning": bool }
     """
     if not gemini_client:
-        return jsonify({"error": "API key not configured. Add GOOGLE_API_KEY to ../.env"}), 500
+        return jsonify({"error": "API key not configured."}), 500
 
     data = request.get_json()
     user_msg = data.get("message", "").strip()
-    session_id = data.get("session_id", "")
+    token = data.get("token", "")
+    session_id = data.get("session_id", "") or str(uuid.uuid4())
 
     if not user_msg:
         return jsonify({"error": "Empty message."}), 400
 
-    # Get or create session history
-    if not session_id or session_id not in _chat_sessions:
-        session_id = str(uuid.uuid4())
-        _chat_sessions[session_id] = []
+    # ── Identify user ──
+    user_id = "anonymous"
+    if token:
+        user = verify_token(token, _store)
+        if user:
+            user_id = user["user_id"]
 
-    history = _chat_sessions[session_id]
+    # ── Get memory manager ──
+    manager = _get_manager(user_id, session_id)
 
-    # Handle init signal — don't pollute history with fake messages
+    # ── Handle init signal ──
     is_init = (user_msg == "[INIT]")
+
     if is_init:
-        # Don't store [INIT] in history — it's not a real user message
-        # Just send a greeting prompt
-        user_msg = "Start the conversation with your greeting."
-    
-    # Append user message (skip for init — we don't want it in history)
-    if not is_init:
-        history.append({"role": "user", "content": user_msg})
+        # Build greeting context
+        greeting_ctx = manager.get_greeting_context()
+        if greeting_ctx:
+            # Returning user — greet with memory
+            gemini_contents = [
+                types.Content(role="user", parts=[types.Part(text=greeting_ctx)]),
+            ]
+        else:
+            # New user — standard greeting
+            gemini_contents = [
+                types.Content(role="user", parts=[types.Part(text=
+                    "Start the conversation with your greeting."
+                )]),
+            ]
+    else:
+        # ── Regular message — build context + history ──
+        memory_context = manager.get_context_for_prompt(user_msg)
 
-    # ── Build context summary from ALL user messages ──
-    # This prevents "goldfish memory" by extracting key facts and
-    # injecting them as a reminder every turn.
-    context_summary = _extract_patient_context(history)
+        gemini_contents = []
 
-    # Build Gemini contents from history
-    gemini_contents = []
+        # Inject hippocampal context
+        if memory_context:
+            gemini_contents.append(
+                types.Content(role="user", parts=[types.Part(text=memory_context)])
+            )
+            gemini_contents.append(
+                types.Content(role="model", parts=[types.Part(text=
+                    "Understood. I have all of this context and will not re-ask any of it."
+                )])
+            )
 
-    # Inject context reminder as the first model message if we have context
-    if context_summary:
-        gemini_contents.append(
-            types.Content(role="user", parts=[types.Part(text=
-                f"[SYSTEM CONTEXT — DO NOT REPEAT THIS TO THE USER]\n"
-                f"The following facts have already been shared by this patient. "
-                f"DO NOT re-ask any of this information:\n{context_summary}\n"
-                f"Continue the conversation naturally from where we left off."
-            )])
-        )
-        gemini_contents.append(
-            types.Content(role="model", parts=[types.Part(text=
-                "Understood. I have all of this context. I will not re-ask any of it."
-            )])
-        )
+        # Add conversation history from this session
+        for msg in manager.get_history_for_gemini():
+            role = "user" if msg["role"] == "user" else "model"
+            gemini_contents.append(
+                types.Content(role=role, parts=[types.Part(text=msg["content"])])
+            )
 
-    for msg in history:
-        role = "user" if msg["role"] == "user" else "model"
-        gemini_contents.append(
-            types.Content(role=role, parts=[types.Part(text=msg["content"])])
-        )
-
-    # For init calls, add the greeting prompt (not stored in history)
-    if is_init:
+        # Add current user message
         gemini_contents.append(
             types.Content(role="user", parts=[types.Part(text=user_msg)])
         )
@@ -251,16 +254,48 @@ def api_chat():
         )
         reply = response.text.strip()
     except Exception as e:
-        reply = f"I'm having trouble connecting right now. Please try again in a moment. (Error: {str(e)[:100]})"
+        log.error(f"Gemini error: {e}")
+        reply = "I'm having trouble connecting right now. Please try again in a moment."
 
-    # Append assistant reply to history
-    history.append({"role": "assistant", "content": reply})
+    # ── Store in working memory (skip init) ──
+    if not is_init:
+        manager.add_exchange(user_msg, reply)
 
-    # Cap history length to avoid token overflow (keep last 40 turns)
-    if len(history) > 40:
-        _chat_sessions[session_id] = history[-40:]
+    return jsonify({
+        "session_id": session_id,
+        "reply": reply,
+        "is_returning": manager.is_returning_user(),
+    })
 
-    return jsonify({"session_id": session_id, "reply": reply})
+
+@app.route("/api/chat/end", methods=["POST"])
+def api_chat_end():
+    """
+    End a chat session — triggers consolidation ('sleep').
+    Expects JSON: { "token": "..." }
+    """
+    data = request.get_json() or {}
+    token = data.get("token", "")
+
+    user_id = "anonymous"
+    if token:
+        user = verify_token(token, _store)
+        if user:
+            user_id = user["user_id"]
+
+    if user_id in _active_managers:
+        manager = _active_managers[user_id]
+        try:
+            result = manager.consolidate_and_save()
+            log.info(f"Session consolidated for {user_id}: {result}")
+            # Clean up in-memory manager
+            del _active_managers[user_id]
+            return jsonify({"status": "consolidated", "details": result})
+        except Exception as e:
+            log.error(f"Consolidation failed for {user_id}: {e}")
+            return jsonify({"status": "error", "message": str(e)[:200]}), 500
+    else:
+        return jsonify({"status": "no_active_session"})
 
 
 # ─────────────────────────────────────────────
@@ -438,7 +473,6 @@ def ads_gallery():
 @app.route("/ads/<ad_name>")
 def view_ad(ad_name):
     # Sanitize to prevent path traversal
-    import re
     if not re.match(r'^ad\d+_[a-z_]+$', ad_name):
         return "Not found", 404
     try:
@@ -555,4 +589,3 @@ def api_price():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
-
