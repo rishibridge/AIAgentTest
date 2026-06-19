@@ -1,0 +1,12 @@
+PATIENT VISIT NOTE
+Patient: Rosa Gutierrez
+Date: Oct 12, 2023
+
+PCP Assessment:
+Patient presents with mild abdominal discomfort. Physical exam is unremarkable. No masses felt. I suspect mild gastritis. I will prescribe antacids.
+Imaging was ordered as a precaution but the results are otherwise unremarkable and do not require follow up.
+
+RADIOLOGY ADDENDUM:
+Date: Oct 14, 2023
+CT Scan of Abdomen:
+Incidental finding: 2.1 cm heterogeneous mass in the cecum. Highly suspicious for malignancy. Urgent GI follow-up and biopsy recommended. Note: This finding was missed on the initial read on Oct 12.

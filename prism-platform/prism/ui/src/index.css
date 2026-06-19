@@ -1,0 +1,244 @@
+:root {
+  --bg-dark: #0f172a;
+  --bg-panel: #1e293b;
+  --bg-input: #334155;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent-primary: #6366f1;
+  --accent-hover: #4f46e5;
+  --border-color: #334155;
+  --success: #10b981;
+  --warning: #f59e0b;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+}
+
+.app-container {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 260px;
+  background-color: var(--bg-panel);
+  border-right: 1px solid var(--border-color);
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.brand {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--accent-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  padding-left: 1rem;
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.nav-btn:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+}
+
+.nav-btn.active {
+  background-color: var(--accent-primary);
+  color: #fff;
+}
+
+/* Main Area */
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-container {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 1.5rem;
+}
+
+.view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.view-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.upload-btn {
+  background-color: var(--bg-input);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.upload-btn:hover {
+  background-color: var(--border-color);
+}
+
+/* Playground */
+.playground-card {
+  flex: 1;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+}
+
+.results-area {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.empty-state {
+  margin: auto;
+  text-align: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.empty-state svg {
+  opacity: 0.3;
+}
+
+.adjudication-result {
+  background-color: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 12px;
+  padding: 1.5rem;
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.result-title {
+  color: #a5b4fc;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.result-verdict {
+  line-height: 1.6;
+  font-size: 1.05rem;
+}
+
+.bias-flags {
+  margin-top: 1.5rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.badge-warning {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Input Area */
+.input-wrapper {
+  position: relative;
+  display: flex;
+}
+
+.chat-input {
+  width: 100%;
+  background-color: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  color: white;
+  padding: 1rem 8rem 1rem 1rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.chat-input:focus {
+  border-color: var(--accent-primary);
+}
+
+.analyze-btn {
+  position: absolute;
+  right: 0.5rem;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  padding: 0 1.5rem;
+  background-color: var(--accent-primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.analyze-btn:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+.analyze-btn:disabled {
+  background-color: var(--bg-input);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
