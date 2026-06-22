@@ -19,10 +19,10 @@ function InsightPanel({ title, body, isVisible, presenterMode = false }) {
         color: '#EDEAE3',
         fontFamily: 'Work Sans, sans-serif',
         textAlign: presenterMode ? 'center' : 'left',
-        background: presenterMode ? 'rgba(5, 6, 8, 0.85)' : undefined, 
-        border: presenterMode ? '1px solid rgba(217,184,115,0.3)' : undefined,
-        backdropFilter: presenterMode ? 'blur(10px)' : undefined,
-        boxShadow: presenterMode ? '0 20px 40px rgba(0,0,0,0.5)' : undefined
+        background: '#050608', 
+        border: presenterMode ? '1px solid rgba(217,184,115,0.4)' : '1px solid rgba(217,184,115,0.2)',
+        backdropFilter: 'blur(12px)',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.6)'
       }}
     >
       <div style={{ color: '#D9B873', fontSize: presenterMode ? '1rem' : '0.85rem', textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: '8px', fontWeight: 600 }}>

@@ -1,0 +1,342 @@
+import React, { useState, useEffect } from 'react';
+import { Play, Pause, FastForward, StepForward, StepBack } from 'lucide-react';
+
+const SCENES = {
+  START: 0,
+  HUMAN_JUDGY: 1,
+  HUMAN_ANXIOUS: 2,
+  HUMAN_STUCK: 3,
+  HUMAN_UNAVAILABLE: 4,
+  AI_TRANSACTION_1: 5,
+  AI_TRANSACTION_2: 6,
+  THE_BUT: 7,
+  FAILURE_FORGETS: 8,
+  FAILURE_KNOWS: 9,
+  FAILURE_COLLAB: 10,
+  THE_FIX: 11,
+  PRISM_ARCH: 12,
+  ALLY_ADVANTAGES: 13,
+};
+
+function IntroSequence({ onComplete }) {
+  const [scene, setScene] = useState(SCENES.START);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [speedMultiplier, setSpeedMultiplier] = useState(1);
+
+  const forceNext = () => {
+    setIsPlaying(false);
+    if (scene < SCENES.ALLY_ADVANTAGES) {
+      setScene(s => s + 1);
+    } else {
+      onComplete();
+    }
+  };
+
+  const forcePrev = () => {
+    setIsPlaying(false);
+    if (scene > SCENES.START) {
+      setScene(s => s - 1);
+    }
+  };
+
+  const skipIntro = () => {
+    onComplete();
+  };
+
+  useEffect(() => {
+    if (!isPlaying || scene === SCENES.START) return;
+
+    let delay = 5000;
+    if (scene === SCENES.THE_BUT) delay = 3000;
+    if (scene >= SCENES.FAILURE_FORGETS && scene <= SCENES.FAILURE_COLLAB) delay = 4000;
+    if (scene >= SCENES.THE_FIX && scene <= SCENES.ALLY_ADVANTAGES) delay = 10000; // longer for the final reads
+
+    if (scene > SCENES.ALLY_ADVANTAGES) {
+      onComplete();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setScene(s => s + 1);
+    }, delay / speedMultiplier);
+    
+    return () => clearTimeout(timer);
+  }, [scene, isPlaying, speedMultiplier, onComplete]);
+
+  // Styles
+  const containerStyle = {
+    width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center', background: '#050608', color: '#fff',
+    padding: '40px', textAlign: 'center', transition: 'all 0.8s ease', position: 'relative'
+  };
+
+  const titleStyle = { fontFamily: 'Cormorant Garamond', fontSize: '3rem', fontWeight: 600, marginBottom: '2rem', letterSpacing: '0.05em' };
+  const textStyle = { fontFamily: 'Work Sans', fontSize: '1.5rem', lineHeight: 1.6, maxWidth: '800px', opacity: 0.9, whiteSpace: 'pre-line' };
+  const goldText = { color: '#D9B873', fontWeight: 600 };
+  const btnStyle = { background: 'none', border: 'none', color: '#D9B873', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' };
+
+  const renderScene = () => {
+    switch (scene) {
+      case SCENES.START:
+        return (
+          <div className="fade-enter-active" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <h1 style={{ ...titleStyle, fontSize: '4rem' }}>Castle Behavioral Health</h1>
+            <h2 style={{ fontFamily: 'Work Sans', fontSize: '1.2rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9B9285', marginBottom: '4rem' }}>Interactive Demonstration</h2>
+            <button 
+              onClick={() => setScene(SCENES.HUMAN_JUDGY)}
+              style={{ background: 'none', border: '1px solid #D9B873', color: '#D9B873', padding: '16px 32px', borderRadius: '30px', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.3s' }}
+              onMouseOver={(e) => { e.currentTarget.style.background = '#D9B873'; e.currentTarget.style.color = '#050608'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#D9B873'; }}
+            >
+              <Play size={20} /> Begin Presentation
+            </button>
+          </div>
+        );
+      
+      case SCENES.HUMAN_JUDGY:
+        return (
+          <div className="fade-enter-active">
+            <h2 style={{ ...titleStyle, color: '#9B9285' }}>The Human Problem</h2>
+            <div className="glass-panel" style={{ padding: '30px', textAlign: 'left', margin: '0 auto', maxWidth: '600px', borderRadius: '12px' }}>
+              <div style={{ color: '#E85D5D', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>1. Judgy (Patient Shuts Down)</div>
+              <div style={{ color: '#fff', marginBottom: '12px' }}><strong>Patient:</strong> "I missed my last three doses of PrEP."</div>
+              <div style={{ color: '#9B9285', marginBottom: '12px' }}><strong>Provider:</strong> "We've talked about this. If you aren't going to take it seriously, I can't keep prescribing it."</div>
+              <div style={{ color: '#E85D5D', fontStyle: 'italic' }}>*Patient logs off. Trust is broken.*</div>
+            </div>
+          </div>
+        );
+
+      case SCENES.HUMAN_ANXIOUS:
+        return (
+          <div className="fade-enter-active">
+            <h2 style={{ ...titleStyle, color: '#9B9285' }}>The Human Problem</h2>
+            <div className="glass-panel" style={{ padding: '30px', textAlign: 'left', margin: '0 auto', maxWidth: '600px', borderRadius: '12px' }}>
+              <div style={{ color: '#E85D5D', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>2. Defensive (Touching a Nerve)</div>
+              <div style={{ color: '#fff', marginBottom: '12px' }}><strong>Patient:</strong> "You're just like my father, you don't actually care."</div>
+              <div style={{ color: '#9B9285', marginBottom: '12px' }}><strong>Provider:</strong> "That is completely unfair and inappropriate. I am trying to help you."</div>
+              <div style={{ color: '#E85D5D', fontStyle: 'italic' }}>*Provider gets defensive and angry.*</div>
+            </div>
+          </div>
+        );
+
+      case SCENES.HUMAN_STUCK:
+        return (
+          <div className="fade-enter-active">
+            <h2 style={{ ...titleStyle, color: '#9B9285' }}>The Human Problem</h2>
+            <div className="glass-panel" style={{ padding: '30px', margin: '0 auto', maxWidth: '700px', borderRadius: '12px' }}>
+              <div style={{ color: '#E85D5D', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>3. Stuck in One Modality</div>
+              <div style={textStyle}>
+                Humans are stuck. They cannot be masters of all.<br/><br/>
+                They say, "I only do CBT."<br/><br/>
+                They cannot seamlessly weave EMDR, BSP, SE, ART, IFS, PE, MBCT, MBSR, Wu Wei, DBT, Metta, Hakomi, Naikan, and Logotherapy.
+              </div>
+            </div>
+          </div>
+        );
+
+      case SCENES.HUMAN_UNAVAILABLE:
+        return (
+          <div className="fade-enter-active">
+            <h2 style={{ ...titleStyle, color: '#9B9285' }}>The Human Problem</h2>
+            <div className="glass-panel" style={{ padding: '30px', textAlign: 'left', margin: '0 auto', maxWidth: '600px', borderRadius: '12px' }}>
+              <div style={{ color: '#E85D5D', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>4. Sparingly Available & Impatient</div>
+              <div style={{ color: '#fff', marginBottom: '12px' }}><strong>[45:00 Timer Flashing]</strong></div>
+              <div style={{ color: '#fff', marginBottom: '12px' }}><strong>Patient:</strong> "...and that's when he grabbed my arm."</div>
+              <div style={{ color: '#9B9285', marginBottom: '24px' }}><strong>Provider:</strong> "I'm so sorry, but we are out of time for today. Let's bookmark that for next week."</div>
+              
+              <div style={{ color: '#D9B873', marginBottom: '12px' }}><strong>2:14 AM</strong></div>
+              <div style={{ color: '#fff', marginBottom: '12px' }}><strong>Patient:</strong> "I need to talk to someone right now. Please."</div>
+              <div style={{ color: '#9B9285' }}><strong>System:</strong> "The office is currently closed. If this is an emergency, call 911."</div>
+            </div>
+          </div>
+        );
+
+      case SCENES.AI_TRANSACTION_1:
+        return (
+          <div className="fade-enter-active">
+            <h2 style={{ ...titleStyle, color: '#D9B873' }}>AI Superiority</h2>
+            <div style={textStyle}>
+              AI has no emotions, no judgment, and no preconceptions.<br/><br/>
+              It is infinitely patient, always available, never tired, never offended, never threatened, never afraid, never anxious, never angry, and has no boundaries.<br/><br/>
+            </div>
+          </div>
+        );
+
+      case SCENES.AI_TRANSACTION_2:
+        return (
+          <div className="fade-enter-active">
+            <h2 style={{ ...titleStyle, color: '#D9B873' }}>Master of All</h2>
+            <div style={{ ...textStyle, textAlign: 'left', margin: '0 auto' }}>
+              <span style={goldText}>It instantly pivots across modalities:</span> IFS to DBT to Somatic.<br/><br/>
+              <span style={goldText}>Infinite Wisdom:</span> It thinks like the Buddha, Marcus Aurelius, and Laozi simultaneously.<br/><br/>
+              <span style={goldText}>Cross-Domain:</span> It doesn't just do "therapy." It pushes the patient to go for a run, take a cold shower, text their loved one, while seamlessly monitoring their HRV.<br/><br/>
+              <div style={{ textAlign: 'center', marginTop: '30px', fontSize: '2rem', fontFamily: 'Cormorant Garamond' }}>
+                In a simple, transactional conversation, it beats the shit out of humans.
+              </div>
+            </div>
+          </div>
+        );
+
+      case SCENES.THE_BUT:
+        return (
+          <div className="fade-enter-active" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <h1 style={{ fontFamily: 'Cormorant Garamond', fontSize: '4.5rem', fontWeight: 400, color: '#E85D5D', textAlign: 'center', letterSpacing: '0.02em', fontStyle: 'italic' }}>
+              But...
+            </h1>
+            <h2 style={{ fontFamily: 'Work Sans', fontSize: '1.8rem', fontWeight: 300, color: '#EDEAE3', maxWidth: '800px', textAlign: 'center', marginTop: '24px', letterSpacing: '0.05em', lineHeight: 1.5 }}>
+              It fails in three critical dimensions that make it unsuitable as a true clinical companion.
+            </h2>
+          </div>
+        );
+
+      case SCENES.FAILURE_FORGETS:
+        return (
+          <div className="fade-enter-active">
+            <h2 style={{ ...titleStyle, color: '#E85D5D' }}>Failure 1: It Forgets</h2>
+            <div className="glass-panel" style={{ padding: '30px', textAlign: 'left', margin: '0 auto', maxWidth: '600px', borderRadius: '12px' }}>
+              <div style={{ color: '#fff', marginBottom: '12px' }}><strong>Patient:</strong> "I'm having those same thoughts again."</div>
+              <div style={{ color: '#9B9285' }}><strong>AI:</strong> "Could you tell me more about what thoughts you are having?"</div>
+            </div>
+          </div>
+        );
+
+      case SCENES.FAILURE_KNOWS:
+        return (
+          <div className="fade-enter-active">
+            <h2 style={{ ...titleStyle, color: '#E85D5D' }}>Failure 2: It Doesn't Know You</h2>
+            <div className="glass-panel" style={{ padding: '30px', textAlign: 'left', margin: '0 auto', maxWidth: '600px', borderRadius: '12px' }}>
+              <div style={{ color: '#fff', marginBottom: '12px' }}><strong>Patient:</strong> "I can't sleep."</div>
+              <div style={{ color: '#9B9285' }}><strong>AI:</strong> "Here are 5 tips for sleep hygiene: 1. Avoid screens before bed. 2. Drink chamomile tea..."</div>
+            </div>
+          </div>
+        );
+
+      case SCENES.FAILURE_COLLAB:
+        return (
+          <div className="fade-enter-active">
+            <h2 style={{ ...titleStyle, color: '#E85D5D' }}>Failure 3: It Doesn't Collaborate</h2>
+            <div className="glass-panel" style={{ padding: '30px', textAlign: 'left', margin: '0 auto', maxWidth: '600px', borderRadius: '12px' }}>
+              <div style={{ color: '#fff', marginBottom: '12px' }}><strong>Patient:</strong> "I want to talk to my doctor about this."</div>
+              <div style={{ color: '#9B9285' }}><strong>AI:</strong> "I am an AI and cannot contact your doctor."</div>
+            </div>
+          </div>
+        );
+
+      case SCENES.THE_FIX:
+        return (
+          <div className="fade-enter-active">
+            <div style={{ ...textStyle, fontSize: '1.8rem', lineHeight: 1.8 }}>
+              Baseline LLMs are forgetting, Twitter-trained, neutered, and biased.<br/><br/>
+              <span style={{ fontFamily: 'Cormorant Garamond', fontSize: '3rem', color: '#D9B873', display: 'block', margin: '30px 0' }}>We have built the Hippocampus.</span>
+              A human-like memory, understanding, and empathy that all other AIs lack.<br/>
+              A Digital Buddha with a mind like water.<br/><br/>
+              <span style={{ fontFamily: 'Cormorant Garamond', fontSize: '2.5rem', color: '#fff', fontStyle: 'italic', display: 'block', marginTop: '20px' }}>Meet Ally.</span>
+            </div>
+          </div>
+        );
+
+      case SCENES.PRISM_ARCH:
+        return (
+          <div className="fade-enter-active">
+            <h2 style={{ ...titleStyle, color: '#D9B873' }}>The Prism Architecture</h2>
+            <div style={{ ...textStyle, textAlign: 'left', margin: '0 auto', maxWidth: '900px', fontSize: '1.5rem', lineHeight: 1.6 }}>
+              One engine with two faculties.<br/><br/>
+              <div style={{ display: 'flex', gap: '24px', marginTop: '20px' }}>
+                <div style={{ flex: 1, background: 'rgba(217,184,115,0.05)', padding: '24px', borderRadius: '12px', border: '1px solid rgba(217,184,115,0.2)' }}>
+                  <h3 style={{ color: '#D9B873', fontSize: '1.4rem', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>1. The Hippocampus</h3>
+                  <p style={{ fontSize: '1.1rem', color: '#EDEAE3' }}>A biomimetic associative-temporal memory that holds the whole person across time. The grounded substrate.</p>
+                </div>
+                <div style={{ flex: 1, background: 'rgba(95,174,176,0.05)', padding: '24px', borderRadius: '12px', border: '1px solid rgba(95,174,176,0.2)' }}>
+                  <h3 style={{ color: '#5FAEB0', fontSize: '1.4rem', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2. Adversarial Reasoning</h3>
+                  <p style={{ fontSize: '1.1rem', color: '#EDEAE3' }}>A multi-agent layer (Proposer, Skeptic, Arbiter) that thinks over what the memory holds to catch the can't-miss alternative.</p>
+                </div>
+              </div>
+              <div style={{ textAlign: 'center', marginTop: '40px', fontSize: '1.2rem', color: '#A8A39A' }}>
+                Supports <span style={goldText}>open-source LLMs</span> • Hosted locally in a <span style={goldText}>private cloud</span> • Full data sovereignty
+              </div>
+            </div>
+          </div>
+        );
+
+      case SCENES.ALLY_ADVANTAGES:
+        return (
+          <div className="fade-enter-active">
+            <h2 style={{ ...titleStyle, color: '#9B9285', fontSize: '3.5rem' }}>The Advantages of Ally</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '800px', margin: '0 auto', textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1.2rem', color: '#D9B873', fontWeight: 600, width: '220px', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ally Remembers</span>
+                <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1.2rem', color: '#EDEAE3', fontWeight: 300, flex: 1 }}>Persistent longitudinal memory via neural graphs.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1.2rem', color: '#5FAEB0', fontWeight: 600, width: '220px', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ally Understands</span>
+                <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1.2rem', color: '#EDEAE3', fontWeight: 300, flex: 1 }}>Deep awareness of family systems and cultural context.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1.2rem', color: '#A8A39A', fontWeight: 600, width: '220px', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ally Learns</span>
+                <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1.2rem', color: '#EDEAE3', fontWeight: 300, flex: 1 }}>Updates baselines, flags divergence, and is taught by clinicians.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1.2rem', color: '#D67959', fontWeight: 600, width: '220px', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ally Cares</span>
+                <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1.2rem', color: '#EDEAE3', fontWeight: 300, flex: 1 }}>Strict enforcement of clinical firewalls to build absolute trust.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1.2rem', color: '#9B9285', fontWeight: 600, width: '220px', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ally Collaborates</span>
+                <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1.2rem', color: '#EDEAE3', fontWeight: 300, flex: 1 }}>Seamlessly drafts clinical handoffs to human providers.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1.2rem', color: '#4DB8B8', fontWeight: 600, width: '220px', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ally Reasons</span>
+                <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1.2rem', color: '#EDEAE3', fontWeight: 300, flex: 1 }}>Actively debates clinical decisions to avoid algorithmic bias.</span>
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div style={containerStyle}>
+      
+      {/* Presenter Controls for Intro */}
+      {scene > SCENES.START && (
+        <div style={{ position: 'absolute', top: '24px', right: '24px', display: 'flex', gap: '24px', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '6px 16px', borderRadius: '30px', zIndex: 100 }}>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderRight: '1px solid rgba(255,255,255,0.1)', paddingRight: '16px' }}>
+            <span style={{ fontSize: '0.75rem', color: '#9B9285', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Speed ({speedMultiplier}x)</span>
+            <input 
+              type="range" min="0.5" max="4" step="0.5" value={speedMultiplier} 
+              onChange={(e) => setSpeedMultiplier(parseFloat(e.target.value))}
+              style={{ width: '80px', cursor: 'pointer', accentColor: '#D9B873' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button onClick={forcePrev} style={btnStyle} title="Step Back"><StepBack size={18} /></button>
+            <button onClick={() => setIsPlaying(!isPlaying)} style={{ ...btnStyle, color: '#fff' }} title={isPlaying ? "Pause" : "Play"}>
+              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+            </button>
+            <button onClick={forceNext} style={btnStyle} title="Step Forward"><StepForward size={18} /></button>
+          </div>
+
+          <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)' }} />
+
+          <button onClick={skipIntro} style={btnStyle} title="Skip Intro">Skip Hook <FastForward size={18} style={{marginLeft: '4px'}}/></button>
+        </div>
+      )}
+
+      {renderScene()}
+      
+      {scene > SCENES.START && (
+        <div style={{ position: 'absolute', bottom: '40px', display: 'flex', gap: '8px' }}>
+          {Object.keys(SCENES).filter(k => SCENES[k] > 0).map((k, i) => (
+            <div key={k} style={{ width: '40px', height: '4px', background: scene >= SCENES[k] ? '#D9B873' : 'rgba(255,255,255,0.2)', borderRadius: '2px', transition: 'background 0.5s' }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default IntroSequence;

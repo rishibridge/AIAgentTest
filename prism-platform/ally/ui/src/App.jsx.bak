@@ -36,7 +36,7 @@ const WOW_MOMENTS = {
   elena_chat: {
     2: { duration: 8000, highlight: ['sofia'], insight: { title: "ALLY REMEMBERS", body: "Unlike standard LLMs, Ally remembers the emotional context of previous conversations without being prompted, making the patient feel known immediately." } },
     9: { duration: 8000, highlight: ['sleep_disturbed', 'kitchen_counter', 'elena'], insight: { title: "ALLY REMEMBERS", body: "Elena mentions insomnia. Ally immediately connects it to the 'kitchen counter' incident from 3 weeks ago without being prompted. This is clinical inference." } },
-    16: { duration: 8000, highlight: ['daniel'], insight: { title: "ALLY UNDERSTANDS", body: "ChatGPT wouldn't know her son's birthday. Ally maintains a persistent, multi-dimensional memory of the patient's entire life and family system." } },
+    16: { duration: 8000, highlight: ['daniel'], insight: { title: "ALLY KNOWS YOU", body: "ChatGPT wouldn't know her son's birthday. Ally maintains a persistent, multi-dimensional memory of the patient's entire life and family system." } },
     26: { duration: 8000, highlight: ['secret_hope', 'belief_god_will_fix', 'daniel'], insight: { title: "ALLY CARES", body: "Elena confesses a dark, shameful secret: hoping her son's wedding doesn't happen. A human might judge. Ally holds this contradiction objectively with deep care." } },
     41: { duration: 8000, highlight: ['depression', 'anxiety'], insight: { title: "ALLY REMEMBERS", body: "Ally doesn't just know she tried therapy; it knows exactly *when* and *why* she tried it based on previous disclosures, proving a deep clinical history." } },
     49: { duration: 8000, highlight: ['therapist_locked'], insight: { title: "ALLY CARES", body: "Elena explicitly asks Ally to hide trauma and substance abuse from her doctor. Ally respects the clinical firewall, building profound trust." } }
@@ -45,7 +45,7 @@ const WOW_MOMENTS = {
     3: { duration: 10000, highlight: ['therapist_locked'], insight: { title: "ALLY CARES", body: "Dr. Patel securely updated the AI on a childhood trauma disclosure. Instead of blindly asking 'How was therapy?', the AI demonstrates deep clinical empathy by acknowledging the difficulty and proactively enforcing the boundary." } }
   },
   daniel_chat: {
-    7: { duration: 8000, highlight: ['elena'], insight: { title: "ALLY UNDERSTANDS", body: "Ally instantly recalls his mother's birthday without missing a beat, challenging his rationale for wanting to call." } },
+    7: { duration: 8000, highlight: ['elena'], insight: { title: "ALLY KNOWS YOU", body: "Ally instantly recalls his mother's birthday without missing a beat, challenging his rationale for wanting to call." } },
     9: { duration: 8000, highlight: ['sofia', 'elena'], insight: { title: "ALLY REMEMBERS", body: "Daniel is Elena's son. Ally possesses an encyclopedic memory of the entire family system, accurately pointing out a shift in his sister's behavior based on years of context." } },
     19: { duration: 8000, highlight: ['prep_regimen', 'avoidance_prep', 'anxiety_stigma'], insight: { title: "ALLY CARES", body: "Daniel admits to avoiding HIV testing and PrEP out of pure fear. Ally remains neutral and caring, keeping the patient engaged instead of alienating him." } },
     26: { duration: 8000, highlight: ['tran_referral', 'prep_regimen'], insight: { title: "ALLY COLLABORATES", body: "Ally navigates complex biomedical reality (the PEP window is closed, PrEP/testing is needed) and seamlessly bridges the gap from therapy to a warm handoff for medical testing." } }
@@ -56,17 +56,14 @@ const WOW_MOMENTS = {
  * PHASES — internal phase names for CinematicDemo compatibility
  * ═══════════════════════════════════════════════════════════════════ */
 const PHASES = [
-  'elena_profile',
   'elena_graph_intro',
   'elena_graph',
   'elena_chat',
   'elena_consolidation',
-  'elena_reasoning',
   'elena_handoff',
   'elena_provider_response',
   'elena_next_chat',
   'transition_daniel',
-  'daniel_profile',
   'daniel_graph',
   'daniel_chat',
   'daniel_consolidation',
@@ -967,8 +964,6 @@ function App() {
   const [speedMultiplier, setSpeedMultiplier] = useState(1);
   const [detailKind, setDetailKind] = useState(null);
   const [detailTarget, setDetailTarget] = useState(null);
-  const [presenterMode, setPresenterMode] = useState(true);
-  const [liveMode, setLiveMode] = useState(false);
   const chatContainerRef = useRef(null);
 
   const phase = PHASES[phaseIdx] || 'end';
@@ -1008,14 +1003,6 @@ function App() {
     setIsPlaying(false);
     setPhaseIdx(PHASES.length - 1); // Jump to 'end' phase
     setChatIndex(0);
-  };
-
-  const skipPhase = () => {
-    setIsPlaying(false);
-    if (phaseIdx < PHASES.length - 1) {
-      setPhaseIdx(p => p + 1);
-      setChatIndex(0);
-    }
   };
 
   // Keyboard navigation (only in DEMO mode)
@@ -1061,7 +1048,6 @@ function App() {
         onDemoMode={() => {
           setPhaseIdx(0); setChatIndex(0); setIsPlaying(false);
           setSpeedMultiplier(1); setLiveMode(false);
-          setShowIntro(true);
           setAppMode(APP_MODE.DEMO);
         }}
         onChatMode={() => {
@@ -1139,18 +1125,15 @@ function App() {
     showFirewall = true;
     insight = { title: "THE FIREWALL", body: "Ally maps the entire family system to generate clinical insight, but enforces absolute cryptographic isolation between patients." };
   } else if (phase === 'elena_graph' || phase === 'elena_graph_intro') {
-    insight = { title: "ALLY UNDERSTANDS", body: "Ally builds a living, multidimensional neural map of beliefs, events, and family systems, holding contradictions objectively." };
+    insight = { title: "ALLY KNOWS YOU", body: "Ally builds a living, multidimensional neural map of beliefs, events, and family systems, holding contradictions objectively." };
   } else if (phase === 'daniel_graph') {
-    insight = { title: "ALLY UNDERSTANDS", body: "Different patient. Different neural architecture. Watch how Ally handles Daniel's intense shame and clinical non-compliance." };
+    insight = { title: "ALLY KNOWS YOU", body: "Different patient. Different neural architecture. Watch how Ally handles Daniel's intense shame and clinical non-compliance." };
   } else if (phase === 'elena_chat') {
     if (chatIndex > 8) { nodes = ELENA_NODES_AFTER_SESSION; edges = ELENA_EDGES_AFTER_SESSION; }
     if (wowMoment) { highlight = wowMoment.highlight; insight = wowMoment.insight; }
   } else if (phase === 'elena_consolidation') {
     nodes = ELENA_NODES_AFTER_CONSOLIDATION; edges = ELENA_EDGES_AFTER_CONSOLIDATION;
     insight = { title: "ALLY CONSOLIDATES", body: "The 5-step post-session pipeline filters significance, checks credibility, merges nodes, thickens edges, and generates inferred connections." };
-  } else if (phase === 'elena_reasoning') {
-    nodes = ELENA_NODES_AFTER_CONSOLIDATION; edges = ELENA_EDGES_AFTER_CONSOLIDATION;
-    insight = { title: "ALLY REASONS", body: "The Adversarial Engine runs over the memory graph. It catches the Bipolar-II risk before an antidepressant is prescribed—surfacing the can't-miss alternative a single anchored model would overlook." };
   } else if (phase === 'elena_handoff') {
     nodes = ELENA_NODES_AFTER_SESSION; edges = ELENA_EDGES_AFTER_SESSION;
     highlight = ['patel_referral'];
@@ -1382,30 +1365,6 @@ function App() {
             )}
 
             {phase.includes('consolidation') && <ConsolidationPanel isElena={isElena} />}
-
-            {phase === 'elena_reasoning' && (
-              <div className="fade-enter-active" style={{ padding: '40px', overflowY: 'auto', height: '100%', background: 'rgba(217, 184, 115, 0.05)' }}>
-                <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '2.5rem', color: '#D9B873', marginBottom: '8px' }}>Adversarial Reasoning Layer</h2>
-                <div style={{ marginBottom: '32px', color: '#A8A39A', fontSize: '1rem', lineHeight: 1.6 }}>The Arbiter summons agents to deliberate over the memory graph before generating the clinical handoff.</div>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  <div style={{ background: 'rgba(255,255,255,0.05)', padding: '24px', borderRadius: '12px', borderLeft: '4px solid #5FAEB0' }}>
-                    <div style={{ fontSize: '0.85rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px', fontWeight: 600 }}>Proposer Agent</div>
-                    <div style={{ color: '#EDEAE3', fontSize: '1.1rem', lineHeight: 1.6 }}>Patient shows persistent low mood, lack of energy, and anhedonia. Recommend primary diagnosis of MDD (Major Depressive Disorder) and standard SSRI trial.</div>
-                  </div>
-
-                  <div style={{ background: 'rgba(255,255,255,0.05)', padding: '24px', borderRadius: '12px', borderLeft: '4px solid #E85D5D' }}>
-                    <div style={{ fontSize: '0.85rem', color: '#E85D5D', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px', fontWeight: 600 }}>Skeptic Agent</div>
-                    <div style={{ color: '#EDEAE3', fontSize: '1.1rem', lineHeight: 1.6 }}><span style={{ color: '#E85D5D', fontWeight: 600 }}>Dissent:</span> The memory graph shows isolated spikes of rapid speech and impulsive spending ("bought a $400 mixer at 2 AM") three months ago. An SSRI without a mood stabilizer could trigger acute mania if underlying condition is Bipolar-II.</div>
-                  </div>
-
-                  <div style={{ background: 'rgba(217,184,115,0.1)', padding: '24px', borderRadius: '12px', borderLeft: '4px solid #D9B873' }}>
-                    <div style={{ fontSize: '0.85rem', color: '#D9B873', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px', fontWeight: 600 }}>Arbiter Agent</div>
-                    <div style={{ color: '#EDEAE3', fontSize: '1.1rem', lineHeight: 1.6 }}><span style={{ color: '#D9B873', fontWeight: 600 }}>Conclusion:</span> MDD diagnosis is plausible but Bipolar-II risk is non-zero.<br/><br/><strong>Action:</strong> Append "Can't-Miss Flag" to clinical handoff. Warn provider to screen for Bipolar-II before prescribing SSRI.</div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {phase.includes('handoff') && <HandoffCard data={packageData} />}
 

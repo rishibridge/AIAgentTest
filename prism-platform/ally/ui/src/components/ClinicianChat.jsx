@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, AlertTriangle, Send, ChevronDown, ChevronRight } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Send, ChevronDown, ChevronRight, Lock } from 'lucide-react';
 import mermaid from 'mermaid';
 import * as api from '../api';
 
@@ -22,6 +22,7 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
   const [ddxRole, setDdxRole] = useState('copilot'); // 'copilot', 'defend', 'challenge', 'compare'
   const [isSending, setIsSending] = useState(false);
   const [showDebateTranscript, setShowDebateTranscript] = useState(false);
+  const [showGraph, setShowGraph] = useState(false);
   
   // Scribe State
   const [activeTab, setActiveTab] = useState('chat'); // 'chat', 'scribe'
@@ -37,11 +38,18 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
   }, [patientId]);
 
   useEffect(() => {
-    // Disabled mermaid temporarily to prevent Parse Error crashes in test suite
-    if (graphRef.current) {
-        graphRef.current.innerHTML = `<div style="color: #D9B873; padding: 20px; font-family: monospace">[Behavioral Graph Rendering Disabled for Test Suite]</div>`;
+    if (graphRef.current && handoffData && handoffData.simplified_graph_mermaid) {
+        const id = `mermaid-${Date.now()}`;
+        mermaid.render(id, handoffData.simplified_graph_mermaid).then((result) => {
+            if (graphRef.current) graphRef.current.innerHTML = result.svg;
+        }).catch(e => {
+            console.error("Mermaid error:", e);
+            if (graphRef.current) graphRef.current.innerHTML = `<div style="color: #E85D5D; padding: 10px; font-family: monospace">Failed to render clinical graph.</div>`;
+        });
+    } else if (graphRef.current) {
+        graphRef.current.innerHTML = '';
     }
-  }, [handoffData]);
+  }, [handoffData, showGraph]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -91,6 +99,10 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
           significance: res.bot_response?.significance,
         },
       ]);
+      if (res.bot_response?.debate) {
+        setDebateRaw(res.bot_response.debate);
+        setShowDebateTranscript(true);
+      }
     } catch (e) {
       setMessages(prev => [
         ...prev,
@@ -176,94 +188,84 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
         {/* LEFT PANEL: Clinical Profile */}
         <div style={{ flex: 1.5, overflowY: 'auto', padding: '32px 48px', background: '#050608' }}>
           
-          {handoffData?.excluded_content_flag && (
-            <div style={{ background: 'rgba(232, 93, 93, 0.08)', border: '1px solid rgba(232, 93, 93, 0.3)', borderRadius: '12px', padding: '20px', marginBottom: '32px', display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-              <AlertTriangle size={24} color="#E85D5D" style={{ flexShrink: 0, marginTop: '2px' }} />
+          {handoffData?.risk_assessment && ['Medium', 'High'].includes(handoffData.risk_assessment.level) && (
+            <div style={{ background: '#D67959', borderRadius: '12px', padding: '20px', marginBottom: '32px', display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+              <AlertTriangle size={24} color="#050608" style={{ flexShrink: 0, marginTop: '2px' }} />
               <div>
-                <strong style={{ color: '#E85D5D', fontSize: '1.1rem', display: 'block', marginBottom: '8px', fontFamily: "'Work Sans', sans-serif" }}>Excluded Content Flag</strong>
-                <p style={{ margin: 0, fontSize: '0.95rem', color: '#EAA', lineHeight: 1.5, fontFamily: "'Work Sans', sans-serif" }}>
-                  Patient has opted to keep certain disclosures private, or nodes have been locked by another clinician. The graph and summaries have been sanitized. Do not probe blindly.
+                <strong style={{ color: '#050608', fontSize: '1.2rem', display: 'block', marginBottom: '8px', fontFamily: "'Work Sans', sans-serif", textTransform: 'uppercase', letterSpacing: '0.05em' }}>Safety Protocol: {handoffData.risk_assessment.level} Risk</strong>
+                <p style={{ margin: 0, fontSize: '1rem', color: '#050608', lineHeight: 1.5, fontFamily: "'Work Sans', sans-serif", fontWeight: 500 }}>
+                  {handoffData.risk_assessment.details}
                 </p>
-                {handoffData?.family_overlap_flag && (
-                  <div style={{ marginTop: '12px', padding: '12px', background: 'rgba(232, 93, 93, 0.15)', borderRadius: '8px', borderLeft: '3px solid #E85D5D' }}>
-                    <strong style={{ display: 'block', marginBottom: '4px', color: '#E85D5D' }}>Family Overlap Warning</strong>
-                    <span style={{ fontSize: '0.9rem', color: '#EAA' }}>{handoffData.family_overlap_flag}</span>
-                  </div>
-                )}
               </div>
             </div>
           )}
 
-          {/* Pre-Visit Handoff Fields */}
-          <div style={{ marginBottom: '40px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', color: '#D9B873', borderBottom: '1px solid rgba(217,184,115,0.2)', paddingBottom: '8px' }}>Pre-Visit Handoff</h2>
-            
-            <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.95rem', color: '#EDEAE3', lineHeight: 1.7, background: 'rgba(255,255,255,0.03)', padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-              <h3 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', color: '#5FAEB0' }}>Demographics & Background</h3>
-              {typeof handoffData?.demographics === 'string' ? handoffData.demographics : JSON.stringify(handoffData?.demographics, null, 2)}
+          {/* Zone 2: The Human Narrative */}
+          <div style={{ marginBottom: '40px' }}>
+            <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', color: '#D9B873', borderBottom: '1px solid rgba(217,184,115,0.2)', paddingBottom: '8px', marginBottom: '16px' }}>Transfer Summary</h2>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.3rem', color: '#EDEAE3', lineHeight: 1.6 }}>
+              {typeof handoffData?.clinical_narrative === 'string' ? handoffData.clinical_narrative : JSON.stringify(handoffData?.clinical_narrative)}
             </div>
-
-            {handoffData?.goals_for_care && (
-              <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.95rem', color: '#EDEAE3', lineHeight: 1.7, background: 'rgba(255,255,255,0.03)', padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <h3 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', color: '#5FAEB0' }}>Goals for Care</h3>
-                {typeof handoffData.goals_for_care === 'string' ? handoffData.goals_for_care : JSON.stringify(handoffData.goals_for_care)}
-              </div>
-            )}
-
-            {handoffData?.session_objectives && (
-              <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.95rem', color: '#EDEAE3', lineHeight: 1.7, background: 'rgba(255,255,255,0.03)', padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <h3 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', color: '#5FAEB0' }}>Session Objective(s)</h3>
-                {typeof handoffData.session_objectives === 'string' ? handoffData.session_objectives : JSON.stringify(handoffData.session_objectives)}
-              </div>
-            )}
-
-            {handoffData?.wishes_for_therapist && (
-              <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.95rem', color: '#EDEAE3', lineHeight: 1.7, background: 'rgba(255,255,255,0.03)', padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <h3 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', color: '#5FAEB0' }}>What the patient wants you to know</h3>
-                <div style={{ fontStyle: 'italic', borderLeft: '3px solid #D9B873', paddingLeft: '12px' }}>
-                  "{typeof handoffData.wishes_for_therapist === 'string' ? handoffData.wishes_for_therapist : JSON.stringify(handoffData.wishes_for_therapist)}"
-                </div>
-              </div>
-            )}
-
-            {handoffData?.session_summary && (
-              <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.95rem', color: '#EDEAE3', lineHeight: 1.7, background: 'rgba(255,255,255,0.03)', padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <h3 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', color: '#5FAEB0' }}>Inter-Visit Summary (Since Last Session)</h3>
-                {typeof handoffData.session_summary === 'string' ? handoffData.session_summary : JSON.stringify(handoffData.session_summary)}
-              </div>
-            )}
-
-            {handoffData?.patient_follow_up_needs && (
-              <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.95rem', color: '#EDEAE3', lineHeight: 1.7, background: 'rgba(255,255,255,0.03)', padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <h3 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', color: '#5FAEB0' }}>Patient Follow-up Needs</h3>
-                {typeof handoffData.patient_follow_up_needs === 'string' ? handoffData.patient_follow_up_needs : JSON.stringify(handoffData.patient_follow_up_needs)}
-              </div>
-            )}
-
-            {handoffData?.next_session_wishes && (
-              <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.95rem', color: '#EDEAE3', lineHeight: 1.7, background: 'rgba(255,255,255,0.03)', padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <h3 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', color: '#5FAEB0' }}>Next Session Wishes (Agenda)</h3>
-                {typeof handoffData.next_session_wishes === 'string' ? handoffData.next_session_wishes : JSON.stringify(handoffData.next_session_wishes)}
+            
+            {/* Actionability: Recommendations for Today's Session */}
+            {handoffData?.recommendations && handoffData.recommendations.length > 0 && (
+              <div style={{ marginTop: '32px', background: 'rgba(95,174,176,0.05)', borderRadius: '12px', padding: '24px', border: '1px solid rgba(95,174,176,0.2)' }}>
+                <h3 style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1.1rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ChevronRight size={20} /> Suggested Clinical Focus
+                </h3>
+                <ul style={{ paddingLeft: '24px', margin: 0, fontFamily: "'Work Sans', sans-serif", fontSize: '1rem', color: '#EDEAE3', lineHeight: 1.6 }}>
+                  {handoffData.recommendations.map((rec, idx) => (
+                    <li key={idx} style={{ marginBottom: '12px' }}>{typeof rec === 'string' ? rec : JSON.stringify(rec)}</li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
 
-          {/* Mermaid Graph */}
-          {handoffData?.simplified_graph_mermaid && (
-            <div style={{ marginBottom: '40px' }}>
-              <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', color: '#D9B873', borderBottom: '1px solid rgba(217,184,115,0.2)', paddingBottom: '8px', marginBottom: '16px' }}>Behavioral Graph (Sanitized)</h2>
-              <div style={{ background: '#11141A', padding: '32px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'center', overflowX: 'auto' }}>
-                <div ref={graphRef} style={{ width: '100%', minHeight: '200px' }}></div>
+          {/* Zone 3: The Clinical Core (Split-Pane) */}
+          <div style={{ display: 'flex', gap: '32px', marginBottom: '40px' }}>
+            
+            {/* Left Column: Strategy */}
+            <div style={{ flex: 1 }}>
+              <h3 style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px', borderBottom: '1px solid rgba(95,174,176,0.2)', paddingBottom: '8px' }}>Active Themes</h3>
+              <ul style={{ paddingLeft: '20px', margin: 0, fontFamily: "'Work Sans', sans-serif", fontSize: '0.95rem', color: '#EDEAE3', lineHeight: 1.6 }}>
+                {handoffData?.active_themes?.map((theme, i) => <li key={i} style={{ marginBottom: '12px' }}>{theme}</li>)}
+              </ul>
+              
+              <h3 style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '32px', marginBottom: '16px', borderBottom: '1px solid rgba(95,174,176,0.2)', paddingBottom: '8px' }}>Clinical Hypotheses (DDx)</h3>
+              <ul style={{ paddingLeft: '20px', margin: 0, fontFamily: "'Work Sans', sans-serif", fontSize: '0.95rem', color: '#EDEAE3', lineHeight: 1.6 }}>
+                {handoffData?.hypotheses?.map((h, i) => <li key={i} style={{ marginBottom: '12px' }}>{typeof h === 'string' ? h : JSON.stringify(h)}</li>)}
+              </ul>
+            </div>
+            
+            {/* Right Column: Evidence Tracker */}
+            <div style={{ flex: 1.5 }}>
+              <h3 style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px', borderBottom: '1px solid rgba(95,174,176,0.2)', paddingBottom: '8px' }}>Evidence Tracker</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {handoffData?.quotes_vs_inferences?.map((item, i) => (
+                  <div key={i} style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '8px', borderLeft: '3px solid #D9B873' }}>
+                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.2rem', color: '#D9B873', fontStyle: 'italic', marginBottom: '8px' }}>"{typeof item.quote === 'string' ? item.quote : JSON.stringify(item.quote)}"</div>
+                    <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.9rem', color: '#5FAEB0', display: 'flex', gap: '8px' }}>
+                      <span style={{ opacity: 0.7 }}>↳ Inference:</span>
+                      <span>{typeof item.inference === 'string' ? item.inference : JSON.stringify(item.inference)}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          )}
 
-          {/* Clinical Hypotheses */}
-          <div style={{ marginBottom: '40px' }}>
-            <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', color: '#D9B873', borderBottom: '1px solid rgba(217,184,115,0.2)', paddingBottom: '8px', marginBottom: '16px' }}>Clinical Hypotheses (DDx)</h2>
-            <ul style={{ paddingLeft: '24px', margin: 0, fontFamily: "'Work Sans', sans-serif", fontSize: '0.95rem', color: '#EDEAE3', lineHeight: 1.6 }}>
-              {handoffData?.hypotheses?.map((h, i) => <li key={i} style={{ marginBottom: '12px' }}>{typeof h === 'string' ? h : JSON.stringify(h)}</li>)}
-            </ul>
+          {/* Zone 4: The Deep Dive (Collapsed Graph & Transcript) */}
+          <div style={{ marginBottom: '40px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '16px' }}>
+            <button onClick={() => setShowGraph(!showGraph)} style={{ background: 'none', border: 'none', fontFamily: "'Work Sans', sans-serif", fontSize: '1rem', color: '#A8A39A', cursor: 'pointer', outline: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: 0 }}>
+              {showGraph ? <ChevronDown size={18}/> : <ChevronRight size={18}/>}
+              Explore Raw Behavioral Graph (Deep Dive)
+            </button>
+            {showGraph && handoffData?.simplified_graph_mermaid && (
+              <div style={{ marginTop: '24px', background: '#11141A', padding: '32px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'center', overflowX: 'auto' }}>
+                <div ref={graphRef} style={{ width: '100%', minHeight: '200px' }}></div>
+              </div>
+            )}
+          </div>
             
             {/* DDx Evaluation Transcript Toggle */}
             {debateRaw && (
