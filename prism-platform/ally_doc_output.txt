@@ -1,0 +1,151 @@
+Ally — The Engine, End to End
+One platform: associative memory + adversarial reasoning. The architecture, what it enables, why it’s differentiated, and the path to market.
+Unusual Insights Inc. · working name “Ally” · internal / investor-credible · v1 · June 2026. Not legal advice.
+The premise
+Ally is one engine with two faculties. A biomimetic, associative-temporal 
+memory
+ that holds the whole person across time, and an adversarial, multi-agent 
+reasoning
+ layer that thinks over what the memory holds. Most AI is one or the other: a stateless model that reasons but forgets, or a retrieval store that remembers but doesn’t reason. Our differentiation is the composition — memory supplies the grounded substrate, the reasoning engine works over it, and together they do what neither does alone. One governing rule holds across every deployment: 
+gate the patient-facing act, never the AI’s thinking.
+ The engine reasons freely and tells the licensed human exactly what it concludes; only a licensed human performs the regulated act.
+The architecture, in one view
+Faculty
+What it is
+What it produces
+Memory
+A biomimetic associative-temporal graph — concepts as nodes, relationships as weighted edges, significance and credibility as dimensions, consolidated over time. The team calls it the Hippocampus.
+A living, longitudinal model of the whole person that persists across every conversation — the grounded substrate.
+Reasoning
+A model-agnostic, multi-agent adversarial layer — proposer, skeptic, arbiter — with enforced grounding and round-by-round argument tracking.
+A calibrated conclusion with its dissent and its can’t-miss flag, plus an auditable record of how it was reached.
+The two faculties are not bolted together — they are wired. The reasoning agents are grounded in the memory graph (plus the live chart or case record), not in a one-shot prompt. That single design choice is the whole thesis: 
+the engine reasons over a persistent, longitudinal record of the actual person, not a stateless guess.
+The capabilities — all of them
+Six verbs. The first five are the memory faculty; the sixth is the reasoning faculty running on top of them.
+Remembers. 
+Persistent, associative, significance-weighted, consolidated. A hippocampus, not a session — it holds the whole person across time, unprompted.
+Understands. 
+Builds a structured model of the person, infers the connections between events, and surfaces cross-signals a single conversational thread would miss.
+Learns. 
+Updates and revises; learns the person’s own baseline; holds competing accounts as flagged divergence rather than overwriting them; and is taught directly by the clinician.
+Cares. 
+Attentive continuity, real-time risk escalation, and respect for consent and locks — framed honestly as bounded support, not sentience, and never a substitute for human connection.
+Collaborates. 
+A bidirectional team capability: it brings depth to the clinician, and the clinician sets the boundaries that reshape it. Neither tool replaces the other; they work as one team.
+Reasons. 
+The adversarial engine working over the memory graph — proposer, skeptic, arbiter — surfacing the can’t-miss alternative a single anchored model overlooks. Clinician-facing only.
+Under the hood — the mechanisms
+Memory
+Reinforcement & temporal decay. 
+Weight rises with recurrence (“reinforced 47 times across 12 conversations”) and fades without it.
+Short-to-long consolidation. 
+A working model passes through a consolidation phase into a durable long-term track — a sleep-analog process.
+Significance & credibility weighting. 
+Two independent axes; competing accounts are held side by side, low-credibility items kept provisional.
+Concept & connection weighting. 
+Co-mentions are promoted to tracked edges after reinforcement — and significance and connection do not require disclosure: it can infer a bridge to content never stated outright.
+Concept replacement & flagged divergence. 
+Replace when a fact is superseded; flag when an account contradicts the record.
+Reasoning
+Composable agents. 
+Arbitrary epistemic roles — each a real reasoning stance, not a tone.
+Model-agnostic orchestration. 
+Any agent runs on any model; for regulated data, BAA-covered endpoints only.
+Enforced grounding + anti-fabrication. 
+Every claim cites the corpus; a fabricated citation is penalized.
+Argument-state tracking (the flow sheet). 
+Every claim — raised, addressed, dropped, resolved — tracked and exportable. The auditable reasoning ledger a CMO or regulator can inspect.
+Independent adjudicator that explains. 
+Scores and explains why the logic fails — not a lazy fallacy label.
+Why everything is better together
+This is the hinge of the whole platform. 
+Memory makes the reasoning trustworthy: 
+the adversarial engine is safe in medicine precisely because it reasons over a grounded, longitudinal record instead of a stateless guess — and that transparency is also what keeps it on the non-device side of the FDA’s line, because the clinician can independently review the basis. 
+Reasoning makes the memory safe and actionable: 
+it interrogates the record, holds contradictions objectively, and surfaces the can’t-miss the record alone would never volunteer.
+Neither half is the product on its own. A memory with no reasoning is a filing cabinet. Reasoning with no memory is a brilliant stranger who forgets you the moment you leave the room. 
+The marriage of the two is the part only we have.
+What it enables
+In the clinic
+Longitudinal understanding. 
+Connects today’s symptom to a months-old event, unprompted — clinical inference, not chat.
+The clinician brief. 
+Hours of unstructured conversation become a precise, consented, cited case brief delivered before the session.
+Caseload triage & non-responder flagging. 
+Scores the registry daily by acuity; flags who is trending worse by the model’s own criteria, and who has gone silent.
+Cross-signal detection. 
+One unified alert when PrEP refill cadence slows and PHQ-9/GAD-7 worsen together — associative memory across domains.
+Adversarial differential. 
+Catches the bipolar-II before an antidepressant — the can’t-miss alternative a single anchored model would overlook.
+Between-session companion. 
+Non-clinical engagement that gets the patient started, holds them between sessions, and builds the memory.
+Documentation & billing integrity. 
+Drafts the registry note and care plan; flags the documentation gaps that drop CoCM claims before month close.
+In litigation (the second frontier)
+Causation analysis. 
+Adversarial temporal reasoning over the case record, exhibits, and depositions.
+Vulnerability map. 
+The flow sheet becomes a map of which arguments survive scrutiny and which get dropped — attorney-facing.
+Why it’s differentiated
+It cannot be a prompt on a stateless model. 
+A general-purpose LLM forgets between contacts, can’t hold the longitudinal graph, can’t reason over contradiction, and can’t coordinate with a care team.
+The moat is the composition. 
+Persistent associative graph + adversarial grounding + argument tracking + the biomimetic mechanisms, wired together — not any one of them alone.
+One configurable platform, not three products. 
+Behavioral health, litigation, and the consumer arena are three configurations of the same engine — and the arena is already live in public as a working proof that the engine is real.
+Dimension
+Behavioral health (Ally)
+Litigation (Crux)
+Consumer arena
+Personas
+Proposer · Skeptic · Arbiter
+Advocate · Opposing counsel · Judge
+9 styles (Pro, Scholar…)
+Grounding
+Chart + the memory graph
+Case record, exhibits, depositions
+Open web + uploaded case
+Models
+BAA-covered only
+Privilege-safe endpoints
+Diverse public models
+Output
+Clinician brief + 
+DDx
+ (never to patient)
+Attorney causation analysis
+Live debate + CSV export
+Maturity
+Demos built; config + PHI + memory wiring
+Concept
+LIVE — proof + funnel
+The path to commercialization
+Two surfaces, one engine
+Patient companion (non-clinical): 
+gets someone started, holds them between sessions, listens to the visit with consent, builds the memory — always discloses it is AI, never diagnoses or directs treatment. 
+Clinician copilot (supplementary support): 
+the full clinical brain — assessment, recommendations, risk, consult briefs, documentation, billing integrity — surfaced to the licensed clinician, who decides and acts. The firewall: clinical reasoning flows to the clinician; only clinician-authorized content flows back to the patient.
+The wedge: CoCM behavioral health
+Reimbursement-native. 
+Billed monthly per enrolled patient and additive to FQHC PPS — the buyer makes money adopting it.
+Clinician-led by federal design. 
+The PCP bills, the care manager is licensed, the consultant directs from behind the glass — the regulatory safe harbor comes free.
+Warm distribution. 
+Castle, Damien, and the HOPE Network FQHCs, stacked on the PrEP / 340B 
+telehealth
+ base already running. Not a cold start.
+Timely pain. 
+As of January 1, 2026, FQHCs must bill the individual CoCM codes (99492–99494; bundled G0512 retired; APCM add-ons G0568–G0570 as the alternate route) — a transition that broke billing workflows and is itself a wound to sell into.
+The numbers (illustrative, Medicare basis): 
+≈ $135 per enrolled patient / month (subsequent); ≈ $486K/year from a single 300-patient panel, additive to PPS; roughly 2× better outcomes than usual care — the citable figure. A few dozen FQHC programs reach $5M ARR; the constraint is distribution and ACV, not market size. 
+Verify CY2026 PFS and per-payer rates before any external use.
+Sequencing
+Clinician copilot first 
+— reimbursable, lowest regulatory risk, fastest yes.
+Patient-companion pilot 
+in a permissive state (Texas, Utah, Tennessee). Avoid Illinois, Nevada, Missouri for anything patient-facing; jurisdiction follows the patient, not HQ.
+Litigation (Crux) as the deliberate second act 
+— adversarial-led, bigger and more crowded, no warm channel yet. Same IP, sequenced — not split.
+Governing rule, restated: gate the patient-facing act, never the AI’s thinking. Reason everything; deliver only what a licensed human is permitted to deliver.
+Working name. Figures are illustrative and modeled on a Medicare basis; verify current CMS CY2026 CoCM rules, per-payer rates, and per-state AI, consent, and recording law with counsel before any external use. Sources: AIMS Center / University of Washington CoCM evidence; CMS CY2026 MPFS; KFF/HRSA UDS 2024; NACHC 2026. Not legal advice.

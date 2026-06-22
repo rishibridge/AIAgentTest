@@ -67,8 +67,8 @@ app.include_router(handoffs.router)
 app.include_router(clinician.router)
 
 
-@app.get("/")
-def root():
+@app.get("/api")
+def api_root():
     return {
         "name": "Ally API",
         "description": "Castle Behavioral Health Companion",
@@ -121,3 +121,15 @@ def _reinject_store():
     consolidation.set_store(store)
     handoffs.set_store(store)
     clinician.set_store(store)
+
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+ui_dist = os.path.join(os.path.dirname(__file__), "..", "ui", "dist")
+if os.path.isdir(ui_dist):
+    app.mount("/assets", StaticFiles(directory=os.path.join(ui_dist, "assets")), name="assets")
+    
+    @app.get("/{full_path:path}")
+    def serve_react_app(full_path: str):
+        return FileResponse(os.path.join(ui_dist, "index.html"))

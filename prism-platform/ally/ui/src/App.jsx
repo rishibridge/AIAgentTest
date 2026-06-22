@@ -1147,7 +1147,7 @@ function App() {
     if (wowMoment) { highlight = wowMoment.highlight; insight = wowMoment.insight; }
   } else if (phase === 'elena_consolidation') {
     nodes = ELENA_NODES_AFTER_CONSOLIDATION; edges = ELENA_EDGES_AFTER_CONSOLIDATION;
-    insight = { title: "ALLY CONSOLIDATES", body: "The 5-step post-session pipeline filters significance, checks credibility, merges nodes, thickens edges, and generates inferred connections." };
+    insight = { title: "ALLY LEARNS", body: "The 5-step post-session pipeline filters significance, checks credibility, merges nodes, thickens edges, and generates inferred connections." };
   } else if (phase === 'elena_reasoning') {
     nodes = ELENA_NODES_AFTER_CONSOLIDATION; edges = ELENA_EDGES_AFTER_CONSOLIDATION;
     insight = { title: "ALLY REASONS", body: "The Adversarial Engine runs over the memory graph. It catches the Bipolar-II risk before an antidepressant is prescribed—surfacing the can't-miss alternative a single anchored model would overlook." };
@@ -1167,7 +1167,7 @@ function App() {
     if (wowMoment) { highlight = wowMoment.highlight; insight = wowMoment.insight; }
   } else if (phase === 'daniel_consolidation') {
     nodes = DANIEL_NODES_AFTER_CONSOLIDATION; edges = DANIEL_EDGES_AFTER_CONSOLIDATION;
-    insight = { title: "ALLY CONSOLIDATES", body: "Daniel's avoidance of testing is inferred to be connected to fear of disrupting what Marco represents." };
+    insight = { title: "ALLY LEARNS", body: "Daniel's avoidance of testing is inferred to be connected to fear of disrupting what Marco represents." };
   } else if (phase === 'daniel_handoff') {
     nodes = DANIEL_NODES_AFTER_SESSION; edges = DANIEL_EDGES_AFTER_SESSION;
     highlight = ['tran_referral'];

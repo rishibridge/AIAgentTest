@@ -95,8 +95,17 @@ CLINICIAN'S MESSAGE:
 Generate your clinical consultation response. Remember to respond in the JSON format specified in your instructions."""
 
         try:
+            from prism.engine.reasoning.engine import ReasoningEngine
+            import json
+            
+            debate_result = None
+            if "[DDX ARENA" in clinician_message:
+                reasoning = ReasoningEngine(graph=patient_graph, llm_client=self.llm)
+                debate_result = reasoning.analyze(clinician_message)
+                prompt = f"{context}\n\n---\nCLINICIAN'S MESSAGE:\n{clinician_message}\n\nREASONING ENGINE DEBATE RESULTS:\nAdvocate: {json.dumps(debate_result.get('advocate', ''))}\nSkeptic: {json.dumps(debate_result.get('skeptic', ''))}\nJudge: {json.dumps(debate_result.get('judge', ''))}\n\nSynthesize these results into your final clinical consultation response JSON."
+
             result = self.llm.generate_json(prompt, system_instruction=CLINICIAN_SYSTEM_PROMPT)
-            return {
+            response = {
                 "text": result.get("text", "Please clarify your clinical question."),
                 "flags": result.get("flags", []),
                 "node_updates": result.get("node_updates", []),
@@ -104,6 +113,13 @@ Generate your clinical consultation response. Remember to respond in the JSON fo
                 "referenced_nodes": result.get("referenced_nodes", []),
                 "recommendations": result.get("recommendations", []),
             }
+            if debate_result:
+                response["debate"] = {
+                    "advocate": debate_result.get("advocate", {}),
+                    "skeptic": debate_result.get("skeptic", {}),
+                    "judge": debate_result.get("judge", {}),
+                }
+            return response
         except Exception as e:
             print(f"ClinicianEngine error: {e}")
             return {
@@ -257,9 +273,10 @@ Respond as JSON:
         if patient_graph.handoffs:
             h = patient_graph.handoffs[-1]
             ctx += f"- Last Handoff (to {h.recipient}):\n"
-            summary_text = h.session_summary or "No summary"
+            summary_text = getattr(h, 'clinical_narrative', getattr(h, 'session_summary', 'No narrative available'))
             ctx += f"  Summary: {summary_text[:200]}...\n" if len(summary_text) > 200 else f"  Summary: {summary_text}\n"
-            ctx += f"  Goals: {h.goals_for_care}\n\n"
+            themes = getattr(h, 'active_themes', getattr(h, 'goals_for_care', 'None'))
+            ctx += f"  Active Themes/Goals: {themes}\n\n"
 
         # Recent clinician chat history
         if clinician_history:

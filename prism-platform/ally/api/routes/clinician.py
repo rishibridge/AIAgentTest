@@ -148,7 +148,6 @@ def handle_post_visit(patient_id: str, req: PostVisitRequest):
         )
     
     # Store this back to the patient graph if we had a field for it, or just return it to the UI
-    pg.clinical_profile.soap_note = soap_note
     _save_after_mutation(patient_id)
     
     return {

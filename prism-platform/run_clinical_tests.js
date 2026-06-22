@@ -92,6 +92,11 @@ const testCases = [
   await page.setViewportSize({ width: 1400, height: 900 });
 
   try {
+    page.on('console', msg => {
+      if (msg.type() === 'error') console.error(`PAGE ERROR: ${msg.text()}`);
+    });
+    page.on('pageerror', err => console.error(`PAGE EXCEPTION: ${err.stack || err.message}`));
+    
     let currentPatient = null;
 
     for (let i = 0; i < testCases.length; i++) {
@@ -100,14 +105,14 @@ const testCases = [
 
       if (currentPatient !== tc.patient) {
         console.log(`Navigating to Hub to select ${tc.patient}...`);
-        await page.goto('http://localhost:5173');
+        await page.goto('https://prism-platform-525536279111.us-central1.run.app');
         await page.waitForTimeout(1000);
         await page.click('text="Provider Dashboard"');
         await page.waitForTimeout(1000);
         await page.click(`text="${tc.patient}"`);
         
         console.log("Waiting for Clinical Profile to load (synthesizing graph)...");
-        await page.waitForSelector('text=Demographics', { timeout: 15000 });
+        await page.waitForSelector('text="Transfer Summary"', { timeout: 60000 });
         await page.waitForTimeout(2000); // let graph render
         currentPatient = tc.patient;
       }

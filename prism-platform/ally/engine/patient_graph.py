@@ -50,13 +50,10 @@ class HandoffPackage(BaseModel):
     recipient: str = ""
     context: str = ""
     demographics: Any = ""
-    goals_for_care: Any = ""
-    session_objectives: Any = ""
-    wishes_for_therapist: Any = ""
-    session_summary: Any = ""
-    patient_follow_up_needs: Any = ""
-    next_session_wishes: Any = ""
-    soap_note: Any = ""
+    risk_assessment: Dict[str, Any] = Field(default_factory=lambda: {"level": "Low", "details": ""})
+    clinical_narrative: str = ""
+    active_themes: List[str] = Field(default_factory=list)
+    metadata_shadows: List[str] = Field(default_factory=list)
     excluded_content_flag: bool = False
     quotes_vs_inferences: List[Dict[str, str]] = Field(default_factory=list)
     simplified_graph_mermaid: str = ""
