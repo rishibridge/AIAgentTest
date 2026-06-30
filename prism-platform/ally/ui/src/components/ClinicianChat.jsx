@@ -27,6 +27,9 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
   // Graph state
   const [selectedGraphNode, setSelectedGraphNode] = useState(null);
   
+  // Narrative toggle
+  const [showNarrative, setShowNarrative] = useState(false);
+  
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -138,6 +141,27 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
   const graphEdges = handoffData?.graph_edges || [];
   const graphPositions = handoffData?.graph_positions || {};
 
+  // Extract structured data from graph nodes for At-a-Glance card
+  const extractStructured = () => {
+    if (!graphNodes.length && !handoffData) return { diagnoses: [], medications: [], symptoms: [], people: [] };
+    const byKind = (kind) => graphNodes.filter(n => (n.kind || n.node_type || '').toLowerCase() === kind).map(n => n.label || n.id);
+    const diagnoses = byKind('clinical').filter(l => !['depression', 'anxiety'].includes(l.toLowerCase()) || true);
+    const medications = byKind('medication');
+    const symptoms = byKind('symptom');
+    const people = byKind('person').filter(p => p !== (handoffData?.patient_name || patientName));
+    return { diagnoses, medications, symptoms, people };
+  };
+  const structured = extractStructured();
+
+  // Condensed context for DDx sidebar
+  const sidebarSections = [
+    { label: 'Risk', color: '#E85D5D', items: handoffData?.risk_assessment ? [`${handoffData.risk_assessment.level}: ${handoffData.risk_assessment.details?.substring(0, 120)}...`] : [] },
+    { label: 'Diagnoses', color: '#7ABFBF', items: structured.diagnoses.slice(0, 8) },
+    { label: 'Medications', color: '#5FAEB0', items: structured.medications },
+    { label: 'Themes', color: '#D9B873', items: (handoffData?.active_themes || []).slice(0, 4).map(t => t.length > 80 ? t.substring(0, 80) + '...' : t) },
+    { label: 'Hypotheses', color: '#D67959', items: (handoffData?.hypotheses || []).slice(0, 3).map(h => typeof h === 'string' ? (h.length > 80 ? h.substring(0, 80) + '...' : h) : JSON.stringify(h)) },
+  ].filter(s => s.items.length > 0);
+
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', background: '#050608', color: '#fff' }}>
       {/* Header */}
@@ -186,44 +210,90 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
 
         {/* ═══ TAB 1: TRANSFER SUMMARY ═══ */}
         {mainTab === 'summary' && (
-          <div style={{ height: '100%', overflowY: 'auto', padding: '40px 60px' }}>
+          <div style={{ height: '100%', overflowY: 'auto', padding: '32px 48px' }}>
             
-            {/* Risk Alert Banner */}
-            {handoffData?.risk_assessment && ['Medium', 'High'].includes(handoffData.risk_assessment.level) && (
-              <div style={{ background: handoffData.risk_assessment.level === 'High' ? 'rgba(232,93,93,0.1)' : 'rgba(214,121,89,0.08)', borderRadius: '12px', padding: '20px 24px', marginBottom: '32px', display: 'flex', gap: '16px', alignItems: 'flex-start', border: `1px solid ${handoffData.risk_assessment.level === 'High' ? 'rgba(232,93,93,0.3)' : 'rgba(214,121,89,0.25)'}` }}>
-                <AlertTriangle size={22} color={handoffData.risk_assessment.level === 'High' ? '#E85D5D' : '#D67959'} style={{ flexShrink: 0, marginTop: '2px' }} />
+            {/* ── AT-A-GLANCE CARD ── */}
+            <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '24px 28px', marginBottom: '28px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.7rem', color: '#6B6560', textTransform: 'uppercase', letterSpacing: '0.15em' }}>AT-A-GLANCE</div>
+                {handoffData?.risk_assessment && ['Medium', 'High'].includes(handoffData.risk_assessment.level) && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: handoffData.risk_assessment.level === 'High' ? 'rgba(232,93,93,0.15)' : 'rgba(214,121,89,0.12)', padding: '4px 12px', borderRadius: '6px', border: `1px solid ${handoffData.risk_assessment.level === 'High' ? 'rgba(232,93,93,0.35)' : 'rgba(214,121,89,0.3)'}` }}>
+                    <AlertTriangle size={12} color={handoffData.risk_assessment.level === 'High' ? '#E85D5D' : '#D67959'} />
+                    <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.7rem', fontWeight: 700, color: handoffData.risk_assessment.level === 'High' ? '#E85D5D' : '#D67959', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{handoffData.risk_assessment.level} Risk</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Patient Name + Demographics Row */}
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: '#D9B873', marginBottom: '4px' }}>
+                {handoffData?.patient_name || patientName}
+              </div>
+              <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', color: '#A8A39A', marginBottom: '20px' }}>
+                {typeof handoffData?.demographics === 'string' && handoffData.demographics ? handoffData.demographics : 'Demographics in clinical narrative'}
+              </div>
+
+              {/* Structured Grid: Dx | Meds | Symptoms */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+                {/* Diagnoses */}
                 <div>
-                  <strong style={{ color: handoffData.risk_assessment.level === 'High' ? '#E85D5D' : '#D67959', fontSize: '0.9rem', display: 'block', marginBottom: '6px', fontFamily: "'Work Sans', sans-serif", textTransform: 'uppercase', letterSpacing: '0.08em' }}>Safety Protocol: {handoffData.risk_assessment.level} Risk</strong>
-                  <p style={{ margin: 0, fontSize: '0.95rem', color: '#EDEAE3', lineHeight: 1.5, fontFamily: "'Work Sans', sans-serif" }}>
-                    {handoffData.risk_assessment.details}
-                  </p>
+                  <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.65rem', color: '#7ABFBF', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px', fontWeight: 600 }}>Diagnoses</div>
+                  {structured.diagnoses.length > 0 ? structured.diagnoses.map((d, i) => (
+                    <div key={i} style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', color: '#EDEAE3', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#7ABFBF', flexShrink: 0 }} />
+                      {d}
+                    </div>
+                  )) : <div style={{ fontSize: '0.8rem', color: '#4A4540' }}>See narrative</div>}
+                </div>
+
+                {/* Medications */}
+                <div>
+                  <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.65rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px', fontWeight: 600 }}>Medications</div>
+                  {structured.medications.length > 0 ? structured.medications.map((m, i) => (
+                    <div key={i} style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', color: '#EDEAE3', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#5FAEB0', flexShrink: 0 }} />
+                      {m}
+                    </div>
+                  )) : <div style={{ fontSize: '0.8rem', color: '#4A4540' }}>See narrative</div>}
+                </div>
+
+                {/* Symptoms / Flags */}
+                <div>
+                  <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.65rem', color: '#D67959', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px', fontWeight: 600 }}>Symptoms &amp; Flags</div>
+                  {structured.symptoms.length > 0 ? structured.symptoms.map((s, i) => (
+                    <div key={i} style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', color: '#EDEAE3', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#D67959', flexShrink: 0 }} />
+                      {s}
+                    </div>
+                  )) : <div style={{ fontSize: '0.8rem', color: '#4A4540' }}>See narrative</div>}
                 </div>
               </div>
-            )}
 
-            {/* Clinical Narrative */}
-            <div style={{ marginBottom: '48px' }}>
-              <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', color: '#D9B873', borderBottom: '1px solid rgba(217,184,115,0.15)', paddingBottom: '10px', marginBottom: '20px', marginTop: 0 }}>Clinical Narrative</h2>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.25rem', color: '#EDEAE3', lineHeight: 1.7, maxWidth: '900px' }}>
-                {typeof handoffData?.clinical_narrative === 'string' ? handoffData.clinical_narrative : JSON.stringify(handoffData?.clinical_narrative)}
-              </div>
+              {/* Risk Details (if present) */}
+              {handoffData?.risk_assessment && ['Medium', 'High'].includes(handoffData.risk_assessment.level) && (
+                <div style={{ marginTop: '16px', padding: '14px 16px', background: handoffData.risk_assessment.level === 'High' ? 'rgba(232,93,93,0.08)' : 'rgba(214,121,89,0.06)', borderRadius: '8px', border: `1px solid ${handoffData.risk_assessment.level === 'High' ? 'rgba(232,93,93,0.2)' : 'rgba(214,121,89,0.15)'}` }}>
+                  <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', color: '#EDEAE3', lineHeight: 1.5 }}>
+                    <AlertTriangle size={13} color={handoffData.risk_assessment.level === 'High' ? '#E85D5D' : '#D67959'} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} />
+                    {handoffData.risk_assessment.details}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Two-column: Themes + Evidence */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', marginBottom: '48px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '32px' }}>
               {/* Active Themes */}
               <div>
-                <h3 style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '16px', marginTop: 0, borderBottom: '1px solid rgba(95,174,176,0.15)', paddingBottom: '10px' }}>Active Themes</h3>
-                <ul style={{ paddingLeft: '20px', margin: 0, fontFamily: "'Work Sans', sans-serif", fontSize: '0.95rem', color: '#EDEAE3', lineHeight: 1.7 }}>
-                  {handoffData?.active_themes?.map((theme, i) => <li key={i} style={{ marginBottom: '14px' }}>{theme}</li>)}
+                <h3 style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.8rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '14px', marginTop: 0, borderBottom: '1px solid rgba(95,174,176,0.12)', paddingBottom: '10px' }}>Active Themes</h3>
+                <ul style={{ paddingLeft: '20px', margin: 0, fontFamily: "'Work Sans', sans-serif", fontSize: '0.9rem', color: '#EDEAE3', lineHeight: 1.6 }}>
+                  {handoffData?.active_themes?.map((theme, i) => <li key={i} style={{ marginBottom: '12px' }}>{theme}</li>)}
                 </ul>
 
                 {/* Clinical Hypotheses */}
                 {handoffData?.hypotheses?.length > 0 && (
                   <>
-                    <h3 style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', color: '#D67959', textTransform: 'uppercase', letterSpacing: '0.12em', marginTop: '36px', marginBottom: '16px', borderBottom: '1px solid rgba(214,121,89,0.15)', paddingBottom: '10px' }}>Clinical Hypotheses (DDx)</h3>
-                    <ul style={{ paddingLeft: '20px', margin: 0, fontFamily: "'Work Sans', sans-serif", fontSize: '0.95rem', color: '#EDEAE3', lineHeight: 1.7 }}>
-                      {handoffData.hypotheses.map((h, i) => <li key={i} style={{ marginBottom: '14px' }}>{typeof h === 'string' ? h : JSON.stringify(h)}</li>)}
+                    <h3 style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.8rem', color: '#D67959', textTransform: 'uppercase', letterSpacing: '0.12em', marginTop: '28px', marginBottom: '14px', borderBottom: '1px solid rgba(214,121,89,0.12)', paddingBottom: '10px' }}>Clinical Hypotheses (DDx)</h3>
+                    <ul style={{ paddingLeft: '20px', margin: 0, fontFamily: "'Work Sans', sans-serif", fontSize: '0.9rem', color: '#EDEAE3', lineHeight: 1.6 }}>
+                      {handoffData.hypotheses.map((h, i) => <li key={i} style={{ marginBottom: '12px' }}>{typeof h === 'string' ? h : JSON.stringify(h)}</li>)}
                     </ul>
                   </>
                 )}
@@ -231,13 +301,13 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
 
               {/* Evidence Tracker */}
               <div>
-                <h3 style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '16px', marginTop: 0, borderBottom: '1px solid rgba(95,174,176,0.15)', paddingBottom: '10px' }}>Evidence Tracker</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <h3 style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.8rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '14px', marginTop: 0, borderBottom: '1px solid rgba(95,174,176,0.12)', paddingBottom: '10px' }}>Evidence Tracker</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   {handoffData?.quotes_vs_inferences?.map((item, i) => (
-                    <div key={i} style={{ background: 'rgba(255,255,255,0.025)', padding: '16px 20px', borderRadius: '10px', borderLeft: '3px solid #D9B873' }}>
-                      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.15rem', color: '#D9B873', fontStyle: 'italic', marginBottom: '10px' }}>"{typeof item.quote === 'string' ? item.quote : JSON.stringify(item.quote)}"</div>
-                      <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', color: '#5FAEB0', display: 'flex', gap: '8px' }}>
-                        <span style={{ opacity: 0.6 }}>↳ Inference:</span>
+                    <div key={i} style={{ background: 'rgba(255,255,255,0.02)', padding: '14px 16px', borderRadius: '8px', borderLeft: '3px solid #D9B873' }}>
+                      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.1rem', color: '#D9B873', fontStyle: 'italic', marginBottom: '8px' }}>"{typeof item.quote === 'string' ? item.quote : JSON.stringify(item.quote)}"</div>
+                      <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.8rem', color: '#5FAEB0', display: 'flex', gap: '6px' }}>
+                        <span style={{ opacity: 0.6 }}>↳</span>
                         <span>{typeof item.inference === 'string' ? item.inference : JSON.stringify(item.inference)}</span>
                       </div>
                     </div>
@@ -246,31 +316,47 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
               </div>
             </div>
 
+            {/* ── COLLAPSIBLE CLINICAL NARRATIVE ── */}
+            <div style={{ marginBottom: '28px', background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', overflow: 'hidden' }}>
+              <button onClick={() => setShowNarrative(!showNarrative)} style={{ width: '100%', background: 'none', border: 'none', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {showNarrative ? <ChevronDown size={16} color="#D9B873" /> : <ChevronRight size={16} color="#A8A39A" />}
+                  <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.3rem', color: showNarrative ? '#D9B873' : '#A8A39A' }}>Clinical Narrative</span>
+                </div>
+                <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.7rem', color: '#6B6560', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{showNarrative ? 'Collapse' : 'Expand full narrative'}</span>
+              </button>
+              {showNarrative && (
+                <div style={{ padding: '0 24px 24px', fontFamily: "'Cormorant Garamond', serif", fontSize: '1.15rem', color: '#EDEAE3', lineHeight: 1.7, maxWidth: '900px' }}>
+                  {typeof handoffData?.clinical_narrative === 'string' ? handoffData.clinical_narrative : JSON.stringify(handoffData?.clinical_narrative)}
+                </div>
+              )}
+            </div>
+
             {/* DDx Evaluation Transcript */}
             {debateRaw && (
-              <div style={{ marginBottom: '48px' }}>
-                <button onClick={() => setShowDebateTranscript(!showDebateTranscript)} style={{ background: 'none', border: 'none', color: '#5FAEB0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', padding: 0, fontFamily: "'Work Sans', sans-serif" }}>
-                  {showDebateTranscript ? <ChevronDown size={18}/> : <ChevronRight size={18}/>}
+              <div style={{ marginBottom: '28px' }}>
+                <button onClick={() => setShowDebateTranscript(!showDebateTranscript)} style={{ background: 'none', border: 'none', color: '#5FAEB0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', padding: 0, fontFamily: "'Work Sans', sans-serif" }}>
+                  {showDebateTranscript ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
                   {showDebateTranscript ? 'Hide DDx Evaluation Transcript' : 'View DDx Evaluation Transcript'}
                 </button>
                 
                 {showDebateTranscript && (
-                  <div style={{ marginTop: '16px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', border: '1px solid rgba(95,174,176,0.15)', overflow: 'hidden' }}>
-                    <div style={{ padding: '20px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ fontSize: '0.7rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 600 }}>Supporting Evidence (Hypothesis A)</div>
-                      <div style={{ fontFamily: "monospace", fontSize: '0.85rem', color: '#A8A39A', whiteSpace: 'pre-wrap' }}>
+                  <div style={{ marginTop: '14px', background: 'rgba(0,0,0,0.3)', borderRadius: '10px', border: '1px solid rgba(95,174,176,0.12)', overflow: 'hidden' }}>
+                    <div style={{ padding: '18px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div style={{ fontSize: '0.65rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 600 }}>Supporting Evidence (Hypothesis A)</div>
+                      <div style={{ fontFamily: "monospace", fontSize: '0.8rem', color: '#A8A39A', whiteSpace: 'pre-wrap' }}>
                         {typeof debateRaw.advocate === 'string' ? debateRaw.advocate : JSON.stringify(debateRaw.advocate, null, 2)}
                       </div>
                     </div>
-                    <div style={{ padding: '20px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ fontSize: '0.7rem', color: '#D67959', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 600 }}>Rule-Out Criteria & Challenges</div>
-                      <div style={{ fontFamily: "monospace", fontSize: '0.85rem', color: '#A8A39A', whiteSpace: 'pre-wrap' }}>
+                    <div style={{ padding: '18px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div style={{ fontSize: '0.65rem', color: '#D67959', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 600 }}>Rule-Out Criteria & Challenges</div>
+                      <div style={{ fontFamily: "monospace", fontSize: '0.8rem', color: '#A8A39A', whiteSpace: 'pre-wrap' }}>
                         {typeof debateRaw.skeptic === 'string' ? debateRaw.skeptic : JSON.stringify(debateRaw.skeptic, null, 2)}
                       </div>
                     </div>
-                    <div style={{ padding: '20px' }}>
-                      <div style={{ fontSize: '0.7rem', color: '#D9B873', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 600 }}>Final Clinical Synthesis</div>
-                      <div style={{ fontFamily: "monospace", fontSize: '0.85rem', color: '#A8A39A', whiteSpace: 'pre-wrap' }}>
+                    <div style={{ padding: '18px' }}>
+                      <div style={{ fontSize: '0.65rem', color: '#D9B873', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 600 }}>Final Clinical Synthesis</div>
+                      <div style={{ fontFamily: "monospace", fontSize: '0.8rem', color: '#A8A39A', whiteSpace: 'pre-wrap' }}>
                         {typeof debateRaw.judge === 'string' ? debateRaw.judge : JSON.stringify(debateRaw.judge, null, 2)}
                       </div>
                     </div>
@@ -337,83 +423,121 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
           </div>
         )}
 
-        {/* ═══ TAB 3: DDx ARENA ═══ */}
+        {/* ═══ TAB 3: DDx ARENA (split: chat + context sidebar) ═══ */}
         {mainTab === 'ddx' && (
-          <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Chat Messages */}
-            <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '24px 40px' }}>
-              {messages.map((msg, i) => (
-                <div key={i} style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: msg.sender === 'bot' ? 'flex-start' : 'flex-end', maxWidth: '800px', margin: msg.sender === 'bot' ? '0 auto 20px 0' : '0 0 20px auto' }}>
-                  <div style={{ fontSize: '0.7rem', color: msg.sender === 'bot' ? '#5FAEB0' : '#D9B873', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.08em' }}>
-                    {msg.sender === 'bot' ? 'Clinical Copilot' : 'You (Clinician)'}
-                    {msg.ddxRole && msg.ddxRole !== 'copilot' && (
-                      <span style={{ marginLeft: '8px', color: '#A8A39A', background: 'rgba(255,255,255,0.08)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.65rem' }}>
-                        MODE: {msg.ddxRole.toUpperCase()}
-                      </span>
-                    )}
+          <div style={{ height: '100%', display: 'flex' }}>
+            {/* LEFT: Chat (60%) */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              {/* Chat Messages */}
+              <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '20px 32px' }}>
+                {messages.map((msg, i) => (
+                  <div key={i} style={{ marginBottom: '18px', display: 'flex', flexDirection: 'column', alignItems: msg.sender === 'bot' ? 'flex-start' : 'flex-end' }}>
+                    <div style={{ fontSize: '0.65rem', color: msg.sender === 'bot' ? '#5FAEB0' : '#D9B873', textTransform: 'uppercase', marginBottom: '5px', letterSpacing: '0.08em' }}>
+                      {msg.sender === 'bot' ? 'Clinical Copilot' : 'You (Clinician)'}
+                      {msg.ddxRole && msg.ddxRole !== 'copilot' && (
+                        <span style={{ marginLeft: '8px', color: '#A8A39A', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem' }}>
+                          {msg.ddxRole.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ background: msg.sender === 'bot' ? 'rgba(95,174,176,0.06)' : 'rgba(217,184,115,0.06)', padding: '14px 18px', borderRadius: '10px', border: msg.sender === 'bot' ? '1px solid rgba(95,174,176,0.12)' : '1px solid rgba(217,184,115,0.12)', maxWidth: '90%', fontFamily: "'Work Sans', sans-serif", fontSize: '0.9rem', lineHeight: 1.6, color: '#EDEAE3' }}>
+                      {msg.text.split('\n').map((line, j) => <React.Fragment key={j}>{line}<br/></React.Fragment>)}
+                    </div>
                   </div>
-                  <div style={{ background: msg.sender === 'bot' ? 'rgba(95,174,176,0.08)' : 'rgba(217,184,115,0.08)', padding: '16px 20px', borderRadius: '12px', border: msg.sender === 'bot' ? '1px solid rgba(95,174,176,0.15)' : '1px solid rgba(217,184,115,0.15)', maxWidth: '700px', fontFamily: "'Work Sans', sans-serif", fontSize: '0.95rem', lineHeight: 1.6, color: '#EDEAE3' }}>
-                    {msg.text.split('\n').map((line, j) => <React.Fragment key={j}>{line}<br/></React.Fragment>)}
+                ))}
+                {isSending && (
+                  <div style={{ marginBottom: '18px' }}>
+                    <div style={{ fontSize: '0.65rem', color: '#5FAEB0', textTransform: 'uppercase', marginBottom: '5px', letterSpacing: '0.08em' }}>Clinical Copilot</div>
+                    <div style={{ background: 'rgba(95,174,176,0.06)', padding: '14px 18px', borderRadius: '10px', border: '1px solid rgba(95,174,176,0.12)', fontFamily: "'Work Sans', sans-serif", fontSize: '0.9rem', color: '#5FAEB0' }}>
+                      Analyzing clinical data...
+                    </div>
                   </div>
+                )}
+              </div>
+
+              {/* Input Area */}
+              <div style={{ padding: '16px 32px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+                  {[
+                    { id: 'copilot', label: 'Copilot' },
+                    { id: 'defend', label: 'Defend Dx' },
+                    { id: 'challenge', label: 'Challenge Dx' },
+                    { id: 'compare', label: 'Compare A vs B' },
+                  ].map((role) => (
+                    <button
+                      key={role.id}
+                      onClick={() => setDdxRole(role.id)}
+                      style={{
+                        background: ddxRole === role.id ? 'rgba(217,184,115,0.12)' : 'none',
+                        border: ddxRole === role.id ? '1px solid rgba(217,184,115,0.3)' : '1px solid rgba(255,255,255,0.08)',
+                        color: ddxRole === role.id ? '#D9B873' : '#6B6560',
+                        padding: '5px 12px',
+                        borderRadius: '16px',
+                        fontSize: '0.7rem',
+                        fontFamily: "'Work Sans', sans-serif",
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      {role.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
+                    placeholder="Message the DDx Copilot..."
+                    style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', color: '#fff', padding: '12px 14px', borderRadius: '8px', fontSize: '0.85rem', fontFamily: "'Work Sans', sans-serif", outline: 'none' }}
+                  />
+                  <button
+                    onClick={handleSend}
+                    disabled={isSending || !input.trim()}
+                    style={{ background: isSending ? 'rgba(217,184,115,0.2)' : '#D9B873', border: 'none', color: '#050608', padding: '0 18px', borderRadius: '8px', cursor: isSending ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', transition: 'background 0.2s' }}
+                  >
+                    <Send size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT: Quick Reference Sidebar (40%) */}
+            <div style={{ width: '340px', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.15)', overflowY: 'auto', padding: '20px' }}>
+              <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.65rem', color: '#6B6560', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '16px' }}>Quick Reference</div>
+              
+              {/* Patient Header */}
+              <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.2rem', color: '#D9B873', marginBottom: '4px' }}>{handoffData?.patient_name || patientName}</div>
+                <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.75rem', color: '#A8A39A' }}>
+                  {typeof handoffData?.demographics === 'string' && handoffData.demographics ? handoffData.demographics : ''}
+                </div>
+              </div>
+
+              {/* Sidebar Sections */}
+              {sidebarSections.map((section, si) => (
+                <div key={si} style={{ marginBottom: '18px' }}>
+                  <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.6rem', color: section.color, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '8px', fontWeight: 600 }}>{section.label}</div>
+                  {section.items.map((item, ii) => (
+                    <div key={ii} style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.78rem', color: '#CDCAC3', marginBottom: '5px', paddingLeft: '10px', borderLeft: `2px solid ${section.color}30`, lineHeight: 1.4 }}>
+                      {item}
+                    </div>
+                  ))}
                 </div>
               ))}
-              {isSending && (
-                <div style={{ marginBottom: '20px' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#5FAEB0', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.08em' }}>Clinical Copilot</div>
-                  <div style={{ background: 'rgba(95,174,176,0.08)', padding: '16px 20px', borderRadius: '12px', border: '1px solid rgba(95,174,176,0.15)', fontFamily: "'Work Sans', sans-serif", fontSize: '0.95rem', color: '#5FAEB0' }}>
-                    Analyzing clinical data...
+
+              {/* Key People */}
+              {structured.people.length > 0 && (
+                <div style={{ marginBottom: '18px' }}>
+                  <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.6rem', color: '#7ABFBF', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '8px', fontWeight: 600 }}>Key People</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {structured.people.map((p, pi) => (
+                      <span key={pi} style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.72rem', color: '#A8A39A', background: 'rgba(122,191,191,0.08)', padding: '3px 10px', borderRadius: '12px', border: '1px solid rgba(122,191,191,0.12)' }}>{p}</span>
+                    ))}
                   </div>
                 </div>
               )}
-            </div>
-
-            {/* Input Area */}
-            <div style={{ padding: '20px 40px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
-              <div style={{ fontSize: '0.7rem', color: '#6B6560', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>Role Injection</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
-                {[
-                  { id: 'copilot', label: 'Copilot Mode' },
-                  { id: 'defend', label: 'Defend a Diagnosis' },
-                  { id: 'challenge', label: 'Challenge a Diagnosis' },
-                  { id: 'compare', label: 'Compare A vs B' },
-                ].map((role) => (
-                  <button
-                    key={role.id}
-                    onClick={() => setDdxRole(role.id)}
-                    style={{
-                      background: ddxRole === role.id ? 'rgba(217,184,115,0.12)' : 'none',
-                      border: ddxRole === role.id ? '1px solid rgba(217,184,115,0.35)' : '1px solid rgba(255,255,255,0.1)',
-                      color: ddxRole === role.id ? '#D9B873' : '#6B6560',
-                      padding: '6px 14px',
-                      borderRadius: '20px',
-                      fontSize: '0.75rem',
-                      fontFamily: "'Work Sans', sans-serif",
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    {role.label}
-                  </button>
-                ))}
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
-                  placeholder="Message the DDx Copilot..."
-                  style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '14px 16px', borderRadius: '8px', fontSize: '0.9rem', fontFamily: "'Work Sans', sans-serif", outline: 'none' }}
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={isSending || !input.trim()}
-                  style={{ background: isSending ? 'rgba(217,184,115,0.2)' : '#D9B873', border: 'none', color: '#050608', padding: '0 20px', borderRadius: '8px', cursor: isSending ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', transition: 'background 0.2s' }}
-                >
-                  <Send size={18} />
-                </button>
-              </div>
             </div>
           </div>
         )}

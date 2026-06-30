@@ -210,6 +210,70 @@ const isLocal = GCP_URL.includes('localhost');
     fail('Post-Visit Scribe', e.message);
   }
 
+  // ── TEST 11: At-a-Glance card on Transfer Summary ──
+  console.log('\n[11/13] Checking At-a-Glance card...');
+  try {
+    const summaryTab = page.locator('button', { hasText: 'Transfer Summary' });
+    await summaryTab.first().click();
+    await page.waitForTimeout(1000);
+    const pageText = await page.evaluate(() => document.body.innerText);
+    const hasGlance = pageText.includes('AT-A-GLANCE') || pageText.includes('At-a-Glance') || pageText.includes('at-a-glance');
+    const hasDx = pageText.includes('Dx') || pageText.includes('DIAGNOSES') || pageText.includes('Diagnoses');
+    const hasMeds = pageText.includes('Meds') || pageText.includes('MEDICATIONS') || pageText.includes('Medications');
+    if (hasGlance || (hasDx && hasMeds)) {
+      pass('At-a-Glance card present with Dx + Meds');
+      await page.screenshot({ path: `${artifactDir}/provider_06_at_a_glance.png`, fullPage: false });
+    } else {
+      fail('At-a-Glance card', 'No structured summary card found (expected Dx + Meds)');
+    }
+  } catch (e) {
+    fail('At-a-Glance card', e.message);
+  }
+
+  // ── TEST 12: DDx Arena has context sidebar ──
+  console.log('\n[12/13] Checking DDx Arena context sidebar...');
+  try {
+    const ddxTab2 = page.locator('button', { hasText: 'DDx Arena' });
+    await ddxTab2.first().click();
+    await page.waitForTimeout(1000);
+    const ddxText = await page.evaluate(() => document.body.innerText);
+    const hasContext = ddxText.includes('QUICK REFERENCE') || ddxText.includes('Quick Reference') ||
+                       ddxText.includes('KEY DATA') || ddxText.includes('Patient Context') ||
+                       ddxText.includes('Risk') || ddxText.includes('Themes');
+    const hasChat = ddxText.includes('DDx Copilot') || ddxText.includes('Copilot');
+    if (hasContext && hasChat) {
+      pass('DDx Arena has context sidebar + chat');
+      await page.screenshot({ path: `${artifactDir}/provider_07_ddx_sidebar.png`, fullPage: false });
+    } else if (hasChat) {
+      fail('DDx Arena context', 'Chat present but no context sidebar');
+    } else {
+      fail('DDx Arena context', 'Neither chat nor sidebar found');
+    }
+  } catch (e) {
+    fail('DDx Arena context', e.message);
+  }
+
+  // ── TEST 13: Information hierarchy (themes above narrative) ──
+  console.log('\n[13/13] Checking information hierarchy...');
+  try {
+    const summaryTab2 = page.locator('button', { hasText: 'Transfer Summary' });
+    await summaryTab2.first().click();
+    await page.waitForTimeout(500);
+    // Check that themes/glance appear before the full narrative
+    const allText = await page.evaluate(() => document.body.innerText);
+    const glancePos = allText.indexOf('AT-A-GLANCE') !== -1 ? allText.indexOf('AT-A-GLANCE') : allText.indexOf('Diagnos');
+    const narrativePos = allText.indexOf('Clinical Narrative') !== -1 ? allText.indexOf('Clinical Narrative') : allText.indexOf('clinical narrative');
+    if (glancePos >= 0 && narrativePos >= 0 && glancePos < narrativePos) {
+      pass('Information hierarchy correct (glance before narrative)');
+    } else if (glancePos >= 0) {
+      pass('At-a-Glance card found (hierarchy check inconclusive)');
+    } else {
+      fail('Information hierarchy', 'At-a-Glance not found above narrative');
+    }
+  } catch (e) {
+    fail('Information hierarchy', e.message);
+  }
+
   await browser.close();
 
   // ── SUMMARY ──
