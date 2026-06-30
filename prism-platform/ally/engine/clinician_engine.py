@@ -99,12 +99,15 @@ Generate your clinical consultation response. Remember to respond in the JSON fo
             import json
             
             debate_result = None
+            # Use fast model for regular copilot, thinking model only for DDx Arena
+            chat_model = 'gemini-2.0-flash'
             if "[DDX ARENA" in clinician_message:
+                chat_model = 'gemini-2.5-flash'
                 reasoning = ReasoningEngine(graph=patient_graph, llm_client=self.llm)
                 debate_result = reasoning.analyze(clinician_message)
                 prompt = f"{context}\n\n---\nCLINICIAN'S MESSAGE:\n{clinician_message}\n\nREASONING ENGINE DEBATE RESULTS:\nAdvocate: {json.dumps(debate_result.get('advocate', ''))}\nSkeptic: {json.dumps(debate_result.get('skeptic', ''))}\nJudge: {json.dumps(debate_result.get('judge', ''))}\n\nSynthesize these results into your final clinical consultation response JSON."
 
-            result = self.llm.generate_json(prompt, system_instruction=CLINICIAN_SYSTEM_PROMPT)
+            result = self.llm.generate_json(prompt, system_instruction=CLINICIAN_SYSTEM_PROMPT, model=chat_model)
             response = {
                 "text": result.get("text", "Please clarify your clinical question."),
                 "flags": result.get("flags", []),

@@ -60,6 +60,10 @@ class HandoffPackage(BaseModel):
     hypotheses: List[str] = Field(default_factory=list)
     family_overlap_flag: Optional[str] = None
     generated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    # Pre-computed graph data for InteractiveGraph component
+    graph_nodes: List[Dict[str, Any]] = Field(default_factory=list)
+    graph_edges: List[Dict[str, Any]] = Field(default_factory=list)
+    graph_positions: Dict[str, Dict[str, float]] = Field(default_factory=dict)
 
 
 class GraphSnapshot(BaseModel):

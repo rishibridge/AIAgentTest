@@ -32,7 +32,7 @@ class LLMClient:
         else:
             self.client = None
             
-    def generate(self, prompt: str, system_instruction: str = "", file_path: Optional[str] = None) -> str:
+    def generate(self, prompt: str, system_instruction: str = "", file_path: Optional[str] = None, model: str = 'gemini-2.5-flash') -> str:
         if self.mock or not self.client:
             return self._mock_generate(prompt)
             
@@ -44,7 +44,7 @@ class LLMClient:
                 contents = [uploaded_file, prompt]
                 
             response = self.client.models.generate_content(
-                model='gemini-2.5-flash',
+                model=model,
                 contents=contents,
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,
@@ -56,12 +56,12 @@ class LLMClient:
             print(f"LLM Generation Error: {e}")
             return self._mock_generate(prompt)
         
-    def generate_json(self, prompt: str, system_instruction: str = "", file_path: Optional[str] = None) -> Dict[str, Any]:
+    def generate_json(self, prompt: str, system_instruction: str = "", file_path: Optional[str] = None, model: str = 'gemini-2.5-flash') -> Dict[str, Any]:
         """Forces the LLM to return valid JSON and parses it."""
         
         json_prompt = prompt + "\n\nCRITICAL INSTRUCTION: Output ONLY a valid JSON object. Do not include markdown codeblocks or any other text before or after the JSON."
         
-        response_text = self.generate(json_prompt, system_instruction, file_path=file_path)
+        response_text = self.generate(json_prompt, system_instruction, file_path=file_path, model=model)
         
         # Clean up potential markdown codeblocks from the LLM
         response_text = response_text.strip()

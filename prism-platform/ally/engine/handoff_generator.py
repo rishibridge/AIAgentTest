@@ -105,6 +105,25 @@ Judge output MUST be a JSON object:
                 family_overlap_flag=family_overlap_info,
             )
 
+            # Pre-compute graph data for InteractiveGraph component
+            graph_state = patient_graph.get_graph_state()
+            handoff.graph_nodes = graph_state.get("nodes", [])
+            handoff.graph_edges = graph_state.get("edges", [])
+            handoff.graph_positions = patient_graph.get_positions()
+
+            # Auto-layout if no positions exist
+            if not handoff.graph_positions and handoff.graph_nodes:
+                import math
+                center_x, center_y = 550, 310
+                n = len(handoff.graph_nodes)
+                for i, node in enumerate(handoff.graph_nodes):
+                    angle = (2 * math.pi * i) / n
+                    radius = 200 + (i % 3) * 60
+                    handoff.graph_positions[node["id"]] = {
+                        "x": center_x + radius * math.cos(angle),
+                        "y": center_y + radius * math.sin(angle),
+                    }
+
             patient_graph.handoffs.append(handoff)
 
             debate = {
