@@ -53,8 +53,11 @@ class LLMClient:
             )
             return response.text
         except Exception as e:
-            print(f"LLM Generation Error: {e}")
-            return self._mock_generate(prompt)
+            print(f"[LLMClient] Generation Error for model={model}: {type(e).__name__}: {e}")
+            if self.mock:
+                return self._mock_generate(prompt)
+            # In production, return an error message rather than silently returning mock data
+            return json.dumps({"text": f"LLM generation failed ({type(e).__name__}). The model '{model}' may be unavailable. Please try again.", "flags": [], "node_updates": [], "edge_updates": [], "referenced_nodes": [], "recommendations": []})
         
     def generate_json(self, prompt: str, system_instruction: str = "", file_path: Optional[str] = None, model: str = 'gemini-2.5-flash') -> Dict[str, Any]:
         """Forces the LLM to return valid JSON and parses it."""

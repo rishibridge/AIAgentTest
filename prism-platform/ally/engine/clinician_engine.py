@@ -99,8 +99,8 @@ Generate your clinical consultation response. Remember to respond in the JSON fo
             import json
             
             debate_result = None
-            # Use fast model for regular copilot, thinking model only for DDx Arena
-            chat_model = 'gemini-2.0-flash'
+            # Use gemini-2.5-flash for all clinician chat (same model that works for patient chat)
+            chat_model = 'gemini-2.5-flash'
             if "[DDX ARENA" in clinician_message:
                 chat_model = 'gemini-2.5-flash'
                 reasoning = ReasoningEngine(graph=patient_graph, llm_client=self.llm)
