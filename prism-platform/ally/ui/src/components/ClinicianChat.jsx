@@ -70,10 +70,18 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
       if (ddxRole === 'defend') apiText = `[DDX ARENA: I am proposing a diagnosis. Rule it out using graph evidence.] ${text}`;
       else if (ddxRole === 'challenge') apiText = `[DDX ARENA: I am challenging your primary diagnosis. Defend it with specific patient quotes.] ${text}`;
       else if (ddxRole === 'compare') apiText = `[DDX ARENA: Let's compare Hypothesis A vs Hypothesis B.] ${text}`;
+      else if (ddxRole === 'debate') apiText = `[DDX ARENA: LIVE DEBATE — Present the full Advocate, Skeptic, and Judge analysis with graph evidence.] ${text}`;
 
       const res = await api.sendClinicianMessage(patientId, apiText);
       const botText = res.response?.text || res.text || 'No response generated.';
-      setMessages(prev => [...prev, { sender: 'bot', text: botText }]);
+      const debate = res.response?.debate || res.debate || null;
+
+      if (ddxRole === 'debate' && debate) {
+        // In debate mode, show the 3-agent debate cards instead of synthesized response
+        setMessages(prev => [...prev, { sender: 'bot', text: botText, debate, isDebate: true }]);
+      } else {
+        setMessages(prev => [...prev, { sender: 'bot', text: botText }]);
+      }
     } catch (e) {
       setMessages(prev => [...prev, { sender: 'bot', text: `Error: ${e.message}` }]);
     } finally {
@@ -456,16 +464,64 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                 {messages.map((msg, i) => (
                   <div key={i} style={{ marginBottom: '18px', display: 'flex', flexDirection: 'column', alignItems: msg.sender === 'bot' ? 'flex-start' : 'flex-end' }}>
                     <div style={{ fontSize: '0.65rem', color: msg.sender === 'bot' ? '#5FAEB0' : '#D9B873', textTransform: 'uppercase', marginBottom: '5px', letterSpacing: '0.08em' }}>
-                      {msg.sender === 'bot' ? 'Clinical Copilot' : 'You (Clinician)'}
+                      {msg.sender === 'bot' ? (msg.isDebate ? '🔥 Live DDx Debate' : 'Clinical Copilot') : 'You (Clinician)'}
                       {msg.ddxRole && msg.ddxRole !== 'copilot' && (
                         <span style={{ marginLeft: '8px', color: '#A8A39A', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem' }}>
                           {msg.ddxRole.toUpperCase()}
                         </span>
                       )}
                     </div>
-                    <div style={{ background: msg.sender === 'bot' ? 'rgba(95,174,176,0.06)' : 'rgba(217,184,115,0.06)', padding: '14px 18px', borderRadius: '10px', border: msg.sender === 'bot' ? '1px solid rgba(95,174,176,0.12)' : '1px solid rgba(217,184,115,0.12)', maxWidth: '90%', fontFamily: "'Work Sans', sans-serif", fontSize: '0.9rem', lineHeight: 1.6, color: '#EDEAE3' }}>
-                      {msg.text.split('\n').map((line, j) => <React.Fragment key={j}>{line}<br/></React.Fragment>)}
-                    </div>
+
+                    {/* Live Debate 3-agent cards */}
+                    {msg.isDebate && msg.debate ? (
+                      <div style={{ width: '100%', maxWidth: '95%' }}>
+                        {/* Advocate Card */}
+                        <div style={{ background: 'rgba(95,174,176,0.06)', border: '1px solid rgba(95,174,176,0.2)', borderRadius: '10px', padding: '16px 18px', marginBottom: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#5FAEB0', flexShrink: 0 }} />
+                            <div style={{ fontSize: '0.7rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, fontFamily: "'Work Sans', sans-serif" }}>Advocate — Supporting Evidence</div>
+                          </div>
+                          <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', lineHeight: 1.65, color: '#EDEAE3', whiteSpace: 'pre-wrap' }}>
+                            {typeof msg.debate.advocate === 'string' ? msg.debate.advocate : JSON.stringify(msg.debate.advocate, null, 2)}
+                          </div>
+                        </div>
+
+                        {/* Skeptic Card */}
+                        <div style={{ background: 'rgba(214,121,89,0.06)', border: '1px solid rgba(214,121,89,0.2)', borderRadius: '10px', padding: '16px 18px', marginBottom: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#D67959', flexShrink: 0 }} />
+                            <div style={{ fontSize: '0.7rem', color: '#D67959', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, fontFamily: "'Work Sans', sans-serif" }}>Skeptic — Challenges & Rule-Outs</div>
+                          </div>
+                          <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', lineHeight: 1.65, color: '#EDEAE3', whiteSpace: 'pre-wrap' }}>
+                            {typeof msg.debate.skeptic === 'string' ? msg.debate.skeptic : JSON.stringify(msg.debate.skeptic, null, 2)}
+                          </div>
+                        </div>
+
+                        {/* Judge Card */}
+                        <div style={{ background: 'rgba(217,184,115,0.08)', border: '1px solid rgba(217,184,115,0.25)', borderRadius: '10px', padding: '16px 18px', marginBottom: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#D9B873', flexShrink: 0 }} />
+                            <div style={{ fontSize: '0.7rem', color: '#D9B873', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, fontFamily: "'Work Sans', sans-serif" }}>Judge — Clinical Verdict</div>
+                          </div>
+                          <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', lineHeight: 1.65, color: '#EDEAE3', whiteSpace: 'pre-wrap' }}>
+                            {typeof msg.debate.judge === 'string' ? msg.debate.judge : JSON.stringify(msg.debate.judge, null, 2)}
+                          </div>
+                        </div>
+
+                        {/* Synthesized Verdict */}
+                        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '14px 18px' }}>
+                          <div style={{ fontSize: '0.65rem', color: '#A8A39A', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 600, fontFamily: "'Work Sans', sans-serif" }}>Synthesized Clinical Response</div>
+                          <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', lineHeight: 1.6, color: '#EDEAE3' }}>
+                            {msg.text.split('\n').map((line, j) => <React.Fragment key={j}>{line}<br/></React.Fragment>)}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Normal single bubble */
+                      <div style={{ background: msg.sender === 'bot' ? 'rgba(95,174,176,0.06)' : 'rgba(217,184,115,0.06)', padding: '14px 18px', borderRadius: '10px', border: msg.sender === 'bot' ? '1px solid rgba(95,174,176,0.12)' : '1px solid rgba(217,184,115,0.12)', maxWidth: '90%', fontFamily: "'Work Sans', sans-serif", fontSize: '0.9rem', lineHeight: 1.6, color: '#EDEAE3' }}>
+                        {msg.text.split('\n').map((line, j) => <React.Fragment key={j}>{line}<br/></React.Fragment>)}
+                      </div>
+                    )}
                   </div>
                 ))}
                 {/* Suggested Questions (zero-state) */}
@@ -518,6 +574,7 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                     { id: 'defend', label: 'Defend Dx' },
                     { id: 'challenge', label: 'Challenge Dx' },
                     { id: 'compare', label: 'Compare A vs B' },
+                    { id: 'debate', label: '🔥 Live Debate' },
                   ].map((role) => (
                     <button
                       key={role.id}
