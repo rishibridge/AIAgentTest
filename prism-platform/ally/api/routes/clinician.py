@@ -98,6 +98,7 @@ def send_clinician_message(patient_id: str, req: ClinicianMessageRequest):
         "response": bot_msg.model_dump(),
         "flags": bot_response.get("flags", []),
         "recommendations": bot_response.get("recommendations", []),
+        "debate": bot_response.get("debate", None),
         "graph_updates": {
             "nodes_added": nodes_added,
             "edges_added": edges_added,
