@@ -529,7 +529,7 @@ Respond as the Castle Behavioral Health Companion. Return JSON:
                     ctx += f"- {n.properties.get('label', n.id)} (id: {n.id}, size: {n.properties.get('size', 14)})\n"
 
             ctx += f"\n## GRAPH EDGES ({len(edges_dict)} total)\n"
-            for e in sorted(edges_dict.values(), key=lambda x: -x.weight):
+            for e in sorted(edges_dict.values(), key=lambda x: -(x.weight if isinstance(x.weight, (int, float)) else 0)):
                 flags = []
                 if e.dashed: flags.append("inferred")
                 if e.clinician: flags.append("clinician-source")

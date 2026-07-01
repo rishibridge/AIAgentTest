@@ -266,7 +266,7 @@ Respond as JSON:
 
             # Key relationships
             ctx += "\n### RELATIONSHIPS\n"
-            sorted_edges = sorted(edges_dict.values(), key=lambda x: -x.weight)
+            sorted_edges = sorted(edges_dict.values(), key=lambda x: -(x.weight if isinstance(x.weight, (int, float)) else 0))
             for e in sorted_edges:
                 src_node = nodes_dict.get(e.source)
                 tgt_node = nodes_dict.get(e.target)
