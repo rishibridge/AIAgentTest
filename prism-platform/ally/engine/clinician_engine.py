@@ -108,8 +108,22 @@ Generate your clinical consultation response. Remember to respond in the JSON fo
                 prompt = f"{context}\n\n---\nCLINICIAN'S MESSAGE:\n{clinician_message}\n\nREASONING ENGINE DEBATE RESULTS:\nAdvocate: {json.dumps(debate_result.get('advocate', ''))}\nSkeptic: {json.dumps(debate_result.get('skeptic', ''))}\nJudge: {json.dumps(debate_result.get('judge', ''))}\n\nSynthesize these results into your final clinical consultation response JSON."
 
             result = self.llm.generate_json(prompt, system_instruction=CLINICIAN_SYSTEM_PROMPT, model=chat_model)
+            print(f"[ClinicianEngine] LLM returned keys: {list(result.keys())}")
+            
+            # If JSON parsing produced an empty or keyless result, fall back to raw text generation
+            if not result.get("text"):
+                print(f"[ClinicianEngine] No 'text' key in JSON result. Keys: {list(result.keys())}. Falling back to raw generation.")
+                raw_text = self.llm.generate(prompt, system_instruction=CLINICIAN_SYSTEM_PROMPT, model=chat_model)
+                # Try to extract text from raw response
+                try:
+                    parsed = json.loads(raw_text.strip().removeprefix('```json').removeprefix('```').removesuffix('```').strip())
+                    result = parsed if isinstance(parsed, dict) else {"text": raw_text}
+                except Exception:
+                    result = {"text": raw_text}
+                print(f"[ClinicianEngine] Fallback result keys: {list(result.keys())}")
+            
             response = {
-                "text": result.get("text", "Please clarify your clinical question."),
+                "text": result.get("text", result.get("response", str(result))),
                 "flags": result.get("flags", []),
                 "node_updates": result.get("node_updates", []),
                 "edge_updates": result.get("edge_updates", []),

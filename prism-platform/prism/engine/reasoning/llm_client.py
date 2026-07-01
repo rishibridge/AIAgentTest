@@ -87,6 +87,15 @@ class LLMClient:
                 "confidence": 0,
                 "bias_flags": []
             }
+        if "clinician" in prompt.lower() or "clinical" in prompt.lower():
+            return {
+                "text": "I encountered a parsing error processing the clinical data. Please rephrase your question or try again.",
+                "flags": [],
+                "node_updates": [],
+                "edge_updates": [],
+                "referenced_nodes": [],
+                "recommendations": []
+            }
         return {}
 
     def _mock_generate(self, prompt: str) -> str:
