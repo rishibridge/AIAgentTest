@@ -72,7 +72,7 @@ JUDGE: Produce the final validated package.
 Judge output MUST be a JSON object:
 {{
   "context": "Brief context of the referral",
-  "demographics": "Basic patient info from background",
+  "demographics": "Structured one-line summary: Age + Sex/Gender + Occupation + Primary Language. Example: '47F • Home Health Aide • Spanish/English'. Extract from patient background.",
   "risk_assessment": {{"level": "High/Medium/Low", "details": "Specific risk details or safety plans active. Medium/High requires immediate visibility."}},
   "clinical_narrative": "A warm, cohesive paragraph capturing the patient's core conflicts, emotional affect, and overall narrative, replacing a rigid medical summary.",
   "active_themes": ["3-4 bullet points of what the patient is actively wrestling with right now"],

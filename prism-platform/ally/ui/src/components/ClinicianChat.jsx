@@ -153,6 +153,25 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
   };
   const structured = extractStructured();
 
+  // Generate suggested questions from handoff data
+  const suggestedQuestions = (() => {
+    const qs = [];
+    if (structured.medications.length >= 2) {
+      qs.push(`What are the interaction risks between ${structured.medications[0]} and ${structured.medications[1]}?`);
+    }
+    if (handoffData?.hypotheses?.length > 0) {
+      const h = typeof handoffData.hypotheses[0] === 'string' ? handoffData.hypotheses[0] : '';
+      if (h) qs.push(`What evidence supports vs contradicts: ${h.substring(0, 80)}?`);
+    }
+    if (handoffData?.risk_assessment?.level === 'High') {
+      qs.push('What safety protocol adjustments should I consider for this session?');
+    }
+    if (handoffData?.active_themes?.length > 0) {
+      qs.push(`How should I approach the theme of: ${(handoffData.active_themes[0] || '').substring(0, 60)}?`);
+    }
+    return qs.slice(0, 4);
+  })();
+
   // Condensed context for DDx sidebar
   const sidebarSections = [
     { label: 'Risk', color: '#E85D5D', items: handoffData?.risk_assessment ? [`${handoffData.risk_assessment.level}: ${handoffData.risk_assessment.details?.substring(0, 120)}...`] : [] },
@@ -232,6 +251,16 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                 {typeof handoffData?.demographics === 'string' && handoffData.demographics ? handoffData.demographics : 'Demographics in clinical narrative'}
               </div>
 
+              {/* Risk Details (if present) — ABOVE the Dx grid */}
+              {handoffData?.risk_assessment && ['Medium', 'High'].includes(handoffData.risk_assessment.level) && (
+                <div style={{ marginBottom: '18px', padding: '12px 16px', background: handoffData.risk_assessment.level === 'High' ? 'rgba(232,93,93,0.08)' : 'rgba(214,121,89,0.06)', borderRadius: '8px', border: `1px solid ${handoffData.risk_assessment.level === 'High' ? 'rgba(232,93,93,0.2)' : 'rgba(214,121,89,0.15)'}` }}>
+                  <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.65rem', color: handoffData.risk_assessment.level === 'High' ? '#E85D5D' : '#D67959', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px', fontWeight: 600 }}>Safety Protocol</div>
+                  <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.82rem', color: '#EDEAE3', lineHeight: 1.5 }}>
+                    {handoffData.risk_assessment.details}
+                  </div>
+                </div>
+              )}
+
               {/* Structured Grid: Dx | Meds | Symptoms */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
                 {/* Diagnoses */}
@@ -268,15 +297,6 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                 </div>
               </div>
 
-              {/* Risk Details (if present) */}
-              {handoffData?.risk_assessment && ['Medium', 'High'].includes(handoffData.risk_assessment.level) && (
-                <div style={{ marginTop: '16px', padding: '14px 16px', background: handoffData.risk_assessment.level === 'High' ? 'rgba(232,93,93,0.08)' : 'rgba(214,121,89,0.06)', borderRadius: '8px', border: `1px solid ${handoffData.risk_assessment.level === 'High' ? 'rgba(232,93,93,0.2)' : 'rgba(214,121,89,0.15)'}` }}>
-                  <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', color: '#EDEAE3', lineHeight: 1.5 }}>
-                    <AlertTriangle size={13} color={handoffData.risk_assessment.level === 'High' ? '#E85D5D' : '#D67959'} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} />
-                    {handoffData.risk_assessment.details}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Two-column: Themes + Evidence */}
@@ -445,6 +465,38 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                     </div>
                   </div>
                 ))}
+                {/* Suggested Questions (zero-state) */}
+                {messages.length <= 1 && !isSending && suggestedQuestions.length > 0 && (
+                  <div style={{ marginTop: '8px', marginBottom: '20px' }}>
+                    <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.6rem', color: '#6B6560', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px' }}>Suggested Questions</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {suggestedQuestions.map((q, qi) => (
+                        <button
+                          key={qi}
+                          data-testid="suggested-question"
+                          onClick={() => { setInput(q); }}
+                          style={{
+                            background: 'rgba(217,184,115,0.05)',
+                            border: '1px solid rgba(217,184,115,0.15)',
+                            borderRadius: '8px',
+                            padding: '10px 16px',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            fontFamily: "'Work Sans', sans-serif",
+                            fontSize: '0.82rem',
+                            color: '#D9B873',
+                            lineHeight: 1.4,
+                            transition: 'all 0.2s',
+                          }}
+                          onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(217,184,115,0.12)'; e.currentTarget.style.borderColor = 'rgba(217,184,115,0.3)'; }}
+                          onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(217,184,115,0.05)'; e.currentTarget.style.borderColor = 'rgba(217,184,115,0.15)'; }}
+                        >
+                          💬 {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {isSending && (
                   <div style={{ marginBottom: '18px' }}>
                     <div style={{ fontSize: '0.65rem', color: '#5FAEB0', textTransform: 'uppercase', marginBottom: '5px', letterSpacing: '0.08em' }}>Clinical Copilot</div>
