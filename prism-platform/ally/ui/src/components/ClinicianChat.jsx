@@ -156,18 +156,21 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
   // Generate suggested questions from handoff data
   const suggestedQuestions = (() => {
     const qs = [];
+    const patName = handoffData?.patient_name || patientName || 'this patient';
     if (structured.medications.length >= 2) {
       qs.push(`What are the interaction risks between ${structured.medications[0]} and ${structured.medications[1]}?`);
     }
-    if (handoffData?.hypotheses?.length > 0) {
-      const h = typeof handoffData.hypotheses[0] === 'string' ? handoffData.hypotheses[0] : '';
-      if (h) qs.push(`What evidence supports vs contradicts: ${h.substring(0, 80)}?`);
+    if (handoffData?.risk_assessment && ['High', 'Medium'].includes(handoffData.risk_assessment.level)) {
+      qs.push(`What safety protocol adjustments should I consider for ${patName} given the current risk level?`);
     }
-    if (handoffData?.risk_assessment?.level === 'High') {
-      qs.push('What safety protocol adjustments should I consider for this session?');
+    if (structured.diagnoses.length > 0) {
+      qs.push(`What differential diagnoses should I consider alongside ${structured.diagnoses[0]} for ${patName}?`);
     }
     if (handoffData?.active_themes?.length > 0) {
-      qs.push(`How should I approach the theme of: ${(handoffData.active_themes[0] || '').substring(0, 60)}?`);
+      const theme = handoffData.active_themes[0];
+      // Find the core topic — take up to the first comma or period for a clean phrase
+      const shortTheme = theme.split(/[,.]/)  [0].trim().toLowerCase();
+      qs.push(`What therapeutic approaches are most effective for addressing ${shortTheme}?`);
     }
     return qs.slice(0, 4);
   })();
