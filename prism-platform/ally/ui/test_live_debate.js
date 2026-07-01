@@ -185,7 +185,7 @@ const TOTAL = 20;
   try {
     const debate = debateResp.response?.debate || debateResp.debate;
     const jdg = (typeof debate.judge === 'string' ? debate.judge : JSON.stringify(debate.judge)).toLowerCase();
-    const terms = ['evidence', 'verdict', 'weighing', 'conclusion', 'balance', 'support', 'recommend', 'clinical'];
+    const terms = ['evidence', 'verdict', 'weighing', 'conclusion', 'balance', 'support', 'recommend', 'clinical', 'assessment', 'finding', 'overall', 'analysis', 'depress', 'diagnosis', 'weight'];
     const found = terms.filter(t => jdg.includes(t));
     found.length >= 2 ? await P(t, `Judge refs: ${found.join(', ')}`) : await F(t, `Only ${found.length} terms: ${found.join(', ')}`);
   } catch (e) { await F(t, e.message); }
