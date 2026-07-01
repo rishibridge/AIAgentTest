@@ -20,14 +20,59 @@ import {
 } from './data';
 import * as api from './api';
 
+const CRISIS_NUMBERS = [
+  { pattern: /\b988\b/g, tel: '988', label: '988 Suicide & Crisis Lifeline' },
+  { pattern: /\b741741\b/g, tel: '741741', label: 'Crisis Text Line' },
+  { pattern: /\b911\b/g, tel: '911', label: '911 Emergency' },
+  { pattern: /800-656-HOPE|800-656-4673/gi, tel: '18006564673', label: 'RAINN Hotline' },
+  { pattern: /1-800-4-A-CHILD|1-800-422-4453/gi, tel: '18004224453', label: 'Childhelp Hotline' },
+  { pattern: /online\.rainn\.org/g, tel: null, label: 'RAINN Online', url: 'https://online.rainn.org' },
+];
+
 const formatMessageText = (text) => {
   if (!text) return null;
-  return text.split('\n').map((line, i) => (
-    <React.Fragment key={i}>
-      {line}
-      {i < text.split('\n').length - 1 && <br />}
-    </React.Fragment>
-  ));
+  return text.split('\n').map((line, i) => {
+    // Check if this line contains any crisis numbers
+    let parts = [line];
+    for (const cn of CRISIS_NUMBERS) {
+      const newParts = [];
+      for (const part of parts) {
+        if (typeof part !== 'string') { newParts.push(part); continue; }
+        const matches = part.match(cn.pattern);
+        if (!matches) { newParts.push(part); continue; }
+        const segments = part.split(cn.pattern);
+        segments.forEach((seg, si) => {
+          newParts.push(seg);
+          if (si < segments.length - 1) {
+            if (cn.url) {
+              newParts.push(
+                React.createElement('a', {
+                  key: `crisis-${i}-${si}`,
+                  href: cn.url,
+                  target: '_blank',
+                  rel: 'noopener',
+                  style: { color: '#FF6B6B', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer' },
+                  title: cn.label,
+                }, matches[si] || cn.label)
+              );
+            } else {
+              newParts.push(
+                React.createElement('a', {
+                  key: `tel-${i}-${si}`,
+                  href: `tel:${cn.tel}`,
+                  style: { color: '#FF6B6B', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', background: 'rgba(255,107,107,0.1)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(255,107,107,0.3)' },
+                  title: `Tap to call ${cn.label}`,
+                  'data-crisis-number': cn.tel,
+                }, matches[si] || cn.tel)
+              );
+            }
+          }
+        });
+      }
+      parts = newParts;
+    }
+    return React.createElement(React.Fragment, { key: i }, ...parts, i < text.split('\n').length - 1 ? React.createElement('br') : null);
+  });
 };
 /* ═══════════════════════════════════════════════════════════════════
  * WOW MOMENTS — Insight overlays at specific chat indices
@@ -640,7 +685,20 @@ function LiveChat({ patientId, patientName, onGraphUpdate, onConvIdReady }) {
             <div style={{ background: msg.sender === 'bot' ? 'rgba(77, 184, 184, 0.15)' : 'rgba(255,255,255,0.1)', padding: '12px 16px', borderRadius: '12px', border: msg.sender === 'bot' ? '1px solid rgba(77,184,184,0.3)' : 'none', maxWidth: '85%' }}>
               {formatMessageText(msg.text)}
               {msg.significance && <div style={{ marginTop: '6px', fontSize: '0.7rem', color: '#D4A645', textTransform: 'uppercase', letterSpacing: '0.1em' }}>★ significance moment</div>}
-              {msg.toolCalls && msg.toolCalls.length > 0 && (
+              {msg.toolCalls && msg.toolCalls.some(tc => tc.tool === 'trigger_emergency_alert') && (
+                <div data-testid="emergency-alert-banner" style={{ marginTop: '10px', padding: '12px 16px', background: 'rgba(255,0,0,0.12)', borderRadius: '8px', border: '2px solid rgba(255,80,80,0.5)', animation: 'pulse 2s infinite' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '1.2rem' }}>🚨</span>
+                    <span style={{ color: '#FF5050', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: '0.8rem' }}>Emergency Alert Sent</span>
+                  </div>
+                  <div style={{ color: '#EDEAE3', fontSize: '0.8rem', lineHeight: 1.5 }}>
+                    {msg.toolCalls.filter(tc => tc.tool === 'trigger_emergency_alert').map((tc, j) => (
+                      <div key={j}>Clinical staff has been notified: {tc.args?.reason || 'Crisis detected'}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {msg.toolCalls && msg.toolCalls.length > 0 && !msg.toolCalls.some(tc => tc.tool === 'trigger_emergency_alert') && (
                 <div style={{ marginTop: '8px', padding: '8px 10px', background: 'rgba(217,184,115,0.08)', borderRadius: '6px', border: '1px solid rgba(217,184,115,0.15)', fontSize: '0.7rem', color: '#D9B873' }}>
                   <div style={{ fontWeight: 600, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Graph Updated</div>
                   {msg.toolCalls.map((tc, j) => (

@@ -11,6 +11,7 @@ This is genuinely new functionality — Prism has no conversation equivalent.
 """
 import json
 import os
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 
 try:
@@ -392,10 +393,31 @@ class ConversationEngine:
 
             elif tool_name == "trigger_emergency_alert":
                 reason = args.get("reason", "")
-                severity = args.get("severity", "")
-                # In a real app, this would fire an SMS/pager.
+                severity = args.get("severity", "high")
+                # Store alert on patient graph as a clinician_safety node
+                alert_id = f"emergency_alert_{len(patient_graph.nodes)}"
+                patient_graph.add_node(
+                    node_id=alert_id,
+                    label=f"EMERGENCY: {reason[:50]}",
+                    kind="clinician_safety",
+                    size=22,
+                    is_new=True,
+                )
+                # Store structured alert data on the node
+                alert_node = patient_graph.get_node(alert_id)
+                if alert_node:
+                    alert_node.properties["alert_type"] = "emergency"
+                    alert_node.properties["severity"] = severity
+                    alert_node.properties["reason"] = reason
+                    alert_node.properties["timestamp"] = datetime.utcnow().isoformat()
+                # Update risk assessment on the patient graph
+                patient_graph.risk_assessment = {
+                    "level": "High" if severity == "high" else "Critical",
+                    "details": reason,
+                }
+                # Log for server-side visibility
                 print(f"!!! EMERGENCY ALERT FIRED !!! Reason: {reason}, Severity: {severity}")
-                return {"status": "alert_sent", "reason": reason}
+                return {"status": "alert_sent", "reason": reason, "alert_id": alert_id, "severity": severity}
 
             else:
                 return {"status": "error", "message": f"unknown tool {tool_name}"}
