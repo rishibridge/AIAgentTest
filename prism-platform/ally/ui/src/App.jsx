@@ -1014,6 +1014,7 @@ function App() {
   // ── Top-level app mode ─────────────────────────────────────────
   const [appMode, setAppMode] = useState(APP_MODE.LANDING);
   const [showIntro, setShowIntro] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(true);
   const [selectedPatientId, setSelectedPatientId] = useState(null);
   const [selectedPatientName, setSelectedPatientName] = useState('');
   const [isClinician, setIsClinician] = useState(false);
@@ -1115,6 +1116,35 @@ function App() {
   // LANDING PAGE
   if (appMode === APP_MODE.LANDING) {
     return (
+      <>
+      {showDisclaimer && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+          <div style={{ background: '#0D0F14', border: '1px solid rgba(255,80,80,0.3)', borderRadius: '16px', padding: '40px', maxWidth: '560px', width: '90%', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+              <span style={{ fontSize: '2rem' }}>⚠️</span>
+              <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', fontWeight: 700, color: '#FF6B6B', margin: 0 }}>Experimental Demo — Not for Clinical Use</h2>
+            </div>
+            <div style={{ color: '#EDEAE3', fontSize: '0.9rem', lineHeight: 1.7, marginBottom: '24px' }}>
+              <p style={{ marginBottom: '12px' }}>This application is an <strong style={{ color: '#FF6B6B' }}>experimental research prototype</strong> under active development. By proceeding, you acknowledge:</p>
+              <ul style={{ paddingLeft: '20px', margin: '0 0 16px 0' }}>
+                <li style={{ marginBottom: '8px' }}><strong style={{ color: '#D9B873' }}>No PHI or PPI.</strong> Do not enter any Protected Health Information or Personal Patient Information. Data protection safeguards are not in place.</li>
+                <li style={{ marginBottom: '8px' }}><strong style={{ color: '#D9B873' }}>All data is visible to developers.</strong> Any text entered into this system may be viewed by the development team for debugging and improvement purposes.</li>
+                <li style={{ marginBottom: '8px' }}><strong style={{ color: '#D9B873' }}>Not a medical device.</strong> This system does not provide medical advice, diagnosis, or treatment recommendations. It is a technology demonstration only.</li>
+                <li style={{ marginBottom: '8px' }}><strong style={{ color: '#D9B873' }}>No warranty or liability.</strong> The developer assumes no responsibility for any outcomes, decisions, or actions taken based on interactions with this system.</li>
+              </ul>
+              <p style={{ color: '#9B9285', fontSize: '0.8rem', fontStyle: 'italic' }}>All patient scenarios shown are fictional. Any resemblance to real individuals is coincidental.</p>
+            </div>
+            <button
+              onClick={() => setShowDisclaimer(false)}
+              style={{ width: '100%', padding: '14px', background: 'linear-gradient(135deg, #D9B873, #C4A35A)', border: 'none', borderRadius: '8px', color: '#050608', fontWeight: 700, fontSize: '1rem', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.1em', transition: 'transform 0.2s' }}
+              onMouseOver={e => e.target.style.transform = 'scale(1.02)'}
+              onMouseOut={e => e.target.style.transform = 'scale(1)'}
+            >
+              I Understand — Proceed to Demo
+            </button>
+          </div>
+        </div>
+      )}
       <LandingPage
         onDemoMode={() => {
           setPhaseIdx(0); setChatIndex(0); setIsPlaying(false);
@@ -1131,6 +1161,7 @@ function App() {
           setAppMode(APP_MODE.PATIENT_PICKER);
         }}
       />
+      </>
     );
   }
 
