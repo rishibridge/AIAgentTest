@@ -668,33 +668,33 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                     {/* Live Debate 3-agent cards */}
                     {msg.isDebate && msg.debate ? (
                       <div style={{ width: '100%', maxWidth: '95%' }}>
-                        {/* Advocate Card */}
+                        {/* The Case For */}
                         <div style={{ background: 'rgba(95,174,176,0.06)', border: '1px solid rgba(95,174,176,0.2)', borderRadius: '10px', padding: '16px 18px', marginBottom: '10px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#5FAEB0', flexShrink: 0 }} />
-                            <div style={{ fontSize: '0.7rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, fontFamily: "'Work Sans', sans-serif" }}>Advocate — Supporting Evidence</div>
+                            <div style={{ fontSize: '0.7rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, fontFamily: "'Work Sans', sans-serif" }}>The Case For — Supporting Evidence</div>
                           </div>
                           <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', lineHeight: 1.65, color: '#EDEAE3', whiteSpace: 'pre-wrap' }}>
                             {formatDebateAgent(msg.debate.advocate)}
                           </div>
                         </div>
 
-                        {/* Skeptic Card */}
+                        {/* The Case Against */}
                         <div style={{ background: 'rgba(214,121,89,0.06)', border: '1px solid rgba(214,121,89,0.2)', borderRadius: '10px', padding: '16px 18px', marginBottom: '10px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#D67959', flexShrink: 0 }} />
-                            <div style={{ fontSize: '0.7rem', color: '#D67959', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, fontFamily: "'Work Sans', sans-serif" }}>Skeptic — Challenges & Rule-Outs</div>
+                            <div style={{ fontSize: '0.7rem', color: '#D67959', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, fontFamily: "'Work Sans', sans-serif" }}>The Case Against — Challenges & Rule-Outs</div>
                           </div>
                           <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', lineHeight: 1.65, color: '#EDEAE3', whiteSpace: 'pre-wrap' }}>
                             {formatDebateAgent(msg.debate.skeptic)}
                           </div>
                         </div>
 
-                        {/* Judge Card */}
+                        {/* Clinical Synthesis */}
                         <div style={{ background: 'rgba(217,184,115,0.08)', border: '1px solid rgba(217,184,115,0.25)', borderRadius: '10px', padding: '16px 18px', marginBottom: '10px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#D9B873', flexShrink: 0 }} />
-                            <div style={{ fontSize: '0.7rem', color: '#D9B873', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, fontFamily: "'Work Sans', sans-serif" }}>Judge — Clinical Verdict</div>
+                            <div style={{ fontSize: '0.7rem', color: '#D9B873', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, fontFamily: "'Work Sans', sans-serif" }}>Clinical Synthesis — Weighing Both Sides</div>
                           </div>
                           <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', lineHeight: 1.65, color: '#EDEAE3', whiteSpace: 'pre-wrap' }}>
                             {formatDebateAgent(msg.debate.judge)}
@@ -774,11 +774,11 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
               <div style={{ padding: '16px 32px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
                   {[
-                    { id: 'copilot', label: 'Copilot' },
-                    { id: 'defend', label: 'Defend Dx' },
-                    { id: 'challenge', label: 'Challenge Dx' },
-                    { id: 'compare', label: 'Compare A vs B' },
-                    { id: 'debate', label: '🔥 Live Debate' },
+                    { id: 'copilot', label: '💬 Ask Ally' },
+                    { id: 'defend', label: '🛡️ Rule It Out' },
+                    { id: 'challenge', label: '✅ Build the Case' },
+                    { id: 'compare', label: '⚖️ Compare Two' },
+                    { id: 'debate', label: '🔥 Second Opinion' },
                   ].map((role) => (
                     <button
                       key={role.id}
@@ -811,27 +811,36 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                 }}>
                   {ddxRole === 'copilot' && (
                     <div style={{ fontSize: '0.75rem', color: '#9B9285', fontFamily: "'Work Sans', sans-serif", lineHeight: 1.5 }}>
-                      <span style={{ color: '#5FAEB0', fontWeight: 600 }}>💬 General Copilot</span> — Ask any clinical question. The AI synthesizes the patient's graph data into evidence-based responses.
+                      <span style={{ color: '#5FAEB0', fontWeight: 600 }}>Ask Ally</span> — Ask anything about this patient. Ally pulls from the full patient record to answer.<br/>
+                      <span style={{ color: '#6B6560', fontStyle: 'italic' }}>Try: "What medications is she on?" · "Summarize her trauma history" · "Any risk factors I should know about?"</span>
                     </div>
                   )}
                   {ddxRole === 'defend' && (
                     <div style={{ fontSize: '0.75rem', color: '#9B9285', fontFamily: "'Work Sans', sans-serif", lineHeight: 1.5 }}>
-                      <span style={{ color: '#4CAF50', fontWeight: 600 }}>🛡️ Rule-Out Mode</span> — Name a diagnosis and the AI will try to <strong style={{ color: '#E85D5D' }}>rule it out</strong> using contradicting graph evidence. <em>e.g. "Rule out Bipolar II"</em>
+                      <span style={{ color: '#4CAF50', fontWeight: 600 }}>Rule It Out</span> — You name a diagnosis. The system plays <strong style={{ color: '#E85D5D' }}>devil's advocate</strong> and tries to poke holes in it using the patient's own words and history.<br/>
+                      <span style={{ color: '#6B6560', fontStyle: 'italic' }}>Try: "Rule out Bipolar II" · "Why isn't this PTSD?" · "Can we exclude substance-induced mood disorder?"</span>
                     </div>
                   )}
                   {ddxRole === 'challenge' && (
                     <div style={{ fontSize: '0.75rem', color: '#9B9285', fontFamily: "'Work Sans', sans-serif", lineHeight: 1.5 }}>
-                      <span style={{ color: '#D9B873', fontWeight: 600 }}>⚔️ Defend Mode</span> — Name a diagnosis and the AI will <strong style={{ color: '#4CAF50' }}>defend it</strong> with specific patient quotes and graph evidence. <em>e.g. "Defend MDD diagnosis"</em>
+                      <span style={{ color: '#D9B873', fontWeight: 600 }}>Build the Case</span> — You name a diagnosis. The system builds the <strong style={{ color: '#4CAF50' }}>strongest possible case</strong> for it, citing specific patient quotes and clinical evidence.<br/>
+                      <span style={{ color: '#6B6560', fontStyle: 'italic' }}>Try: "Make the case for MDD" · "What supports Adjustment Disorder?" · "Build the case for chronic pain as primary"</span>
                     </div>
                   )}
                   {ddxRole === 'compare' && (
                     <div style={{ fontSize: '0.75rem', color: '#9B9285', fontFamily: "'Work Sans', sans-serif", lineHeight: 1.5 }}>
-                      <span style={{ color: '#7B68EE', fontWeight: 600 }}>⚖️ Head-to-Head</span> — Name two diagnoses and the AI compares them side-by-side using patient evidence. <em>e.g. "MDD vs Adjustment Disorder"</em>
+                      <span style={{ color: '#7B68EE', fontWeight: 600 }}>Compare Two</span> — Name two diagnoses. The system weighs them <strong style={{ color: '#7B68EE' }}>head-to-head</strong> — what evidence supports each, what contradicts each, and which fits better.<br/>
+                      <span style={{ color: '#6B6560', fontStyle: 'italic' }}>Try: "MDD vs Adjustment Disorder" · "PTSD vs Complex Grief" · "Generalized Anxiety vs Situational Anxiety"</span>
                     </div>
                   )}
                   {ddxRole === 'debate' && (
                     <div style={{ fontSize: '0.75rem', color: '#9B9285', fontFamily: "'Work Sans', sans-serif", lineHeight: 1.5 }}>
-                      <span style={{ color: '#D67959', fontWeight: 600 }}>🔥 Live Debate</span> — Prism's <strong style={{ color: '#D67959' }}>Advocate</strong>, <strong style={{ color: '#5FAEB0' }}>Skeptic</strong>, and <strong style={{ color: '#D9B873' }}>Judge</strong> debate your question adversarially. Three perspectives, one verdict. <em>e.g. "What is the primary diagnosis?"</em>
+                      <span style={{ color: '#D67959', fontWeight: 600 }}>Second Opinion</span> — The system gives you <strong style={{ color: '#EDEAE3' }}>three independent perspectives</strong> on your question:<br/>
+                      <span style={{ color: '#5FAEB0' }}>① One argues FOR</span> a position using supporting evidence<br/>
+                      <span style={{ color: '#D67959' }}>② One argues AGAINST</span> it, challenging assumptions<br/>
+                      <span style={{ color: '#D9B873' }}>③ One weighs both sides</span> and gives a clinical recommendation<br/>
+                      <span style={{ color: '#EDEAE3', fontWeight: 500 }}>You make the final call.</span><br/>
+                      <span style={{ color: '#6B6560', fontStyle: 'italic' }}>Try: "What's the primary diagnosis?" · "Should we start an SSRI?" · "Is this trauma or depression?"</span>
                     </div>
                   )}
                 </div>
@@ -843,12 +852,12 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
                     placeholder={
-                      ddxRole === 'copilot' ? 'Ask a clinical question...' :
-                      ddxRole === 'defend' ? 'Name a diagnosis to rule out... e.g. "Rule out Bipolar II"' :
-                      ddxRole === 'challenge' ? 'Name a diagnosis to defend... e.g. "Defend MDD"' :
-                      ddxRole === 'compare' ? 'Compare two diagnoses... e.g. "MDD vs Adjustment Disorder"' :
-                      ddxRole === 'debate' ? 'Ask a question for Advocate/Skeptic/Judge debate...' :
-                      'Message the DDx Copilot...'
+                      ddxRole === 'copilot' ? 'Ask anything about this patient...' :
+                      ddxRole === 'defend' ? 'Name a diagnosis to challenge... e.g. "Rule out Bipolar II"' :
+                      ddxRole === 'challenge' ? 'Name a diagnosis to support... e.g. "Make the case for MDD"' :
+                      ddxRole === 'compare' ? 'Name two diagnoses... e.g. "MDD vs Adjustment Disorder"' :
+                      ddxRole === 'debate' ? 'Ask a clinical question... e.g. "What is the primary diagnosis?"' :
+                      'Ask about this patient...'
                     }
                     style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', color: '#fff', padding: '12px 14px', borderRadius: '8px', fontSize: '0.85rem', fontFamily: "'Work Sans', sans-serif", outline: 'none' }}
                   />
