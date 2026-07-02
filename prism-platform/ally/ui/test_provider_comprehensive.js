@@ -40,14 +40,18 @@ const TOTAL_TESTS = 50;
 
   const results = [];
   let testNum = 0;
+  const screenshotDir = `${ARTIFACT_DIR}/screenshots`;
+  const autoScreenshot = async () => {
+    const padded = String(testNum).padStart(2, '0');
+    await page.screenshot({ path: `${screenshotDir}/test_${padded}.png`, fullPage: false }).catch(() => {});
+  };
   const label = (name) => { testNum++; console.log(`\n[${testNum}/${TOTAL_TESTS}] ${name}`); return name; };
-  const pass = (test, detail) => { results.push({ test, status: 'PASS', detail }); console.log(`  ✅ PASS${detail ? ': ' + detail : ''}`); };
-  const fail = (test, reason) => { results.push({ test, status: 'FAIL', reason }); console.error(`  ❌ FAIL: ${reason}`); };
-  const skip = (test, reason) => { results.push({ test, status: 'SKIP', reason }); console.log(`  ⏭️ SKIP: ${reason}`); };
+  const pass = async (test, detail) => { results.push({ test, status: 'PASS', detail }); console.log(`  ✅ PASS${detail ? ': ' + detail : ''}`); await autoScreenshot(); };
+  const fail = async (test, reason) => { results.push({ test, status: 'FAIL', reason }); console.error(`  ❌ FAIL: ${reason}`); await autoScreenshot(); };
+  const skip = async (test, reason) => { results.push({ test, status: 'SKIP', reason }); console.log(`  ⏭️ SKIP: ${reason}`); await autoScreenshot(); };
 
   // Helper: safe text content
   const bodyText = async () => page.evaluate(() => document.body.innerText);
-  const screenshot = async (name) => page.screenshot({ path: `${ARTIFACT_DIR}/test_${name}.png`, fullPage: false });
 
   // ══════════════════════════════════════════════════════════════
   // A. NAVIGATION & PAGE LOAD (1-5)
@@ -57,23 +61,23 @@ const TOTAL_TESTS = 50;
   let t = label('Page loads with HTTP 200');
   try {
     const r = await page.goto(TARGET_URL, { waitUntil: 'networkidle', timeout: 30000 });
-    r.status() === 200 ? pass(t, `HTTP ${r.status()}`) : fail(t, `HTTP ${r.status()}`);
-  } catch (e) { fail(t, e.message); await browser.close(); process.exit(1); }
+    r.status() === 200 ? await pass(t, `HTTP ${r.status()}`) : await fail(t, `HTTP ${r.status()}`);
+  } catch (e) { await fail(t, e.message); await browser.close(); process.exit(1); }
   await page.waitForTimeout(2000);
 
   // TEST 2: Hub page has patient list
   t = label('Hub page shows patient list');
   try {
     const text = await bodyText();
-    (text.includes('Elena') && text.includes('Daniel')) ? pass(t, 'Both patients visible') : fail(t, 'Missing patients on hub');
-  } catch (e) { fail(t, e.message); }
+    (text.includes('Elena') && text.includes('Daniel')) ? await pass(t, 'Both patients visible') : await fail(t, 'Missing patients on hub');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 3: Provider Dashboard button exists
   t = label('Provider Dashboard entry point exists');
   try {
     const btn = page.locator('text=OPEN DASHBOARD').or(page.locator('text=Open Dashboard')).or(page.locator('text=Provider Dashboard'));
-    (await btn.first().isVisible({ timeout: 3000 })) ? pass(t) : fail(t, 'No dashboard button found');
-  } catch (e) { fail(t, e.message); }
+    (await btn.first().isVisible({ timeout: 3000 })) ? await pass(t) : await fail(t, 'No dashboard button found');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 4: Navigate to Provider Dashboard → Elena
   t = label('Navigate to Provider Dashboard → Elena');
@@ -85,8 +89,8 @@ const TOTAL_TESTS = 50;
     if (await elena.first().isVisible({ timeout: 3000 }).catch(() => false)) {
       await elena.first().click();
     }
-    pass(t);
-  } catch (e) { fail(t, e.message); }
+    await pass(t);
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 5: Dashboard loads within performance budget
   t = label('Dashboard loads within 45s (includes cold start + LLM)');
@@ -95,12 +99,10 @@ const TOTAL_TESTS = 50;
     await page.waitForSelector('text=AT-A-GLANCE', { timeout: 60000 }).catch(() => null);
     await page.waitForSelector('text=ACTIVE THEMES', { timeout: 60000 }).catch(() => null);
     const elapsed = Date.now() - start;
-    elapsed < 45000 ? pass(t, `${elapsed}ms`) : fail(t, `${elapsed}ms exceeds 45s`);
-  } catch (e) { fail(t, e.message); }
+    elapsed < 45000 ? await pass(t, `${elapsed}ms`) : await fail(t, `${elapsed}ms exceeds 45s`);
+  } catch (e) { await fail(t, e.message); }
   await page.waitForTimeout(1500);
-  await screenshot('01_dashboard_loaded');
-
-  // ══════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════
   // B. TRANSFER SUMMARY — AT-A-GLANCE CARD (6-12)
   // ══════════════════════════════════════════════════════════════
 
@@ -118,15 +120,15 @@ const TOTAL_TESTS = 50;
   t = label('At-a-Glance card is present');
   try {
     const text = await bodyText();
-    text.includes('AT-A-GLANCE') ? pass(t) : fail(t, 'AT-A-GLANCE header not found');
-  } catch (e) { fail(t, e.message); }
+    text.includes('AT-A-GLANCE') ? await pass(t) : await fail(t, 'AT-A-GLANCE header not found');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 7: Patient name displayed
   t = label('Patient name displayed in At-a-Glance');
   try {
     const text = await bodyText();
-    text.includes('Elena Ramirez') ? pass(t) : fail(t, 'Elena Ramirez not found');
-  } catch (e) { fail(t, e.message); }
+    text.includes('Elena Ramirez') ? await pass(t) : await fail(t, 'Elena Ramirez not found');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 8: Demographics populated (not placeholder)
   t = label('Demographics populated (not placeholder text)');
@@ -134,16 +136,16 @@ const TOTAL_TESTS = 50;
     const text = await bodyText();
     const hasPlaceholder = text.includes('Demographics in clinical narrative');
     const hasAge = /47/.test(text.substring(0, text.indexOf('DIAGNOS') || 1000));
-    (!hasPlaceholder || hasAge) ? pass(t) : fail(t, 'Still showing placeholder demographics');
-  } catch (e) { fail(t, e.message); }
+    (!hasPlaceholder || hasAge) ? await pass(t) : await fail(t, 'Still showing placeholder demographics');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 9: Risk badge visible for Medium/High risk
   t = label('Risk badge visible (Medium or High)');
   try {
     const text = await bodyText();
     (text.includes('MEDIUM RISK') || text.includes('HIGH RISK') || text.includes('Medium Risk') || text.includes('High Risk'))
-      ? pass(t) : fail(t, 'No risk badge found');
-  } catch (e) { fail(t, e.message); }
+      ? await pass(t) : await fail(t, 'No risk badge found');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 10: Safety Protocol / Risk details above Diagnoses grid
   t = label('Risk details positioned above Diagnoses grid');
@@ -153,24 +155,24 @@ const TOTAL_TESTS = 50;
     const riskPos = Math.max(...riskTerms.map(term => text.indexOf(term)));
     const dxTerms = ['DIAGNOSES', 'Diagnoses', 'diabetes'];
     const dxPos = Math.min(...dxTerms.map(term => text.indexOf(term)).filter(p => p >= 0));
-    (riskPos >= 0 && dxPos >= 0 && riskPos < dxPos) ? pass(t) : (riskPos >= 0 ? pass(t, 'Risk present, position check approximate') : fail(t, 'Risk details not found'));
-  } catch (e) { fail(t, e.message); }
+    (riskPos >= 0 && dxPos >= 0 && riskPos < dxPos) ? await pass(t) : (riskPos >= 0 ? await pass(t, 'Risk present, position check approximate') : await fail(t, 'Risk details not found'));
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 11: Diagnoses column has clinical items
   t = label('Diagnoses column populated');
   try {
     const text = await bodyText();
     const hasDx = ['diabetes', 'hypertension', 'depression', 'anxiety'].filter(d => text.toLowerCase().includes(d));
-    hasDx.length >= 2 ? pass(t, `Found: ${hasDx.join(', ')}`) : fail(t, `Only found: ${hasDx.join(', ')}`);
-  } catch (e) { fail(t, e.message); }
+    hasDx.length >= 2 ? await pass(t, `Found: ${hasDx.join(', ')}`) : await fail(t, `Only found: ${hasDx.join(', ')}`);
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 12: Medications column populated
   t = label('Medications column populated');
   try {
     const text = await bodyText();
     const hasMeds = ['metformin', 'sertraline', 'tramadol'].filter(m => text.toLowerCase().includes(m));
-    hasMeds.length >= 2 ? pass(t, `Found: ${hasMeds.join(', ')}`) : fail(t, `Only found: ${hasMeds.join(', ')}`);
-  } catch (e) { fail(t, e.message); }
+    hasMeds.length >= 2 ? await pass(t, `Found: ${hasMeds.join(', ')}`) : await fail(t, `Only found: ${hasMeds.join(', ')}`);
+  } catch (e) { await fail(t, e.message); }
 
   // ══════════════════════════════════════════════════════════════
   // C. TRANSFER SUMMARY — THEMES, EVIDENCE, NARRATIVE (13-19)
@@ -180,25 +182,25 @@ const TOTAL_TESTS = 50;
   t = label('Active Themes section has clinical items');
   try {
     const text = await bodyText();
-    if (!text.includes('ACTIVE THEMES')) { fail(t, 'ACTIVE THEMES header missing'); }
+    if (!text.includes('ACTIVE THEMES')) { await fail(t, 'ACTIVE THEMES header missing'); }
     else {
       const themeKeywords = ['grief', 'family', 'faith', 'chronic', 'suicid', 'daniel', 'depression', 'anxiety', 'coping'];
       const found = themeKeywords.filter(k => text.toLowerCase().includes(k));
-      found.length >= 3 ? pass(t, `Themes reference: ${found.join(', ')}`) : fail(t, `Only ${found.length} theme keywords found`);
+      found.length >= 3 ? await pass(t, `Themes reference: ${found.join(', ')}`) : await fail(t, `Only ${found.length} theme keywords found`);
     }
-  } catch (e) { fail(t, e.message); }
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 14: Evidence Tracker present with patient quotes
   t = label('Evidence Tracker shows patient quotes');
   try {
     const text = await bodyText();
-    if (!text.includes('EVIDENCE TRACKER')) { fail(t, 'EVIDENCE TRACKER header missing'); }
+    if (!text.includes('EVIDENCE TRACKER')) { await fail(t, 'EVIDENCE TRACKER header missing'); }
     else {
       const quotes = ['"I deserve what comes"', '"if I am good God will fix"', '"suffering is what love costs"', '"I cannot tell anyone"'];
       const found = quotes.filter(q => text.includes(q.replace(/"/g, '')));
-      found.length >= 2 ? pass(t, `Found ${found.length} patient quotes`) : fail(t, `Only ${found.length} quotes found`);
+      found.length >= 2 ? await pass(t, `Found ${found.length} patient quotes`) : await fail(t, `Only ${found.length} quotes found`);
     }
-  } catch (e) { fail(t, e.message); }
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 15: Evidence items have clinical inferences
   t = label('Evidence items include clinical inferences');
@@ -206,16 +208,16 @@ const TOTAL_TESTS = 50;
     const text = await bodyText();
     const inferenceKeywords = ['self-blame', 'coping', 'isolation', 'fatalism', 'magical thinking', 'avoidance'];
     const found = inferenceKeywords.filter(k => text.toLowerCase().includes(k));
-    found.length >= 2 ? pass(t, `Inferences: ${found.join(', ')}`) : fail(t, `Only ${found.length} inference keywords`);
-  } catch (e) { fail(t, e.message); }
+    found.length >= 2 ? await pass(t, `Inferences: ${found.join(', ')}`) : await fail(t, `Only ${found.length} inference keywords`);
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 16: Clinical Hypotheses (DDx) section present
   t = label('Clinical Hypotheses (DDx) section present');
   try {
     const text = await bodyText();
     (text.includes('CLINICAL HYPOTHESES') || text.includes('Clinical Hypotheses') || text.includes('HYPOTHESES'))
-      ? pass(t) : fail(t, 'Clinical Hypotheses section not found');
-  } catch (e) { fail(t, e.message); }
+      ? await pass(t) : await fail(t, 'Clinical Hypotheses section not found');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 17: Information hierarchy — themes before narrative
   t = label('Information hierarchy: themes before narrative');
@@ -224,30 +226,28 @@ const TOTAL_TESTS = 50;
     const themesPos = text.indexOf('ACTIVE THEMES');
     const narrativePos = text.indexOf('CLINICAL NARRATIVE') !== -1 ? text.indexOf('CLINICAL NARRATIVE') : text.indexOf('Clinical Narrative');
     if (themesPos >= 0 && narrativePos >= 0) {
-      themesPos < narrativePos ? pass(t) : fail(t, 'Narrative appears before themes');
+      themesPos < narrativePos ? await pass(t) : await fail(t, 'Narrative appears before themes');
     } else if (themesPos >= 0) {
-      pass(t, 'Themes present, narrative may be collapsed');
+      await pass(t, 'Themes present, narrative may be collapsed');
     } else {
-      fail(t, 'Neither section found');
+      await fail(t, 'Neither section found');
     }
-  } catch (e) { fail(t, e.message); }
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 18: Narrative is collapsible (toggle exists)
   t = label('Clinical narrative has expand/collapse toggle');
   try {
     const toggle = page.locator('text=Show Full Narrative').or(page.locator('text=Hide Narrative')).or(page.locator('text=Clinical Narrative'));
     const toggleVisible = await toggle.first().isVisible({ timeout: 2000 }).catch(() => false);
-    toggleVisible ? pass(t) : pass(t, 'Narrative section present (may auto-collapse)');
-  } catch (e) { fail(t, e.message); }
+    toggleVisible ? await pass(t) : await pass(t, 'Narrative section present (may auto-collapse)');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 19: No JavaScript errors on Transfer Summary
   t = label('No JavaScript errors on Transfer Summary tab');
   try {
-    errors.length === 0 ? pass(t) : fail(t, `${errors.length} errors: ${errors[0]}`);
-  } catch (e) { fail(t, e.message); }
-  await screenshot('02_transfer_summary');
-
-  // ══════════════════════════════════════════════════════════════
+    errors.length === 0 ? await pass(t) : await fail(t, `${errors.length} errors: ${errors[0]}`);
+  } catch (e) { await fail(t, e.message); }
+    // ══════════════════════════════════════════════════════════════
   // D. PATIENT GRAPH TAB (20-23)
   // ══════════════════════════════════════════════════════════════
 
@@ -258,32 +258,30 @@ const TOTAL_TESTS = 50;
   t = label('Patient Graph renders SVG visualization');
   try {
     const hasSvg = await page.locator('svg').first().isVisible({ timeout: 5000 }).catch(() => false);
-    hasSvg ? pass(t) : fail(t, 'No SVG element found in graph tab');
-  } catch (e) { fail(t, e.message); }
+    hasSvg ? await pass(t) : await fail(t, 'No SVG element found in graph tab');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 21: Graph has visible nodes
   t = label('Graph has visible nodes');
   try {
     const nodeCount = await page.locator('svg circle, svg rect, svg g[class*="node"]').count();
-    nodeCount > 0 ? pass(t, `${nodeCount} node elements`) : fail(t, 'No nodes found in SVG');
-  } catch (e) { fail(t, e.message); }
+    nodeCount > 0 ? await pass(t, `${nodeCount} node elements`) : await fail(t, 'No nodes found in SVG');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 22: Graph has visible edges/paths
   t = label('Graph has visible edges');
   try {
     const edgeCount = await page.locator('svg line, svg path, svg g[class*="edge"]').count();
-    edgeCount > 0 ? pass(t, `${edgeCount} edge elements`) : fail(t, 'No edges found in SVG');
-  } catch (e) { fail(t, e.message); }
+    edgeCount > 0 ? await pass(t, `${edgeCount} edge elements`) : await fail(t, 'No edges found in SVG');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 23: No "Failed to render" error in graph
   t = label('No Mermaid/render failure in graph');
   try {
     const text = await bodyText();
-    text.includes('Failed to render') ? fail(t, 'Graph render failure present') : pass(t);
-  } catch (e) { fail(t, e.message); }
-  await screenshot('03_patient_graph');
-
-  // ══════════════════════════════════════════════════════════════
+    text.includes('Failed to render') ? await fail(t, 'Graph render failure present') : await pass(t);
+  } catch (e) { await fail(t, e.message); }
+    // ══════════════════════════════════════════════════════════════
   // E. DDX ARENA — SUGGESTED QUESTIONS (24-27)
   // ══════════════════════════════════════════════════════════════
 
@@ -296,8 +294,8 @@ const TOTAL_TESTS = 50;
     const text = await bodyText();
     const hasSuggested = text.includes('SUGGESTED') || text.includes('Suggested');
     const hasButtons = await page.locator('[data-testid="suggested-question"]').count();
-    (hasSuggested || hasButtons > 0) ? pass(t, `${hasButtons} question buttons`) : fail(t, 'No suggested questions found');
-  } catch (e) { fail(t, e.message); }
+    (hasSuggested || hasButtons > 0) ? await pass(t, `${hasButtons} question buttons`) : await fail(t, 'No suggested questions found');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 25: Suggested questions are clinically relevant
   t = label('Suggested questions reference patient data');
@@ -305,8 +303,8 @@ const TOTAL_TESTS = 50;
     const text = await bodyText();
     const clinicalRefs = ['metformin', 'sertraline', 'tramadol', 'Elena', 'diabetes', 'risk', 'safety', 'diagnos', 'therapeutic', 'interaction'];
     const found = clinicalRefs.filter(r => text.toLowerCase().includes(r.toLowerCase()));
-    found.length >= 2 ? pass(t, `References: ${found.slice(0, 4).join(', ')}`) : fail(t, `Only ${found.length} clinical references`);
-  } catch (e) { fail(t, e.message); }
+    found.length >= 2 ? await pass(t, `References: ${found.slice(0, 4).join(', ')}`) : await fail(t, `Only ${found.length} clinical references`);
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 26: Clicking suggested question fills input
   t = label('Clicking suggested question fills chat input');
@@ -316,13 +314,13 @@ const TOTAL_TESTS = 50;
       await sugBtn.click();
       await page.waitForTimeout(300);
       const inputVal = await page.locator('input[placeholder*="Copilot"]').inputValue().catch(() => '');
-      inputVal.length > 10 ? pass(t, `Input filled: "${inputVal.substring(0, 50)}..."`) : fail(t, 'Input not filled after click');
+      inputVal.length > 10 ? await pass(t, `Input filled: "${inputVal.substring(0, 50)}..."`) : await fail(t, 'Input not filled after click');
       // Clear for next tests
       await page.locator('input[placeholder*="Copilot"]').fill('');
     } else {
-      skip(t, 'No suggested question buttons visible');
+      await skip(t, 'No suggested question buttons visible');
     }
-  } catch (e) { fail(t, e.message); }
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 27: Suggested questions disappear after sending a message
   // (We'll verify this later after sending a chat message)
@@ -331,11 +329,9 @@ const TOTAL_TESTS = 50;
   try {
     const count = await page.locator('[data-testid="suggested-question"]').count();
     suggestedVisibleBefore = count > 0;
-    suggestedVisibleBefore ? pass(t, `${count} questions visible`) : pass(t, 'Questions may have already been consumed');
-  } catch (e) { fail(t, e.message); }
-  await screenshot('04_ddx_suggested');
-
-  // ══════════════════════════════════════════════════════════════
+    suggestedVisibleBefore ? await pass(t, `${count} questions visible`) : await pass(t, 'Questions may have already been consumed');
+  } catch (e) { await fail(t, e.message); }
+    // ══════════════════════════════════════════════════════════════
   // F. DDX ARENA — COPILOT CHAT (28-34)
   // ══════════════════════════════════════════════════════════════
 
@@ -346,18 +342,18 @@ const TOTAL_TESTS = 50;
     if (await input.first().isVisible({ timeout: 3000 })) {
       await input.first().fill('test input');
       const val = await input.first().inputValue();
-      val === 'test input' ? pass(t) : fail(t, 'Input not editable');
+      val === 'test input' ? await pass(t) : await fail(t, 'Input not editable');
       await input.first().fill('');
-    } else { fail(t, 'Chat input not found'); }
-  } catch (e) { fail(t, e.message); }
+    } else { await fail(t, 'Chat input not found'); }
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 29: Send button exists and is disabled when empty
   t = label('Send button disabled when input is empty');
   try {
     const sendBtn = page.locator('button').filter({ has: page.locator('svg') }).last();
     const isDisabled = await sendBtn.isDisabled().catch(() => null);
-    isDisabled === true ? pass(t) : pass(t, 'Send button present (disabled state may vary)');
-  } catch (e) { fail(t, e.message); }
+    isDisabled === true ? await pass(t) : await pass(t, 'Send button present (disabled state may vary)');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 30: Copilot mode — send message and receive response
   t = label('Copilot mode: send message → receive clinical response');
@@ -380,8 +376,8 @@ const TOTAL_TESTS = 50;
     // Check for a bot response (not "Please clarify")
     const text = await bodyText();
     const hasBotResponse = text.includes('CLINICAL COPILOT') && (text.split('CLINICAL COPILOT').length > 1);
-    hasBotResponse ? pass(t, `Response in ${chatTime}ms`) : fail(t, 'No copilot response received');
-  } catch (e) { fail(t, e.message); }
+    hasBotResponse ? await pass(t, `Response in ${chatTime}ms`) : await fail(t, 'No copilot response received');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 31: Copilot response is NOT "Please clarify"
   t = label('Copilot gives substantive response (not generic fallback)');
@@ -392,13 +388,13 @@ const TOTAL_TESTS = 50;
     // Count copilot responses
     const copilotResponses = text.split('CLINICAL COPILOT').length - 1;
     if (copilotResponses > 0 && clarifyCount === 0) {
-      pass(t, 'Substantive clinical response');
+      await pass(t, 'Substantive clinical response');
     } else if (clarifyCount > 0) {
-      fail(t, `Copilot returned "Please clarify" ${clarifyCount} time(s)`);
+      await fail(t, `Copilot returned "Please clarify" ${clarifyCount} time(s)`);
     } else {
-      pass(t, 'Response present but content check inconclusive');
+      await pass(t, 'Response present but content check inconclusive');
     }
-  } catch (e) { fail(t, e.message); }
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 32: Copilot response time < 15s
   t = label('Copilot response time under 15s');
@@ -415,8 +411,8 @@ const TOTAL_TESTS = 50;
     }
     await page.waitForTimeout(300);
     const elapsed = Date.now() - start;
-    elapsed < 15000 ? pass(t, `${elapsed}ms`) : fail(t, `${elapsed}ms exceeds 15s`);
-  } catch (e) { fail(t, e.message); }
+    elapsed < 15000 ? await pass(t, `${elapsed}ms`) : await fail(t, `${elapsed}ms exceeds 15s`);
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 33: DDx role switching — Defend Dx mode
   t = label('DDx role switch: Defend Dx button works');
@@ -426,9 +422,9 @@ const TOTAL_TESTS = 50;
       await defendBtn.first().click();
       await page.waitForTimeout(300);
       // Check it's visually selected (different styling)
-      pass(t);
-    } else { fail(t, 'Defend Dx button not found'); }
-  } catch (e) { fail(t, e.message); }
+      await pass(t);
+    } else { await fail(t, 'Defend Dx button not found'); }
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 34: DDx role switching — Challenge Dx and Compare modes
   t = label('DDx role switch: Challenge Dx and Compare A vs B');
@@ -443,11 +439,9 @@ const TOTAL_TESTS = 50;
     // Switch back to Copilot
     const copilotBtn = page.locator('button', { hasText: 'Copilot' });
     if (await copilotBtn.first().isVisible({ timeout: 2000 }).catch(() => false)) { await copilotBtn.first().click(); switched++; }
-    switched >= 2 ? pass(t, `Switched ${switched} modes`) : fail(t, `Only switched ${switched} modes`);
-  } catch (e) { fail(t, e.message); }
-  await screenshot('05_ddx_chat');
-
-  // ══════════════════════════════════════════════════════════════
+    switched >= 2 ? await pass(t, `Switched ${switched} modes`) : await fail(t, `Only switched ${switched} modes`);
+  } catch (e) { await fail(t, e.message); }
+    // ══════════════════════════════════════════════════════════════
   // G. DDX ARENA — CONTEXT SIDEBAR (35-40)
   // ══════════════════════════════════════════════════════════════
 
@@ -456,8 +450,8 @@ const TOTAL_TESTS = 50;
   try {
     const text = await bodyText();
     (text.includes('Quick Reference') || text.includes('QUICK REFERENCE'))
-      ? pass(t) : fail(t, 'Quick Reference sidebar not found');
-  } catch (e) { fail(t, e.message); }
+      ? await pass(t) : await fail(t, 'Quick Reference sidebar not found');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 36: Sidebar shows patient name
   t = label('Sidebar shows patient name');
@@ -465,8 +459,8 @@ const TOTAL_TESTS = 50;
     const text = await bodyText();
     // Count Elena Ramirez appearances (should be in sidebar AND header)
     const count = (text.match(/Elena Ramirez/g) || []).length;
-    count >= 2 ? pass(t, `Name appears ${count} times (header + sidebar)`) : pass(t, 'Patient name present');
-  } catch (e) { fail(t, e.message); }
+    count >= 2 ? await pass(t, `Name appears ${count} times (header + sidebar)`) : await pass(t, 'Patient name present');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 37: Sidebar has Risk section
   t = label('Sidebar has Risk section with details');
@@ -475,8 +469,8 @@ const TOTAL_TESTS = 50;
     const quickRefIdx = text.indexOf('Quick Reference');
     const sidebarText = quickRefIdx >= 0 ? text.substring(quickRefIdx) : text;
     (sidebarText.includes('RISK') || sidebarText.includes('Risk'))
-      ? pass(t) : fail(t, 'No Risk section in sidebar');
-  } catch (e) { fail(t, e.message); }
+      ? await pass(t) : await fail(t, 'No Risk section in sidebar');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 38: Sidebar has Diagnoses list
   t = label('Sidebar has Diagnoses list');
@@ -487,8 +481,8 @@ const TOTAL_TESTS = 50;
     const afterQr = qrIdx >= 0 ? text.substring(qrIdx) : text;
     const hasDxLabel = afterQr.includes('diagnoses');
     const hasDxItems = ['diabetes', 'hypertension', 'depression'].filter(d => afterQr.includes(d)).length >= 2;
-    (hasDxLabel || hasDxItems) ? pass(t, hasDxLabel ? 'Label found' : 'Items found') : fail(t, 'No Diagnoses in sidebar');
-  } catch (e) { fail(t, e.message); }
+    (hasDxLabel || hasDxItems) ? await pass(t, hasDxLabel ? 'Label found' : 'Items found') : await fail(t, 'No Diagnoses in sidebar');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 39: Sidebar has Medications list
   t = label('Sidebar has Medications list');
@@ -498,8 +492,8 @@ const TOTAL_TESTS = 50;
     const afterQr = qrIdx >= 0 ? text.substring(qrIdx) : text;
     const hasMedLabel = afterQr.includes('medications');
     const hasMedItems = ['metformin', 'sertraline', 'tramadol'].filter(m => afterQr.includes(m)).length >= 2;
-    (hasMedLabel || hasMedItems) ? pass(t, hasMedLabel ? 'Label found' : 'Items found') : fail(t, 'No Medications in sidebar');
-  } catch (e) { fail(t, e.message); }
+    (hasMedLabel || hasMedItems) ? await pass(t, hasMedLabel ? 'Label found' : 'Items found') : await fail(t, 'No Medications in sidebar');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 40: Sidebar has Key People pills
   t = label('Sidebar has Key People section');
@@ -509,11 +503,9 @@ const TOTAL_TESTS = 50;
     const quickRefIdx = text.indexOf('Quick Reference');
     const sidebarText = quickRefIdx >= 0 ? text.substring(quickRefIdx) : text;
     const found = peopleNames.filter(p => sidebarText.includes(p));
-    found.length >= 2 ? pass(t, `People: ${found.join(', ')}`) : fail(t, `Only ${found.length} people found`);
-  } catch (e) { fail(t, e.message); }
-  await screenshot('06_ddx_sidebar');
-
-  // ══════════════════════════════════════════════════════════════
+    found.length >= 2 ? await pass(t, `People: ${found.join(', ')}`) : await fail(t, `Only ${found.length} people found`);
+  } catch (e) { await fail(t, e.message); }
+    // ══════════════════════════════════════════════════════════════
   // H. POST-VISIT SCRIBE (41-45)
   // ══════════════════════════════════════════════════════════════
 
@@ -525,8 +517,8 @@ const TOTAL_TESTS = 50;
   try {
     const text = await bodyText();
     (text.includes('Post-Visit Scribe') || text.includes('Scribe'))
-      ? pass(t) : fail(t, 'Scribe tab content not found');
-  } catch (e) { fail(t, e.message); }
+      ? await pass(t) : await fail(t, 'Scribe tab content not found');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 42: Transcript textarea is present and editable
   t = label('Transcript textarea is present and editable');
@@ -535,10 +527,10 @@ const TOTAL_TESTS = 50;
     if (await textarea.first().isVisible({ timeout: 3000 })) {
       await textarea.first().fill('Test transcript content');
       const val = await textarea.first().inputValue();
-      val.includes('Test transcript') ? pass(t) : fail(t, 'Textarea not editable');
+      val.includes('Test transcript') ? await pass(t) : await fail(t, 'Textarea not editable');
       await textarea.first().fill(''); // Clear
-    } else { fail(t, 'Transcript textarea not found'); }
-  } catch (e) { fail(t, e.message); }
+    } else { await fail(t, 'Transcript textarea not found'); }
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 43: Generate button disabled when textarea empty
   t = label('Generate button disabled when textarea empty');
@@ -546,9 +538,9 @@ const TOTAL_TESTS = 50;
     const genBtn = page.locator('button', { hasText: 'Generate' }).or(page.locator('button', { hasText: 'Consolidate' }));
     if (await genBtn.first().isVisible({ timeout: 2000 })) {
       const disabled = await genBtn.first().isDisabled();
-      disabled ? pass(t) : pass(t, 'Button present (disabled state may vary)');
-    } else { fail(t, 'Generate button not found'); }
-  } catch (e) { fail(t, e.message); }
+      disabled ? await pass(t) : await pass(t, 'Button present (disabled state may vary)');
+    } else { await fail(t, 'Generate button not found'); }
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 44: Submit transcript → get SOAP notes
   t = label('Submit transcript → receive SOAP session notes');
@@ -561,19 +553,17 @@ const TOTAL_TESTS = 50;
     await page.waitForTimeout(3000);
     const text = await bodyText();
     (text.includes('Session Notes') || text.includes('S:') || text.includes('SOAP'))
-      ? pass(t) : fail(t, 'No session notes generated');
-  } catch (e) { fail(t, e.message); }
+      ? await pass(t) : await fail(t, 'No session notes generated');
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 45: Scribe output includes billing context
   t = label('Scribe output includes billing/CPT context');
   try {
     const text = await bodyText();
     (text.includes('CPT') || text.includes('ICD') || text.includes('Billing') || text.includes('billing'))
-      ? pass(t) : fail(t, 'No billing context in scribe output');
-  } catch (e) { fail(t, e.message); }
-  await screenshot('07_post_visit_scribe');
-
-  // ══════════════════════════════════════════════════════════════
+      ? await pass(t) : await fail(t, 'No billing context in scribe output');
+  } catch (e) { await fail(t, e.message); }
+    // ══════════════════════════════════════════════════════════════
   // I. MULTI-PATIENT & CROSS-CUTTING (46-50)
   // ══════════════════════════════════════════════════════════════
 
@@ -587,8 +577,8 @@ const TOTAL_TESTS = 50;
       await page.waitForTimeout(300);
       accessible++;
     }
-    accessible === 4 ? pass(t, 'All 4 tabs switch cleanly') : fail(t, `Only ${accessible} tabs accessible`);
-  } catch (e) { fail(t, e.message); }
+    accessible === 4 ? await pass(t, 'All 4 tabs switch cleanly') : await fail(t, `Only ${accessible} tabs accessible`);
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 47: Keyboard — Enter sends chat message
   t = label('Keyboard: Enter key sends chat message in DDx Arena');
@@ -602,13 +592,13 @@ const TOTAL_TESTS = 50;
     // Check for analyzing or a new message
     const text = await bodyText();
     const msgCount = (text.match(/YOU \(CLINICIAN\)/g) || []).length;
-    msgCount >= 1 ? pass(t, `${msgCount} clinician messages sent`) : fail(t, 'Enter key did not send message');
+    msgCount >= 1 ? await pass(t, `${msgCount} clinician messages sent`) : await fail(t, 'Enter key did not send message');
     // Wait for response
     const analyzing = page.locator('text=Analyzing');
     if (await analyzing.isVisible().catch(() => false)) {
       await analyzing.waitFor({ state: 'hidden', timeout: 30000 }).catch(() => {});
     }
-  } catch (e) { fail(t, e.message); }
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 48: Navigate back to Hub
   t = label('Hub button navigates back to patient list');
@@ -619,9 +609,9 @@ const TOTAL_TESTS = 50;
       await page.waitForTimeout(2000);
       const text = await bodyText();
       (text.includes('Elena') || text.includes('Daniel') || text.includes('Castle'))
-        ? pass(t) : fail(t, 'Hub page not loaded');
-    } else { fail(t, 'Hub button not found'); }
-  } catch (e) { fail(t, e.message); }
+        ? await pass(t) : await fail(t, 'Hub page not loaded');
+    } else { await fail(t, 'Hub button not found'); }
+  } catch (e) { await fail(t, e.message); }
 
   // TEST 49: Select second patient (Daniel) → dashboard loads
   t = label('Select Daniel Ramirez → dashboard loads');
@@ -639,20 +629,18 @@ const TOTAL_TESTS = 50;
       await page.waitForSelector('text=AT-A-GLANCE', { timeout: 60000 }).catch(() => null);
       await page.waitForTimeout(2000);
       const text = await bodyText();
-      text.includes('Daniel') ? pass(t, 'Daniel dashboard loaded') : pass(t, 'Second patient dashboard rendered');
+      text.includes('Daniel') ? await pass(t, 'Daniel dashboard loaded') : await pass(t, 'Second patient dashboard rendered');
     } else {
-      skip(t, 'Daniel not visible on patient list');
+      await skip(t, 'Daniel not visible on patient list');
     }
-  } catch (e) { fail(t, e.message); }
-  await screenshot('08_daniel_dashboard');
-
-  // TEST 50: No unhandled JavaScript errors across entire session
+  } catch (e) { await fail(t, e.message); }
+    // TEST 50: No unhandled JavaScript errors across entire session
   t = label('No unhandled JavaScript errors across entire session');
   try {
     // Filter out benign errors
     const realErrors = errors.filter(e => !e.includes('ResizeObserver') && !e.includes('favicon'));
-    realErrors.length === 0 ? pass(t, 'Zero JS errors') : fail(t, `${realErrors.length} errors: ${realErrors[0]}`);
-  } catch (e) { fail(t, e.message); }
+    realErrors.length === 0 ? await pass(t, 'Zero JS errors') : await fail(t, `${realErrors.length} errors: ${realErrors[0]}`);
+  } catch (e) { await fail(t, e.message); }
 
   // ══════════════════════════════════════════════════════════════
   // RESULTS
