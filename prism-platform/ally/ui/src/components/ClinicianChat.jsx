@@ -32,6 +32,92 @@ const getCredibilityColor = (value) => {
   return '#E85D5D';
 };
 
+/**
+ * Format a debate agent's structured JSON output into readable text.
+ * Prism's ReasoningEngine returns structured objects — this converts them
+ * to human-readable prose instead of dumping raw JSON.
+ */
+const formatDebateAgent = (data) => {
+  if (typeof data === 'string') return data;
+  if (!data || typeof data !== 'object') return String(data || '');
+
+  const lines = [];
+
+  // Extract common fields and render them nicely
+  const title = data.case_title || data.title || data.case_name || data.case?.title || '';
+  const thesis = data.thesis_statement || data.opening_statement || data.case?.opening_statement || '';
+  const argument = data.argument || data.case?.argument || '';
+  const verdict = data.verdict || data.adjudication?.summary || data.adjudication?.verdict || '';
+  const reasoning = data.reasoning || data.adjudication?.reasoning || '';
+  const decision = data.decision || data.adjudication?.decision || '';
+
+  if (title) lines.push(title);
+  if (thesis) lines.push('', thesis);
+  if (argument) lines.push('', argument);
+  if (decision) lines.push('', `Decision: ${decision}`);
+  if (verdict) lines.push('', verdict);
+  if (reasoning) lines.push('', reasoning);
+
+  // Handle challenge_points array
+  const challenges = data.challenge_points || data.case?.challenge_points || [];
+  if (Array.isArray(challenges) && challenges.length > 0) {
+    lines.push('');
+    challenges.forEach((cp, i) => {
+      const cpTitle = cp.title || cp.point || `Point ${i + 1}`;
+      const cpDesc = cp.description || cp.argument || cp.detail || '';
+      lines.push(`${i + 1}. ${cpTitle}${cpDesc ? ': ' + cpDesc : ''}`);
+    });
+  }
+
+  // Handle evidence_chips / evidence arrays
+  const evidence = data.evidence_chips || data.evidence || data.supporting_evidence || data.case?.evidence || [];
+  if (Array.isArray(evidence) && evidence.length > 0) {
+    lines.push('', 'Evidence:');
+    evidence.forEach((e, i) => {
+      const eText = typeof e === 'string' ? e : (e.text || e.claim || e.description || JSON.stringify(e));
+      lines.push(`  • ${eText}`);
+    });
+  }
+
+  // Handle differential_diagnosis array
+  const ddx = data.differential_diagnosis || [];
+  if (Array.isArray(ddx) && ddx.length > 0) {
+    lines.push('');
+    ddx.forEach((d, i) => {
+      const name = d.diagnosis || d.name || `Diagnosis ${i + 1}`;
+      const confidence = d.confidence || d.likelihood || '';
+      const changeEvidence = d.change_evidence || d.what_would_change || '';
+      lines.push(`${i + 1}. ${name}${confidence ? ` (${confidence})` : ''}`);
+      if (changeEvidence) lines.push(`   Would change if: ${changeEvidence}`);
+    });
+  }
+
+  // Handle recommendations
+  const recs = data.recommendations || data.next_steps || [];
+  if (Array.isArray(recs) && recs.length > 0) {
+    lines.push('', 'Recommendations:');
+    recs.forEach(r => {
+      const rText = typeof r === 'string' ? r : (r.text || r.recommendation || JSON.stringify(r));
+      lines.push(`  • ${rText}`);
+    });
+  }
+
+  // If we extracted nothing meaningful, do a smart flatten
+  if (lines.filter(l => l.trim()).length === 0) {
+    return Object.entries(data)
+      .filter(([k]) => !['role', 'target_question'].includes(k))
+      .map(([k, v]) => {
+        const label = k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        if (typeof v === 'string') return `${label}: ${v}`;
+        if (Array.isArray(v)) return `${label}:\n${v.map(item => typeof item === 'string' ? `  • ${item}` : `  • ${JSON.stringify(item)}`).join('\n')}`;
+        if (typeof v === 'object' && v !== null) return `${label}: ${JSON.stringify(v, null, 2)}`;
+        return `${label}: ${v}`;
+      }).join('\n\n');
+  }
+
+  return lines.join('\n').trim();
+};
+
 export default function ClinicianChat({ patientId, patientName, onBack }) {
   const [handoffData, setHandoffData] = useState(null);
   const [debateRaw, setDebateRaw] = useState(null);
@@ -408,19 +494,19 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                     <div style={{ padding: '18px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                       <div style={{ fontSize: '0.65rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 600 }}>Supporting Evidence (Hypothesis A)</div>
                       <div style={{ fontFamily: "monospace", fontSize: '0.8rem', color: '#A8A39A', whiteSpace: 'pre-wrap' }}>
-                        {typeof debateRaw.advocate === 'string' ? debateRaw.advocate : JSON.stringify(debateRaw.advocate, null, 2)}
+                        {formatDebateAgent(debateRaw.advocate)}
                       </div>
                     </div>
                     <div style={{ padding: '18px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                       <div style={{ fontSize: '0.65rem', color: '#D67959', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 600 }}>Rule-Out Criteria & Challenges</div>
                       <div style={{ fontFamily: "monospace", fontSize: '0.8rem', color: '#A8A39A', whiteSpace: 'pre-wrap' }}>
-                        {typeof debateRaw.skeptic === 'string' ? debateRaw.skeptic : JSON.stringify(debateRaw.skeptic, null, 2)}
+                        {formatDebateAgent(debateRaw.skeptic)}
                       </div>
                     </div>
                     <div style={{ padding: '18px' }}>
                       <div style={{ fontSize: '0.65rem', color: '#D9B873', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 600 }}>Final Clinical Synthesis</div>
                       <div style={{ fontFamily: "monospace", fontSize: '0.8rem', color: '#A8A39A', whiteSpace: 'pre-wrap' }}>
-                        {typeof debateRaw.judge === 'string' ? debateRaw.judge : JSON.stringify(debateRaw.judge, null, 2)}
+                        {formatDebateAgent(debateRaw.judge)}
                       </div>
                     </div>
                   </div>
@@ -589,7 +675,7 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                             <div style={{ fontSize: '0.7rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, fontFamily: "'Work Sans', sans-serif" }}>Advocate — Supporting Evidence</div>
                           </div>
                           <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', lineHeight: 1.65, color: '#EDEAE3', whiteSpace: 'pre-wrap' }}>
-                            {typeof msg.debate.advocate === 'string' ? msg.debate.advocate : JSON.stringify(msg.debate.advocate, null, 2)}
+                            {formatDebateAgent(msg.debate.advocate)}
                           </div>
                         </div>
 
@@ -600,7 +686,7 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                             <div style={{ fontSize: '0.7rem', color: '#D67959', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, fontFamily: "'Work Sans', sans-serif" }}>Skeptic — Challenges & Rule-Outs</div>
                           </div>
                           <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', lineHeight: 1.65, color: '#EDEAE3', whiteSpace: 'pre-wrap' }}>
-                            {typeof msg.debate.skeptic === 'string' ? msg.debate.skeptic : JSON.stringify(msg.debate.skeptic, null, 2)}
+                            {formatDebateAgent(msg.debate.skeptic)}
                           </div>
                         </div>
 
@@ -611,7 +697,7 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                             <div style={{ fontSize: '0.7rem', color: '#D9B873', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, fontFamily: "'Work Sans', sans-serif" }}>Judge — Clinical Verdict</div>
                           </div>
                           <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', lineHeight: 1.65, color: '#EDEAE3', whiteSpace: 'pre-wrap' }}>
-                            {typeof msg.debate.judge === 'string' ? msg.debate.judge : JSON.stringify(msg.debate.judge, null, 2)}
+                            {formatDebateAgent(msg.debate.judge)}
                           </div>
                         </div>
 
