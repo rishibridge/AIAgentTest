@@ -752,28 +752,25 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
               {/* Input Area */}
               <div style={{ padding: '16px 32px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
 
-                {/* ── YOUR ROLE label ── */}
-                <div style={{ fontSize: '0.6rem', color: '#6B6560', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '6px', fontFamily: "'Work Sans', sans-serif", fontWeight: 600 }}>
-                  Your Role
-                </div>
-
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+                {/* ── Role pills + one-line description ── */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
                   {[
-                    { id: 'copilot', label: '💬 You Ask' },
-                    { id: 'defend', label: '🛡️ You Challenge' },
-                    { id: 'challenge', label: '✅ You Advocate' },
-                    { id: 'compare', label: '⚖️ You Compare' },
-                    { id: 'debate', label: '🔥 You Judge' },
+                    { id: 'copilot', label: '💬 Ask', desc: 'You ask → System answers from patient record' },
+                    { id: 'defend', label: '🛡️ Challenge', desc: 'You name a diagnosis → System pokes holes in it' },
+                    { id: 'challenge', label: '✅ Advocate', desc: 'You name a diagnosis → System builds the case for it' },
+                    { id: 'compare', label: '⚖️ Compare', desc: 'You name two diagnoses → System weighs them head-to-head' },
+                    { id: 'debate', label: '🔥 Judge', desc: 'System argues FOR and AGAINST → You make the final call' },
                   ].map((role) => (
                     <button
                       key={role.id}
                       onClick={() => setDdxRole(role.id)}
+                      title={role.desc}
                       style={{
                         background: ddxRole === role.id ? 'rgba(217,184,115,0.12)' : 'none',
                         border: ddxRole === role.id ? '1px solid rgba(217,184,115,0.3)' : '1px solid rgba(255,255,255,0.08)',
                         color: ddxRole === role.id ? '#D9B873' : '#6B6560',
-                        padding: '5px 12px',
-                        borderRadius: '16px',
+                        padding: '4px 10px',
+                        borderRadius: '14px',
                         fontSize: '0.7rem',
                         fontFamily: "'Work Sans', sans-serif",
                         cursor: 'pointer',
@@ -783,66 +780,67 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                       {role.label}
                     </button>
                   ))}
+                  <span style={{ fontSize: '0.65rem', color: '#6B6560', fontFamily: "'Work Sans', sans-serif", marginLeft: '4px', fontStyle: 'italic' }}>
+                    {ddxRole === 'copilot' && 'You ask → System answers from patient record'}
+                    {ddxRole === 'defend' && 'You name a Dx → System pokes holes in it'}
+                    {ddxRole === 'challenge' && 'You name a Dx → System builds the case for it'}
+                    {ddxRole === 'compare' && 'You name two Dx → System weighs them head-to-head'}
+                    {ddxRole === 'debate' && 'System argues FOR & AGAINST → You make the final call'}
+                  </span>
                 </div>
 
-                {/* ── Mode Description: YOUR role vs SYSTEM role ── */}
-                <div style={{
-                  padding: '10px 14px',
-                  marginBottom: '10px',
-                  background: ddxRole === 'debate' ? 'rgba(214,121,89,0.06)' : 'rgba(95,174,176,0.04)',
-                  border: `1px solid ${ddxRole === 'debate' ? 'rgba(214,121,89,0.15)' : 'rgba(95,174,176,0.1)'}`,
-                  borderRadius: '8px',
-                  transition: 'all 0.3s ease',
-                }}>
-                  {ddxRole === 'copilot' && (
-                    <div style={{ fontSize: '0.75rem', color: '#9B9285', fontFamily: "'Work Sans', sans-serif", lineHeight: 1.6 }}>
-                      <div style={{ display: 'flex', gap: '16px', marginBottom: '6px' }}>
-                        <span><strong style={{ color: '#EDEAE3' }}>You:</strong> <span style={{ color: '#5FAEB0' }}>Ask any question</span></span>
-                        <span><strong style={{ color: '#EDEAE3' }}>System:</strong> <span style={{ color: '#9B9285' }}>Answers from full patient record</span></span>
-                      </div>
-                      <span style={{ color: '#6B6560', fontStyle: 'italic' }}>e.g. "What medications is she on?" · "Summarize trauma history" · "Any risk factors?"</span>
-                    </div>
-                  )}
-                  {ddxRole === 'defend' && (
-                    <div style={{ fontSize: '0.75rem', color: '#9B9285', fontFamily: "'Work Sans', sans-serif", lineHeight: 1.6 }}>
-                      <div style={{ display: 'flex', gap: '16px', marginBottom: '6px' }}>
-                        <span><strong style={{ color: '#EDEAE3' }}>You:</strong> <span style={{ color: '#E85D5D' }}>Pick a diagnosis to challenge</span></span>
-                        <span><strong style={{ color: '#EDEAE3' }}>System:</strong> <span style={{ color: '#9B9285' }}>Tries to poke holes in it</span></span>
-                      </div>
-                      <span style={{ color: '#6B6560', fontStyle: 'italic' }}>e.g. "Rule out Bipolar II" · "Why isn't this PTSD?" · "Exclude substance-induced mood disorder"</span>
-                    </div>
-                  )}
-                  {ddxRole === 'challenge' && (
-                    <div style={{ fontSize: '0.75rem', color: '#9B9285', fontFamily: "'Work Sans', sans-serif", lineHeight: 1.6 }}>
-                      <div style={{ display: 'flex', gap: '16px', marginBottom: '6px' }}>
-                        <span><strong style={{ color: '#EDEAE3' }}>You:</strong> <span style={{ color: '#4CAF50' }}>Pick a diagnosis to defend</span></span>
-                        <span><strong style={{ color: '#EDEAE3' }}>System:</strong> <span style={{ color: '#9B9285' }}>Builds the strongest case for it</span></span>
-                      </div>
-                      <span style={{ color: '#6B6560', fontStyle: 'italic' }}>e.g. "Make the case for MDD" · "What supports Adjustment Disorder?" · "Defend chronic pain as primary"</span>
-                    </div>
-                  )}
-                  {ddxRole === 'compare' && (
-                    <div style={{ fontSize: '0.75rem', color: '#9B9285', fontFamily: "'Work Sans', sans-serif", lineHeight: 1.6 }}>
-                      <div style={{ display: 'flex', gap: '16px', marginBottom: '6px' }}>
-                        <span><strong style={{ color: '#EDEAE3' }}>You:</strong> <span style={{ color: '#7B68EE' }}>Name two diagnoses</span></span>
-                        <span><strong style={{ color: '#EDEAE3' }}>System:</strong> <span style={{ color: '#9B9285' }}>Weighs evidence for each, head-to-head</span></span>
-                      </div>
-                      <span style={{ color: '#6B6560', fontStyle: 'italic' }}>e.g. "MDD vs Adjustment Disorder" · "PTSD vs Complex Grief" · "GAD vs Situational Anxiety"</span>
-                    </div>
-                  )}
-                  {ddxRole === 'debate' && (
-                    <div style={{ fontSize: '0.75rem', color: '#9B9285', fontFamily: "'Work Sans', sans-serif", lineHeight: 1.6 }}>
-                      <div style={{ display: 'flex', gap: '16px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                        <span><strong style={{ color: '#D9B873' }}>You:</strong> <span style={{ color: '#D9B873' }}>The Judge — you make the final call</span></span>
-                      </div>
-                      <div style={{ marginBottom: '4px' }}>
-                        System presents <strong style={{ color: '#5FAEB0' }}>the case FOR</strong> and <strong style={{ color: '#D67959' }}>the case AGAINST</strong>, then <strong style={{ color: '#9B9285' }}>weighs both sides</strong>. You read all three and decide.
-                      </div>
-                      <span style={{ color: '#6B6560', fontStyle: 'italic' }}>e.g. "What's the primary diagnosis?" · "Should we start an SSRI?" · "Is this trauma or depression?"</span>
-                    </div>
-                  )}
+                {/* ── Clickable example chips ── */}
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                  {(ddxRole === 'copilot' ? [
+                    'What medications is she on?',
+                    'Summarize her trauma history',
+                    'Any risk factors I should know about?',
+                    'What did she say about sleep?',
+                  ] : ddxRole === 'defend' ? [
+                    'Rule out Bipolar II',
+                    'Why isn\'t this PTSD?',
+                    'Exclude substance-induced mood disorder',
+                    'Can we rule out BPD?',
+                  ] : ddxRole === 'challenge' ? [
+                    'Make the case for MDD',
+                    'What supports Adjustment Disorder?',
+                    'Build the case for GAD',
+                    'Defend chronic pain as primary',
+                  ] : ddxRole === 'compare' ? [
+                    'MDD vs Adjustment Disorder',
+                    'PTSD vs Complex Grief',
+                    'GAD vs Situational Anxiety',
+                    'Bipolar II vs MDD',
+                  ] : [
+                    'What is the primary diagnosis?',
+                    'Should we start an SSRI?',
+                    'Is this trauma or depression?',
+                    'Is she safe to discharge?',
+                  ]).map((example) => (
+                    <button
+                      key={example}
+                      onClick={() => setInput(example)}
+                      style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                        color: '#9B9285',
+                        padding: '3px 10px',
+                        borderRadius: '12px',
+                        fontSize: '0.65rem',
+                        fontFamily: "'Work Sans', sans-serif",
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                        whiteSpace: 'nowrap',
+                      }}
+                      onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(217,184,115,0.08)'; e.currentTarget.style.color = '#D9B873'; e.currentTarget.style.borderColor = 'rgba(217,184,115,0.2)'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = '#9B9285'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
+                    >
+                      {example}
+                    </button>
+                  ))}
                 </div>
 
+                {/* ── Input + Send ── */}
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <input
                     type="text"
@@ -850,12 +848,12 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
                     placeholder={
-                      ddxRole === 'copilot' ? 'Ask anything about this patient...' :
-                      ddxRole === 'defend' ? 'Name a diagnosis to challenge... e.g. "Rule out Bipolar II"' :
-                      ddxRole === 'challenge' ? 'Name a diagnosis to defend... e.g. "Make the case for MDD"' :
-                      ddxRole === 'compare' ? 'Name two diagnoses... e.g. "MDD vs Adjustment Disorder"' :
-                      ddxRole === 'debate' ? 'Ask a clinical question... e.g. "What is the primary diagnosis?"' :
-                      'Ask about this patient...'
+                      ddxRole === 'copilot' ? 'Ask about this patient...' :
+                      ddxRole === 'defend' ? 'Name a diagnosis to challenge...' :
+                      ddxRole === 'challenge' ? 'Name a diagnosis to defend...' :
+                      ddxRole === 'compare' ? 'Name two diagnoses...' :
+                      ddxRole === 'debate' ? 'Ask a clinical question...' :
+                      'Type here...'
                     }
                     style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', color: '#fff', padding: '12px 14px', borderRadius: '8px', fontSize: '0.85rem', fontFamily: "'Work Sans', sans-serif", outline: 'none' }}
                   />
