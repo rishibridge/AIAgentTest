@@ -722,8 +722,6 @@ function LiveChat({ patientId, patientName, onGraphUpdate, onConvIdReady }) {
       if (onGraphUpdate && res.current_graph) {
         onGraphUpdate(res.current_graph);
       }
-      // Pre-generate handoff in background so provider dashboard loads instantly
-      api.generateHandoff(patientId, 'Dr. Provider', 'Clinician').catch(() => {});
     } catch (e) {
       setMessages(m => [...m, { sender: 'bot', text: 'I hear you. Tell me more about what you\'re feeling.' }]);
     }
@@ -876,6 +874,10 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
       setConsolidationResult(result);
       // Refresh graph after consolidation
       refreshGraph();
+      // Post-consolidation: generate handoff in background
+      // This is the correct place — like hippocampal replay during sleep,
+      // batch processing happens AFTER the session, not during.
+      api.generateHandoff(patientId, 'Dr. Provider', 'Clinician').catch(() => {});
     } catch (e) {
       console.error('Consolidation error:', e);
       setConsolidationResult({ status: 'error', steps: [] });
