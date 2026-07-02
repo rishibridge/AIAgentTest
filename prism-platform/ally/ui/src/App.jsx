@@ -722,6 +722,8 @@ function LiveChat({ patientId, patientName, onGraphUpdate, onConvIdReady }) {
       if (onGraphUpdate && res.current_graph) {
         onGraphUpdate(res.current_graph);
       }
+      // Pre-generate handoff in background so provider dashboard loads instantly
+      api.generateHandoff(patientId, 'Dr. Provider', 'Clinician').catch(() => {});
     } catch (e) {
       setMessages(m => [...m, { sender: 'bot', text: 'I hear you. Tell me more about what you\'re feeling.' }]);
     }

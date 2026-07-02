@@ -163,6 +163,23 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
   const fetchHandoff = async () => {
     try {
       setLoading(true);
+      // Try pre-generated handoff first (built in background after each patient chat)
+      try {
+        const cached = await api.getHandoffs(patientId);
+        if (cached && cached.length > 0) {
+          const latest = cached[cached.length - 1];
+          // Verify it has real content (not a stale empty handoff)
+          if (latest.clinical_narrative && latest.clinical_narrative !== '') {
+            setHandoffData(latest);
+            setDebateRaw(null);
+            setMessages([{ sender: 'bot', text: `Clinical Copilot Online. Patient: ${latest.patient_name || patientName}. How can I assist with this case?` }]);
+            return;
+          }
+        }
+      } catch (e) {
+        // No cached handoff — generate fresh
+      }
+      // No valid cached handoff — generate one now
       const res = await api.generateHandoff(patientId, 'Dr. Provider', 'Clinician');
       setHandoffData(res.handoff);
       setDebateRaw(res.debate);
