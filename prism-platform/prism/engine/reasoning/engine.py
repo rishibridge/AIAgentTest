@@ -17,6 +17,9 @@ class ReasoningEngine:
         Builds the context string from the TemporalGraph memory.
         If divergences exist, it focuses on them. 
         Otherwise, it provides all raw extracted nodes.
+        
+        Supports both Prism-native properties ('text', 'source_doc')
+        and application-specific properties ('label', 'kind').
         """
         divergences = self.graph.get_all_divergences()
         nodes = self.graph.get_all_nodes()
@@ -30,22 +33,32 @@ class ReasoningEngine:
                 claim_a = self.graph.get_node(d.claim_a_id)
                 claim_b = self.graph.get_node(d.claim_b_id)
                 
-                text_a = claim_a.properties.get('text') if claim_a else "Unknown"
-                src_a = claim_a.properties.get('source_doc') if claim_a else "Unknown"
+                text_a = (claim_a.properties.get('text') or claim_a.properties.get('label', 'Unknown')) if claim_a else "Unknown"
+                src_a = (claim_a.properties.get('source_doc') or claim_a.properties.get('kind', 'Unknown')) if claim_a else "Unknown"
                 
-                text_b = claim_b.properties.get('text') if claim_b else "Unknown"
-                src_b = claim_b.properties.get('source_doc') if claim_b else "Unknown"
+                text_b = (claim_b.properties.get('text') or claim_b.properties.get('label', 'Unknown')) if claim_b else "Unknown"
+                src_b = (claim_b.properties.get('source_doc') or claim_b.properties.get('kind', 'Unknown')) if claim_b else "Unknown"
                 
                 context += f"- Topic: {d.topic}\n"
                 context += f"  Claim A ({src_a}): {text_a}\n"
                 context += f"  Claim B ({src_b}): {text_b}\n"
                 context += "\n"
         elif nodes:
-            context += "Raw Extracted Nodes:\n"
+            context += "Patient Graph Nodes:\n"
             for n in nodes:
-                text = n.properties.get('text', 'No text')
-                src = n.properties.get('source_doc', 'Unknown source')
-                context += f"- [{src}] {text}\n"
+                # Support both Prism properties ('text', 'source_doc') and app properties ('label', 'kind')
+                text = n.properties.get('text') or n.properties.get('label', n.id)
+                kind = n.node_type or n.properties.get('kind', '')
+                src = n.properties.get('source_doc', '')
+                
+                # Build a rich context line: [kind] label (source if available)
+                parts = []
+                if kind:
+                    parts.append(f"[{kind}]")
+                parts.append(text)
+                if src:
+                    parts.append(f"(from: {src})")
+                context += f"- {' '.join(parts)}\n"
         else:
             context += "No memory data available. The graph is empty.\n"
             

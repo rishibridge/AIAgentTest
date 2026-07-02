@@ -799,13 +799,57 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                     </button>
                   ))}
                 </div>
+
+                {/* ── DDx Mode Description ── */}
+                <div style={{
+                  padding: '10px 14px',
+                  marginBottom: '10px',
+                  background: ddxRole === 'debate' ? 'rgba(214,121,89,0.06)' : 'rgba(95,174,176,0.04)',
+                  border: `1px solid ${ddxRole === 'debate' ? 'rgba(214,121,89,0.15)' : 'rgba(95,174,176,0.1)'}`,
+                  borderRadius: '8px',
+                  transition: 'all 0.3s ease',
+                }}>
+                  {ddxRole === 'copilot' && (
+                    <div style={{ fontSize: '0.75rem', color: '#9B9285', fontFamily: "'Work Sans', sans-serif", lineHeight: 1.5 }}>
+                      <span style={{ color: '#5FAEB0', fontWeight: 600 }}>💬 General Copilot</span> — Ask any clinical question. The AI synthesizes the patient's graph data into evidence-based responses.
+                    </div>
+                  )}
+                  {ddxRole === 'defend' && (
+                    <div style={{ fontSize: '0.75rem', color: '#9B9285', fontFamily: "'Work Sans', sans-serif", lineHeight: 1.5 }}>
+                      <span style={{ color: '#4CAF50', fontWeight: 600 }}>🛡️ Rule-Out Mode</span> — Name a diagnosis and the AI will try to <strong style={{ color: '#E85D5D' }}>rule it out</strong> using contradicting graph evidence. <em>e.g. "Rule out Bipolar II"</em>
+                    </div>
+                  )}
+                  {ddxRole === 'challenge' && (
+                    <div style={{ fontSize: '0.75rem', color: '#9B9285', fontFamily: "'Work Sans', sans-serif", lineHeight: 1.5 }}>
+                      <span style={{ color: '#D9B873', fontWeight: 600 }}>⚔️ Defend Mode</span> — Name a diagnosis and the AI will <strong style={{ color: '#4CAF50' }}>defend it</strong> with specific patient quotes and graph evidence. <em>e.g. "Defend MDD diagnosis"</em>
+                    </div>
+                  )}
+                  {ddxRole === 'compare' && (
+                    <div style={{ fontSize: '0.75rem', color: '#9B9285', fontFamily: "'Work Sans', sans-serif", lineHeight: 1.5 }}>
+                      <span style={{ color: '#7B68EE', fontWeight: 600 }}>⚖️ Head-to-Head</span> — Name two diagnoses and the AI compares them side-by-side using patient evidence. <em>e.g. "MDD vs Adjustment Disorder"</em>
+                    </div>
+                  )}
+                  {ddxRole === 'debate' && (
+                    <div style={{ fontSize: '0.75rem', color: '#9B9285', fontFamily: "'Work Sans', sans-serif", lineHeight: 1.5 }}>
+                      <span style={{ color: '#D67959', fontWeight: 600 }}>🔥 Live Debate</span> — Prism's <strong style={{ color: '#D67959' }}>Advocate</strong>, <strong style={{ color: '#5FAEB0' }}>Skeptic</strong>, and <strong style={{ color: '#D9B873' }}>Judge</strong> debate your question adversarially. Three perspectives, one verdict. <em>e.g. "What is the primary diagnosis?"</em>
+                    </div>
+                  )}
+                </div>
+
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <input
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
-                    placeholder="Message the DDx Copilot..."
+                    placeholder={
+                      ddxRole === 'copilot' ? 'Ask a clinical question...' :
+                      ddxRole === 'defend' ? 'Name a diagnosis to rule out... e.g. "Rule out Bipolar II"' :
+                      ddxRole === 'challenge' ? 'Name a diagnosis to defend... e.g. "Defend MDD"' :
+                      ddxRole === 'compare' ? 'Compare two diagnoses... e.g. "MDD vs Adjustment Disorder"' :
+                      ddxRole === 'debate' ? 'Ask a question for Advocate/Skeptic/Judge debate...' :
+                      'Message the DDx Copilot...'
+                    }
                     style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', color: '#fff', padding: '12px 14px', borderRadius: '8px', fontSize: '0.85rem', fontFamily: "'Work Sans', sans-serif", outline: 'none' }}
                   />
                   <button
