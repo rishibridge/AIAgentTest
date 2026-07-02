@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, AlertTriangle, Send, ChevronDown, ChevronRight, Lock, Brain, FileText, MessageCircle, Stethoscope } from 'lucide-react';
 import InteractiveGraph from './VirtualBrain';
+import NodeDetailPanel from './NodeDetailPanel';
 import * as api from '../api';
 
 const DEMO_DIVERGENCES = [
@@ -140,7 +141,8 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
   const [scribeResult, setScribeResult] = useState(null);
 
   // Graph state
-  const [selectedGraphNode, setSelectedGraphNode] = useState(null);
+  const [detailKind, setDetailKind] = useState(null); // 'node' or 'edge'
+  const [detailTarget, setDetailTarget] = useState(null);
   
   // Narrative toggle
   const [showNarrative, setShowNarrative] = useState(false);
@@ -161,6 +163,20 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
   const fetchHandoff = async () => {
     try {
       setLoading(true);
+      // Try to load a cached handoff first (fast path — no LLM call)
+      try {
+        const cached = await api.getHandoffs(patientId);
+        if (cached && cached.length > 0) {
+          const latest = cached[cached.length - 1];
+          setHandoffData(latest);
+          setDebateRaw(null); // Cached handoffs don't have debate data
+          setMessages([{ sender: 'bot', text: `Clinical Copilot Online. Patient: ${latest.patient_name || patientName}. How can I assist with this case?` }]);
+          return;
+        }
+      } catch (e) {
+        // No cached handoff — fall through to generate
+      }
+      // No cached handoff exists — generate one (slow path, LLM call)
       const res = await api.generateHandoff(patientId, 'Dr. Provider', 'Clinician');
       setHandoffData(res.handoff);
       setDebateRaw(res.debate);
@@ -480,39 +496,6 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                 </div>
               )}
             </div>
-
-            {/* DDx Evaluation Transcript */}
-            {debateRaw && (
-              <div style={{ marginBottom: '28px' }}>
-                <button onClick={() => setShowDebateTranscript(!showDebateTranscript)} style={{ background: 'none', border: 'none', color: '#5FAEB0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', padding: 0, fontFamily: "'Work Sans', sans-serif" }}>
-                  {showDebateTranscript ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
-                  {showDebateTranscript ? 'Hide DDx Evaluation Transcript' : 'View DDx Evaluation Transcript'}
-                </button>
-                
-                {showDebateTranscript && (
-                  <div style={{ marginTop: '14px', background: 'rgba(0,0,0,0.3)', borderRadius: '10px', border: '1px solid rgba(95,174,176,0.12)', overflow: 'hidden' }}>
-                    <div style={{ padding: '18px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <div style={{ fontSize: '0.65rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 600 }}>Supporting Evidence (Hypothesis A)</div>
-                      <div style={{ fontFamily: "monospace", fontSize: '0.8rem', color: '#A8A39A', whiteSpace: 'pre-wrap' }}>
-                        {formatDebateAgent(debateRaw.advocate)}
-                      </div>
-                    </div>
-                    <div style={{ padding: '18px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <div style={{ fontSize: '0.65rem', color: '#D67959', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 600 }}>Rule-Out Criteria & Challenges</div>
-                      <div style={{ fontFamily: "monospace", fontSize: '0.8rem', color: '#A8A39A', whiteSpace: 'pre-wrap' }}>
-                        {formatDebateAgent(debateRaw.skeptic)}
-                      </div>
-                    </div>
-                    <div style={{ padding: '18px' }}>
-                      <div style={{ fontSize: '0.65rem', color: '#D9B873', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 600 }}>Final Clinical Synthesis</div>
-                      <div style={{ fontFamily: "monospace", fontSize: '0.8rem', color: '#A8A39A', whiteSpace: 'pre-wrap' }}>
-                        {formatDebateAgent(debateRaw.judge)}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         )}
 
@@ -528,8 +511,9 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                   highlight={[]}
                   interactive={true}
                   viewBox="0 0 1100 620"
-                  onNodeClick={(n) => setSelectedGraphNode(n)}
-                  onBackgroundClick={() => setSelectedGraphNode(null)}
+                  onNodeClick={(n) => { setDetailKind('node'); setDetailTarget(n); }}
+                  onEdgeClick={(e) => { setDetailKind('edge'); setDetailTarget(e); }}
+                  onBackgroundClick={() => { setDetailKind(null); setDetailTarget(null); }}
                 />
 
                 {/* Node Legend */}
@@ -551,16 +535,8 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                   ))}
                 </div>
 
-                {/* Selected Node Detail */}
-                {selectedGraphNode && (
-                  <div style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(5,6,8,0.95)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(217,184,115,0.2)', maxWidth: '300px' }}>
-                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.3rem', color: '#D9B873', marginBottom: '8px' }}>{selectedGraphNode.label || selectedGraphNode.id}</div>
-                    <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.8rem', color: '#9B9285', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>{selectedGraphNode.kind || selectedGraphNode.node_type}</div>
-                    {selectedGraphNode.id && (
-                      <div style={{ fontFamily: "monospace", fontSize: '0.75rem', color: '#6B6560' }}>ID: {selectedGraphNode.id}</div>
-                    )}
-                  </div>
-                )}
+                {/* Full Node/Edge Detail Panel (same as patient demo) */}
+                {detailTarget && <NodeDetailPanel kind={detailKind} target={detailTarget} nodes={graphNodes} onClose={() => { setDetailKind(null); setDetailTarget(null); }} />}
               </div>
             ) : (
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px', color: '#6B6560' }}>
