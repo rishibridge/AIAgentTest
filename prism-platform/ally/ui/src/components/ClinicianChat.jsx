@@ -3,6 +3,35 @@ import { ArrowLeft, AlertTriangle, Send, ChevronDown, ChevronRight, Lock, Brain,
 import InteractiveGraph from './VirtualBrain';
 import * as api from '../api';
 
+const DEMO_DIVERGENCES = [
+  {
+    topic: 'Substance Use History',
+    claimA: { text: 'Patient denies current substance use', source: 'Intake Form (Session 1)', credibility: 0.80 },
+    claimB: { text: 'Patient disclosed meth use history and current benzo use', source: 'Ally Session 12 (undisclosed)', credibility: 0.85 },
+    status: 'active',
+  },
+  {
+    topic: 'Sleep Pattern',
+    claimA: { text: 'Reports sleeping 6-7 hours nightly', source: 'PHQ-9 Screening', credibility: 0.70 },
+    claimB: { text: 'Consistently messages Ally at 2-3 AM, reports insomnia', source: 'Ally Sessions 8-12', credibility: 0.90 },
+    status: 'active',
+  },
+  {
+    topic: 'Medication Adherence',
+    claimA: { text: 'Takes ibuprofen as prescribed for pain', source: 'Patient Self-Report', credibility: 0.75 },
+    claimB: { text: 'Stockpiling tramadol, not taking as directed', source: 'Ally Session 12 (flagged significance)', credibility: 0.90 },
+    status: 'active',
+  },
+];
+
+const getCredibilityColor = (value) => {
+  if (value >= 0.85) return '#4CAF50';
+  if (value >= 0.75) return '#8BC34A';
+  if (value >= 0.65) return '#FFC107';
+  if (value >= 0.55) return '#FF9800';
+  return '#E85D5D';
+};
+
 export default function ClinicianChat({ patientId, patientName, onBack }) {
   const [handoffData, setHandoffData] = useState(null);
   const [debateRaw, setDebateRaw] = useState(null);
@@ -10,7 +39,7 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
   const [error, setError] = useState(null);
 
   // Main tab state
-  const [mainTab, setMainTab] = useState('summary'); // 'summary', 'graph', 'ddx', 'scribe'
+  const [mainTab, setMainTab] = useState('summary'); // 'summary', 'graph', 'divergences', 'ddx', 'scribe'
 
   // Chat State
   const [messages, setMessages] = useState([]);
@@ -226,6 +255,9 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
         </button>
         <button onClick={() => setMainTab('graph')} style={tabStyle(mainTab === 'graph')}>
           <Brain size={14} /> Patient Graph
+        </button>
+        <button onClick={() => setMainTab('divergences')} style={tabStyle(mainTab === 'divergences')}>
+          ⚡ Divergences
         </button>
         <button onClick={() => setMainTab('ddx')} style={tabStyle(mainTab === 'ddx')}>
           <MessageCircle size={14} /> DDx Arena
@@ -454,6 +486,81 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
           </div>
         )}
 
+        {/* ═══ TAB 2.5: DIVERGENCES ═══ */}
+        {mainTab === 'divergences' && (
+          <div style={{ height: '100%', overflowY: 'auto', padding: '32px 48px' }}>
+            {/* Header */}
+            <div style={{ marginBottom: '28px' }}>
+              <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', color: '#D9B873', marginTop: 0, marginBottom: '8px' }}>Active Divergences</h2>
+              <p style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.9rem', color: '#9B9285', lineHeight: 1.5, margin: 0, maxWidth: '700px' }}>
+                Contradictions detected in the patient record. Prism holds both claims without overwriting.
+              </p>
+            </div>
+
+            {/* Divergence Cards */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '900px' }}>
+              {DEMO_DIVERGENCES.map((div, idx) => (
+                <div key={idx} style={{ background: '#12141A', border: '1px solid rgba(255,80,80,0.2)', borderRadius: '12px', padding: '20px' }}>
+                  {/* Topic Header Row */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.3rem', color: '#EDEAE3' }}>{div.topic}</div>
+                    <span style={{
+                      fontFamily: "'Work Sans', sans-serif",
+                      fontSize: '0.6rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.1em',
+                      padding: '3px 10px',
+                      borderRadius: '10px',
+                      background: div.status === 'active' ? 'rgba(255,80,80,0.12)' : 'rgba(76,175,80,0.12)',
+                      color: div.status === 'active' ? '#E85D5D' : '#4CAF50',
+                      border: `1px solid ${div.status === 'active' ? 'rgba(255,80,80,0.3)' : 'rgba(76,175,80,0.3)'}`,
+                    }}>
+                      {div.status === 'active' ? 'ACTIVE' : 'RESOLVED'}
+                    </span>
+                  </div>
+
+                  {/* Side-by-side Claims */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '0', alignItems: 'stretch' }}>
+                    {/* Claim A */}
+                    <div style={{ background: '#0A0C10', padding: '12px', borderRadius: '8px' }}>
+                      <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.6rem', color: '#6B6560', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 600 }}>Claim A</div>
+                      <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', color: '#EDEAE3', lineHeight: 1.5, marginBottom: '10px' }}>{div.claimA.text}</div>
+                      <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.7rem', color: '#A8A39A', marginBottom: '8px' }}>📄 {div.claimA.source}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ flex: 1, height: '4px', background: '#1a1c22', borderRadius: '2px', overflow: 'hidden' }}>
+                          <div style={{ width: `${div.claimA.credibility * 100}%`, height: '100%', background: getCredibilityColor(div.claimA.credibility), borderRadius: '2px', transition: 'width 0.3s' }} />
+                        </div>
+                        <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.65rem', color: getCredibilityColor(div.claimA.credibility), fontWeight: 600 }}>{Math.round(div.claimA.credibility * 100)}%</span>
+                      </div>
+                    </div>
+
+                    {/* Contradiction Indicator */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ width: '1px', flex: 1, background: 'rgba(255,80,80,0.3)' }} />
+                      <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>⚡</span>
+                      <div style={{ width: '1px', flex: 1, background: 'rgba(255,80,80,0.3)' }} />
+                    </div>
+
+                    {/* Claim B */}
+                    <div style={{ background: '#0A0C10', padding: '12px', borderRadius: '8px' }}>
+                      <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.6rem', color: '#6B6560', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 600 }}>Claim B</div>
+                      <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', color: '#EDEAE3', lineHeight: 1.5, marginBottom: '10px' }}>{div.claimB.text}</div>
+                      <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.7rem', color: '#A8A39A', marginBottom: '8px' }}>📄 {div.claimB.source}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ flex: 1, height: '4px', background: '#1a1c22', borderRadius: '2px', overflow: 'hidden' }}>
+                          <div style={{ width: `${div.claimB.credibility * 100}%`, height: '100%', background: getCredibilityColor(div.claimB.credibility), borderRadius: '2px', transition: 'width 0.3s' }} />
+                        </div>
+                        <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.65rem', color: getCredibilityColor(div.claimB.credibility), fontWeight: 600 }}>{Math.round(div.claimB.credibility * 100)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ═══ TAB 3: DDx ARENA (split: chat + context sidebar) ═══ */}
         {mainTab === 'ddx' && (
           <div style={{ height: '100%', display: 'flex' }}>
@@ -520,6 +627,17 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                       /* Normal single bubble */
                       <div style={{ background: msg.sender === 'bot' ? 'rgba(95,174,176,0.06)' : 'rgba(217,184,115,0.06)', padding: '14px 18px', borderRadius: '10px', border: msg.sender === 'bot' ? '1px solid rgba(95,174,176,0.12)' : '1px solid rgba(217,184,115,0.12)', maxWidth: '90%', fontFamily: "'Work Sans', sans-serif", fontSize: '0.9rem', lineHeight: 1.6, color: '#EDEAE3' }}>
                         {msg.text.split('\n').map((line, j) => <React.Fragment key={j}>{line}<br/></React.Fragment>)}
+                        {/* Source Attribution Pills */}
+                        {msg.sender === 'bot' && msg.referenced_nodes && msg.referenced_nodes.length > 0 && (
+                          <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(95,174,176,0.1)', display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+                            <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.6rem', color: '#6B6560', textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: '4px' }}>Sources:</span>
+                            {msg.referenced_nodes.map((node, ni) => (
+                              <span key={ni} style={{ background: 'rgba(95,174,176,0.15)', color: '#5FAEB0', borderRadius: '4px', padding: '2px 8px', fontSize: '0.7rem', fontFamily: "'Work Sans', sans-serif", lineHeight: 1.4 }}>
+                                {typeof node === 'string' ? node : (node.label || node.id || 'Node')}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

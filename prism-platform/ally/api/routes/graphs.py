@@ -1,5 +1,6 @@
-"""Graph API routes — read graph state, snapshots, and graph editing."""
+"""Graph API routes — read graph state, snapshots, graph editing, document ingestion, and divergence tracking."""
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 from typing import Dict, Any, Optional
 
 router = APIRouter(prefix="/api/v1/patients/{patient_id}/graph", tags=["graph"])
@@ -136,3 +137,101 @@ def reset_patient(patient_id: str):
         "current_graph": fresh_pg.get_graph_state(),
     }
 
+
+# ═══════════════════════════════════════════════════════════════════
+# Quick Win #5: Document Ingestion — showcase Prism's DocumentExtractor
+# ═══════════════════════════════════════════════════════════════════
+
+class IngestRequest(BaseModel):
+    text: str
+    source_name: str = "Clinical Note"
+
+
+@router.post("/ingest")
+def ingest_document(patient_id: str, req: IngestRequest):
+    """Ingest raw clinical text → extract claims → auto-populate graph via Prism DocumentExtractor."""
+    pg = _store["firewall"].get_patient_graph(patient_id)
+    if not pg:
+        raise HTTPException(404, "Patient not found")
+
+    from prism.engine.memory.extractor import DocumentExtractor
+    from prism.engine.reasoning.llm_client import LLMClient
+
+    llm = LLMClient(mock=False)
+    extractor = DocumentExtractor(graph=pg, llm_client=llm)
+
+    result = extractor.ingest_text(req.text, source_name=req.source_name)
+
+    _save(patient_id)
+
+    return {
+        "status": "ingested",
+        "source": req.source_name,
+        "extraction_stats": result,
+        "current_graph": pg.get_graph_state(),
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Quick Win #6: Divergence Tracking — showcase Prism's Divergence system
+# ═══════════════════════════════════════════════════════════════════
+
+@router.get("/divergences")
+def get_divergences(patient_id: str):
+    """Return all active divergences (contradictions) from Prism's TemporalGraph."""
+    pg = _store["firewall"].get_patient_graph(patient_id)
+    if not pg:
+        raise HTTPException(404, "Patient not found")
+
+    divergences = pg.get_all_divergences()
+
+    results = []
+    for d in divergences:
+        claim_a = pg.get_node(d.claim_a_id)
+        claim_b = pg.get_node(d.claim_b_id)
+
+        results.append({
+            "id": d.id,
+            "topic": d.topic,
+            "status": d.status,
+            "claim_a": {
+                "node_id": d.claim_a_id,
+                "text": claim_a.properties.get("text", "Unknown") if claim_a else "Unknown",
+                "source": claim_a.properties.get("source_doc", "Unknown") if claim_a else "Unknown",
+                "credibility": claim_a.properties.get("credibility", 0.5) if claim_a else 0.5,
+            },
+            "claim_b": {
+                "node_id": d.claim_b_id,
+                "text": claim_b.properties.get("text", "Unknown") if claim_b else "Unknown",
+                "source": claim_b.properties.get("source_doc", "Unknown") if claim_b else "Unknown",
+                "credibility": claim_b.properties.get("credibility", 0.5) if claim_b else 0.5,
+            },
+        })
+
+    return {
+        "patient_id": patient_id,
+        "divergence_count": len(results),
+        "divergences": results,
+    }
+
+
+@router.post("/divergences")
+def add_divergence(patient_id: str, topic: str, claim_a_node_id: str, claim_b_node_id: str):
+    """Manually register a divergence between two existing graph nodes."""
+    pg = _store["firewall"].get_patient_graph(patient_id)
+    if not pg:
+        raise HTTPException(404, "Patient not found")
+
+    node_a = pg.get_node(claim_a_node_id)
+    node_b = pg.get_node(claim_b_node_id)
+    if not node_a or not node_b:
+        raise HTTPException(404, "One or both node IDs not found on graph")
+
+    div_id = pg.add_divergence(claim_a_node_id, claim_b_node_id, topic)
+    _save(patient_id)
+
+    return {
+        "status": "created",
+        "divergence_id": div_id,
+        "topic": topic,
+    }

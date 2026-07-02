@@ -139,6 +139,8 @@ const APP_MODE = {
  * LANDING PAGE COMPONENT
  * ═══════════════════════════════════════════════════════════════════ */
 function LandingPage({ onDemoMode, onChatMode, onProviderMode }) {
+  const [showPrismInfo, setShowPrismInfo] = useState(false);
+
   return (
     <div className="fade-enter-active" style={{
       width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column',
@@ -179,6 +181,60 @@ function LandingPage({ onDemoMode, onChatMode, onProviderMode }) {
         }}>
           Your patient companion that remembers, knows, cares, and collaborates.
         </p>
+
+        {/* Powered by Prism badge */}
+        <div
+          onMouseEnter={() => setShowPrismInfo(true)}
+          onMouseLeave={() => setShowPrismInfo(false)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            marginTop: '20px', position: 'relative', cursor: 'default',
+          }}
+        >
+          <div style={{
+            padding: '6px 16px',
+            border: '1px solid rgba(217,184,115,0.2)',
+            borderRadius: '999px',
+            fontFamily: "'Work Sans', sans-serif",
+            fontSize: '0.7rem',
+            letterSpacing: '0.15em',
+            textTransform: 'uppercase',
+            color: '#9B9285',
+            transition: 'all 0.3s ease',
+            borderColor: showPrismInfo ? 'rgba(217,184,115,0.4)' : 'rgba(217,184,115,0.2)',
+          }}>
+            ⬡ Powered by Prism
+          </div>
+
+          {/* Expanded tooltip */}
+          <div style={{
+            position: 'absolute',
+            top: 'calc(100% + 10px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            opacity: showPrismInfo ? 1 : 0,
+            pointerEvents: showPrismInfo ? 'auto' : 'none',
+            transition: 'opacity 0.3s ease, transform 0.3s ease',
+            background: 'rgba(15,15,18,0.95)',
+            border: '1px solid rgba(217,184,115,0.15)',
+            borderRadius: '10px',
+            padding: '12px 18px',
+            whiteSpace: 'nowrap',
+            fontFamily: "'Work Sans', sans-serif",
+            fontSize: '0.65rem',
+            letterSpacing: '0.08em',
+            color: '#8A857D',
+            lineHeight: 1.7,
+            backdropFilter: 'blur(12px)',
+            zIndex: 10,
+          }}>
+            <span style={{ color: '#9B9285', fontWeight: 500 }}>Prism Architecture:</span>{' '}
+            Temporal Memory Graph{' • '}
+            Adversarial Reasoning Engine{' • '}
+            Credibility-Weighted Evidence{' • '}
+            Divergence Tracking
+          </div>
+        </div>
       </div>
 
       {/* Mode cards */}

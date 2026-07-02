@@ -43,6 +43,20 @@ function nodeColor(kind) {
 function isLockedKind(kind) {
   return kind === 'locked' || kind === 'undisclosed' || kind === 'therapist_locked';
 }
+function credibilityBadge(kind) {
+  switch (kind) {
+    case 'clinical': case 'medication':
+      return { color: '#4CAF50', label: 'Clinical: High Credibility' };
+    case 'locked': case 'therapist_locked':
+      return { color: '#5FAEB0', label: 'Clinician-Sourced' };
+    case 'undisclosed':
+      return { color: '#D9B873', label: 'Patient-Stated: Unverified' };
+    case 'inferred':
+      return { color: '#C17A5A', label: 'Inferred: Low Credibility' };
+    default:
+      return null; // identity nodes — no badge
+  }
+}
 
 // ── zoom button style ────────────────────────────────────────────────
 const zoomBtnStyle = {
@@ -347,6 +361,21 @@ export default function InteractiveGraph({
                     filter={isPulse || node.kind === 'significance' ? 'url(#bloom)' : 'url(#dropshadow)'}
                     style={{ transition: 'r 700ms cubic-bezier(.34,1.56,.64,1)' }}
                   />
+
+                  {/* Credibility badge */}
+                  {(() => {
+                    const badge = credibilityBadge(node.kind);
+                    if (!badge) return null;
+                    return (
+                      <circle
+                        cx={r * 0.7} cy={-r * 0.7} r={4}
+                        fill={badge.color} stroke="#fff" strokeWidth={1}
+                        style={{ pointerEvents: 'none' }}
+                      >
+                        <title>{badge.label}</title>
+                      </circle>
+                    );
+                  })()}
 
                   {/* Specular highlight (not for locked) */}
                   {!locked && (
