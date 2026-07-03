@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, AlertTriangle, Send, ChevronDown, ChevronRight, Lock, Brain, FileText, MessageCircle, Stethoscope } from 'lucide-react';
 import InteractiveGraph from './VirtualBrain';
 import NodeDetailPanel from './NodeDetailPanel';
+import DdxDebate from './DdxDebate';
 import * as api from '../api';
 
 const DEMO_DIVERGENCES = [
@@ -140,6 +141,9 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
   const [isScribing, setIsScribing] = useState(false);
   const [scribeResult, setScribeResult] = useState(null);
 
+  // DDx Debate
+  const [debateTopic, setDebateTopic] = useState(null); // When set, shows full debate UI
+
   // Graph state
   const [detailKind, setDetailKind] = useState(null); // 'node' or 'edge'
   const [detailTarget, setDetailTarget] = useState(null);
@@ -195,6 +199,14 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
     if (!input.trim() || isSending) return;
     
     const text = input.trim();
+
+    // In Judge/debate mode, open the full DdxDebate component instead of chat
+    if (ddxRole === 'debate') {
+      setInput('');
+      setDebateTopic(text);
+      return;
+    }
+
     setInput('');
     setMessages(prev => [...prev, { sender: 'clinician', text, ddxRole }]);
     setIsSending(true);
@@ -204,7 +216,6 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
       if (ddxRole === 'defend') apiText = `[DDX ARENA: I am proposing a diagnosis. Rule it out using graph evidence.] ${text}`;
       else if (ddxRole === 'challenge') apiText = `[DDX ARENA: I am challenging your primary diagnosis. Defend it with specific patient quotes.] ${text}`;
       else if (ddxRole === 'compare') apiText = `[DDX ARENA: Let's compare Hypothesis A vs Hypothesis B.] ${text}`;
-      else if (ddxRole === 'debate') apiText = `[DDX ARENA: LIVE DEBATE — Present the full Advocate, Skeptic, and Judge analysis with graph evidence.] ${text}`;
 
       const res = await api.sendClinicianMessage(patientId, apiText);
       const botText = res.response?.text || res.text || 'No response generated.';
@@ -629,6 +640,18 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
         {/* ═══ TAB 3: DDx ARENA (split: chat + context sidebar) ═══ */}
         {mainTab === 'ddx' && (
           <div style={{ height: '100%', display: 'flex' }}>
+            {/* If debate mode is active, show full DdxDebate component */}
+            {debateTopic ? (
+              <div style={{ flex: 1 }}>
+                <DdxDebate
+                  patientId={patientId}
+                  patientName={patientName}
+                  topic={debateTopic}
+                  onClose={() => setDebateTopic(null)}
+                />
+              </div>
+            ) : (
+            <>
             {/* LEFT: Chat (60%) */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
               {/* Chat Messages */}
@@ -904,6 +927,8 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                 </div>
               )}
             </div>
+            </>
+            )}
           </div>
         )}
 

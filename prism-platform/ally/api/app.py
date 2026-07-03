@@ -19,7 +19,7 @@ from ally.engine.handoff_generator import HandoffGenerator
 from ally.engine.clinician_engine import ClinicianEngine
 from ally.engine.persistence import save_patient, save_all, load_all, DEFAULT_DATA_DIR
 
-from ally.api.routes import patients, conversations, graphs, consolidation, handoffs, clinician
+from ally.api.routes import patients, conversations, graphs, consolidation, handoffs, clinician, debate
 
 app = FastAPI(
     title="Ally API",
@@ -57,6 +57,7 @@ graphs.set_store(store)
 consolidation.set_store(store)
 handoffs.set_store(store)
 clinician.set_store(store)
+debate.set_store(store)
 
 # ── Register routers ───────────────────────────────────────────────
 app.include_router(patients.router)
@@ -65,6 +66,7 @@ app.include_router(graphs.router)
 app.include_router(consolidation.router)
 app.include_router(handoffs.router)
 app.include_router(clinician.router)
+app.include_router(debate.router)
 
 
 @app.get("/api")
@@ -121,6 +123,7 @@ def _reinject_store():
     consolidation.set_store(store)
     handoffs.set_store(store)
     clinician.set_store(store)
+    debate.set_store(store)
 
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse

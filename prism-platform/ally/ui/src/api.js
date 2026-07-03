@@ -98,3 +98,16 @@ export const deleteEdge = (patientId, source, target) =>
 
 export const resetPatient = (patientId) =>
   apiFetch(`/api/v1/patients/${patientId}/graph/reset`, { method: 'POST' });
+
+// ── DDx Debate ──────────────────────────────────────────────────────
+export const getDebateStreamUrl = (patientId, topic, forModel, againstModel, judgeModel) =>
+  `${API_BASE}/api/v1/patients/${patientId}/debate/stream?topic=${encodeURIComponent(topic)}&for_model=${forModel}&against_model=${againstModel}&judge_model=${judgeModel}`;
+
+export const submitHumanTurn = (patientId, sessionId, role, text, scoreDelta, endDebate, winner) =>
+  apiFetch(`/api/v1/patients/${patientId}/debate/human_turn`, {
+    method: 'POST',
+    body: JSON.stringify({ session_id: sessionId, role, text, score_delta: scoreDelta, end_debate: endDebate, winner }),
+  });
+
+export const stopDebate = (patientId, sessionId) =>
+  apiFetch(`/api/v1/patients/${patientId}/debate/stop?session_id=${sessionId}`, { method: 'POST' });
