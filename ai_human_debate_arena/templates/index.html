@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>AI Human Debate Arena</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@500&family=Cinzel:wght@700&display=swap"
         rel="stylesheet">
@@ -462,8 +463,68 @@
     </div>
 
     </div>
+
+    <!-- Handle Creation Modal -->
+    <div id="handle-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 450px;">
+            <h2 style="margin: 0 0 10px; font-size: 1.5rem;">Choose Your Handle</h2>
+            <p style="color: #9ca3af; margin-bottom: 25px; font-size: 0.95rem;">
+                Create a username to identify your debates when sharing. You only need to do this once.
+            </p>
+
+            <div style="margin-bottom: 25px;">
+                <label style="display: block; margin-bottom: 8px; font-size: 0.9rem; color: #9ca3af;">
+                    Handle (username):
+                </label>
+                <input type="text" id="handle-input" placeholder="e.g., debater_42"
+                    onkeypress="handleHandleKeyPress(event)"
+                    style="width: 100%; padding: 14px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: white; font-size: 1rem;"
+                    maxlength="20">
+                <p style="font-size: 0.8rem; color: #666; margin-top: 8px;">
+                    3-20 characters: letters, numbers, underscores, or hyphens
+                </p>
+            </div>
+
+            <button onclick="saveHandle()"
+                style="width: 100%; padding: 14px; background: linear-gradient(135deg, #38bdf8, #2563eb); border: none; border-radius: 6px; color: white; font-weight: 700; font-size: 1rem; cursor: pointer;">
+                Save & Continue
+            </button>
+        </div>
+    </div>
+
+    <!-- Quick Share Modal -->
+    <div id="quick-share-overlay" class="modal hidden"
+        style="z-index: 9999; background: transparent; backdrop-filter: none; align-items: flex-end; justify-content: flex-end; padding: 20px;">
+        <div class="modal-content glass-panel"
+            style="max-width: 380px; width: 100%; text-align: center; border: 1px solid rgba(56,189,248,0.4); background: rgba(15,23,42,0.95); box-shadow: 0 10px 40px rgba(0,0,0,0.5); padding: 20px; border-radius: 12px;">
+            <div class="modal-header" style="justify-content: center; position: relative;">
+                <h2
+                    style="color: #e2e8f0; font-size: 1.1rem; margin: 0; text-transform: uppercase; letter-spacing: 1px;">
+                    🚀 Share Result</h2>
+                <button onclick="closeQuickShareModal()" class="close-btn"
+                    style="position: absolute; right: 0; top: -5px;">&times;</button>
+            </div>
+
+            <div id="share-topic-display"
+                style="font-size: 1rem; color: #93c5fd; margin: 15px 0; font-weight: 500; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 12px;">
+                Topic Name
+            </div>
+
+            <div class="share-buttons-grid" style="margin-top: 10px;">
+                <button id="btn-share-preferred" class="share-btn preferred" onclick="shareByPlatform('twitter')">
+                    Share on X/Twitter
+                </button>
+                <button class="share-btn" onclick="shareToTwitter()">X/Twitter</button>
+                <button class="share-btn" onclick="shareToLinkedIn()">LinkedIn</button>
+                <button class="share-btn" onclick="shareToFacebook()">Facebook</button>
+                <button class="share-btn" onclick="shareToReddit()">Reddit</button>
+                <button class="share-btn copy-link-btn" onclick="copyQuickShareLink(this)">🔗 Copy Link</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <script src="/static/script.js?v=1.45.1"></script>
+    <script src="/static/script.js?v=1.46.2"></script>
 </body>
 
 </html>

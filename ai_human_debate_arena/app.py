@@ -2,13 +2,15 @@ import os
 import re
 import io
 import tempfile
-from flask import Flask, render_template, request, Response, stream_with_context, jsonify
+from flask import Flask, render_template, request, Response, stream_with_context, jsonify, send_file
 import time
 import json
 import random
+from PIL import Image, ImageDraw, ImageFont
 from google import genai
 from openai import OpenAI
 from dotenv import load_dotenv
+from database import save_debate, get_debate_by_slug, record_vote
 
 load_dotenv(override=True)
 api_key = os.getenv("GOOGLE_API_KEY")
@@ -1063,6 +1065,304 @@ def debate():
         yield json.dumps({"role": "judge", "state": "online", "text": "Session closed.", "round": "SYSTEM"}) + "\n"
 
     return Response(generate(), mimetype='application/x-ndjson')
+
+# ============================================
+# SHAREABLE DEBATES (Day 1 MVP)
+# ============================================
+
+def generate_slug(topic, advocate_model, skeptic_model, advocate_tone):
+    """Generate URL-friendly slug from debate parameters"""
+    import re
+    # Clean topic: lowercase, remove special chars, limit length
+    topic_slug = re.sub(r'[^a-z0-9]+', '-', topic.lower())[:50].strip('-')
+    # Add models and persona
+    slug = f"{topic_slug}-{advocate_model}-{skeptic_model}-{advocate_tone}"
+    return slug
+
+# Hardcoded debate for Day 1 testing
+DEMO_DEBATE = {
+    'slug': 'universal-basic-income-gemini-deepseek-spicy',
+    'topic': 'Should the US implement Universal Basic Income?',
+    'creator_name': 'PolicyNerd',
+    'created_at': '2 hours ago',
+    'models': {
+        'advocate': 'Gemini',
+        'skeptic': 'DeepSeek'
+    },
+    'personas': {
+        'advocate': 'Spicy',
+        'skeptic': 'Scholar'
+    },
+    'transcript': [
+        {'role': 'judge', 'content': 'Let the debate begin!'},
+        {'role': 'advocate', 'content': 'Universal Basic Income isn\'t just a policy; it\'s a lifeline in a world drowning in economic uncertainty. 44% of Americans can\'t cover a $400 emergency - families one flat tire away from ruin. UBI would inject stability, boost the economy by 12.56%, and create 4.6 million jobs according to the Roosevelt Institute. McKinsey predicts 73 million US jobs automated by 2030. UBI is about survival in the face of technological displacement, giving people freedom to say NO to toxic jobs and YES to education and entrepreneurship.'},
+        {'role': 'skeptic', 'content': 'They call it a lifeline? I call it economic suicide. This isn\'t about dignity; it\'s about dependency. UBI creates a nation of wards dependent on the state. The bedrock of strong society is self-reliance, not government handouts. UBI obliterates this, devalues work, diminishes ambition, and destroys the fabric of our communities. A society that doesn\'t value work, will not work.'},
+        {'role': 'advocate', 'content': 'Dependency? What destroys self-reliance is working 60 hours a week at poverty wages and still needing food stamps. Stanford research shows UBI boosts entrepreneurship by providing a safety net to take risks. The Heritage Foundation\'s claim that UBI reduces work incentive is a flat-out lie. People want to contribute, to create, to build. UBI gives them breathing room to do it on their own terms.'},
+        {'role': 'judge', 'content': 'This debate showcases fundamentally different visions of human nature and society. The advocate emphasizes economic security and freedom from exploitation, while the skeptic prioritizes self-reliance and warns against state dependency. Both raise valid concerns about work incentives, economic effects, and social cohesion.'},
+    ],
+    'votes': {
+        'for': 847,
+        'against': 400,
+        'total': 1247,
+        'for_percent': 68
+    }
+}
+
+@app.route('/og/<debate_slug>.png')
+def generate_og_image(debate_slug):
+    # Try to fetch from database
+    debate_data = get_debate_by_slug(debate_slug)
+    
+    # Fallback to demo debate if not found
+    if not debate_data:
+        debate = DEMO_DEBATE
+    else:
+        transcript = json.loads(debate_data['transcript'])
+        total_votes = debate_data['votes_for'] + debate_data['votes_against']
+        for_percent = round((debate_data['votes_for'] / total_votes * 100)) if total_votes > 0 else 50
+        winner = 'FOR' if debate_data['votes_for'] > debate_data['votes_against'] else 'AGAINST'
+        if total_votes == 0:
+            winner = 'FOR' if for_percent >= 50 else 'AGAINST'
+            
+        spicy_exchange = "AI debate"
+        if len(transcript) > 1:
+            item = transcript[1]
+            if isinstance(item, str):
+                spicy_exchange = item[:120] + "..."
+            elif isinstance(item, dict) and 'text' in item:
+                spicy_exchange = item['text'][:120] + "..."
+                
+        debate = {
+            'topic': debate_data['topic'],
+            'models': {
+                'advocate': debate_data['advocate_model'],
+                'skeptic': debate_data['skeptic_model']
+            },
+            'winner': winner,
+            'spicy_exchange': spicy_exchange
+        }
+        
+    topic = debate['topic']
+    models_text = f"{debate['models']['advocate']} vs {debate['models']['skeptic']}"
+    winner_text = f"Winner: {debate['winner']}"
+    spicy_text = f"\"{debate.get('spicy_exchange', 'AI Debate')}\""
+
+    # Create image using Pillow
+    width, height = 1200, 630 # Standard OG image size
+    img = Image.new('RGB', (width, height), color=(11, 15, 25))
+    draw = ImageDraw.Draw(img)
+
+    # Fonts
+    try:
+        font_topic = ImageFont.truetype("arialbd.ttf", 64) # Bold Arial for Windows
+        font_subtitle = ImageFont.truetype("arial.ttf", 40)
+        font_spicy = ImageFont.truetype("ariali.ttf", 48) # Italic Arial
+    except IOError:
+        # Fallback if fonts not found (Linux/Mac might need different paths)
+        try:
+            font_topic = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 64)
+            font_subtitle = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 40)
+            font_spicy = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf", 48)
+        except IOError:
+            font_topic = ImageFont.load_default()
+            font_subtitle = ImageFont.load_default()
+            font_spicy = ImageFont.load_default()
+
+    # Draw Text (Simple centered math)
+    def wrap_text(text, font, max_width):
+        lines = []
+        words = text.split()
+        while words:
+            line = ''
+            while words and font.getlength(line + words[0]) <= max_width:
+                line = line + (words.pop(0) + ' ')
+            lines.append(line)
+        return lines
+
+    # Header - "🔥 AI DEBATE 🔥"
+    draw.text((width/2, 60), "🤖 AI DEBATE ARENA 🤖", font=font_subtitle, fill=(56, 189, 248), anchor="mt")
+
+    # Topic
+    y_text = 150
+    for line in wrap_text(topic, font_topic, width - 100):
+        draw.text((width/2, y_text), line, font=font_topic, fill=(243, 244, 246), anchor="mt")
+        y_text += 80
+
+    # Spicy Quote
+    y_text += 40
+    for line in wrap_text(spicy_text, font_spicy, width - 200):
+        draw.text((width/2, y_text), line, font=font_spicy, fill=(156, 163, 175), anchor="mt")
+        y_text += 60
+
+    # Bottom Models & Winner
+    draw.text((100, height - 100), models_text, font=font_subtitle, fill=(147, 197, 253), anchor="ls")
+    draw.text((width - 100, height - 100), winner_text, font=font_topic, fill=(52, 211, 153), anchor="rs")
+
+    # Save to buffer and return
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    buf.seek(0)
+    return send_file(buf, mimetype='image/png')
+
+@app.route('/d/<debate_slug>')
+def shareable_debate(debate_slug):
+    """Shareable debate page"""
+
+    # Try to fetch from database
+    debate_data = get_debate_by_slug(debate_slug)
+
+    # Fallback to demo debate if not found
+    if not debate_data:
+        debate = DEMO_DEBATE
+    else:
+        # Convert database row to debate dict
+        transcript = json.loads(debate_data['transcript'])
+        total_votes = debate_data['votes_for'] + debate_data['votes_against']
+        for_percent = round((debate_data['votes_for'] / total_votes * 100)) if total_votes > 0 else 50
+
+        # Determine winner from votes
+        if total_votes > 0:
+            winner = 'FOR' if debate_data['votes_for'] > debate_data['votes_against'] else 'AGAINST'
+        else:
+            winner = 'FOR' if for_percent >= 50 else 'AGAINST'
+
+        # Extract judge's final verdict from transcript
+        judge_verdict = None
+        judge_score = None
+        for msg in reversed(transcript):
+            if isinstance(msg, dict) and msg.get('role') == 'judge':
+                judge_verdict = msg.get('text', '')
+                # Try to extract score if present
+                if 'Score:' in judge_verdict or 'FOR:' in judge_verdict or 'AGAINST:' in judge_verdict:
+                    judge_score = judge_verdict
+                break
+            elif isinstance(msg, str) and msg.lower().startswith('judge:'):
+                judge_verdict = msg.split(':', 1)[1].strip()
+                if 'Score:' in judge_verdict or 'FOR:' in judge_verdict or 'AGAINST:' in judge_verdict:
+                    judge_score = judge_verdict
+                break
+
+        debate = {
+            'slug': debate_data['slug'],
+            'topic': debate_data['topic'],
+            'creator_name': debate_data['creator_name'],
+            'created_at': debate_data['created_at'],
+            'models': {
+                'advocate': debate_data['advocate_model'],
+                'skeptic': debate_data['skeptic_model']
+            },
+            'personas': {
+                'advocate': debate_data['advocate_tone'],
+                'skeptic': debate_data['skeptic_tone']
+            },
+            'transcript': transcript,
+            'votes': {
+                'for': debate_data['votes_for'],
+                'against': debate_data['votes_against'],
+                'total': total_votes,
+                'for_percent': for_percent
+            },
+            'winner': winner,
+            'judge_verdict': judge_verdict,
+            'judge_score': judge_score
+        }
+
+    # Calculate OG description
+    # Debug: print transcript structure
+    print(f"\n=== DEBUG SHAREABLE DEBATE: {debate_slug} ===")
+    print(f"Transcript type: {type(debate['transcript'])}")
+    print(f"Transcript length: {len(debate['transcript'])}")
+    if len(debate['transcript']) > 0:
+        print(f"First item: {debate['transcript'][0]}")
+    if len(debate['transcript']) > 1:
+        print(f"Second item type: {type(debate['transcript'][1])}")
+        print(f"Second item value: {debate['transcript'][1]}")
+    print(f"===================\n")
+
+    try:
+        spicy_exchange = debate['transcript'][1]['text'][:100] if len(debate['transcript']) > 1 else "AI debate"
+    except (TypeError, KeyError) as e:
+        print(f"DEBUG: Error accessing transcript: {e}")
+        # Fallback if transcript structure is different
+        if len(debate['transcript']) > 1:
+            item = debate['transcript'][1]
+            if isinstance(item, str):
+                spicy_exchange = item[:100]
+            else:
+                spicy_exchange = str(item)[:100]
+        else:
+            spicy_exchange = "AI debate"
+
+    # More provocative og_description
+    winner_text = f"{debate['winner']} WON" if debate.get('winner') else f"{debate['votes']['for_percent']}% say FOR won"
+    og_description = f"🔥 {debate['models']['advocate']} vs {debate['models']['skeptic']} — {winner_text}! \"{spicy_exchange}...\" Think the AI got it wrong? Vote and prove it!"
+
+    return render_template('shareable_debate.html',
+                         debate=debate,
+                         og_description=og_description,
+                         current_url=f"https://boardroom-debate-525536279111.us-central1.run.app/d/{debate_slug}")
+
+@app.route('/api/vote/<debate_slug>', methods=['POST'])
+def vote_on_debate(debate_slug):
+    """Track vote on a debate"""
+    data = request.get_json()
+    vote = data.get('vote')  # 'for' or 'against'
+
+    # Get IP hash for deduplication (basic)
+    ip_hash = hash(request.remote_addr) % 1000000
+
+    # Record vote in database
+    new_totals = record_vote(debate_slug, vote, str(ip_hash))
+
+    return jsonify({
+        'success': True,
+        'new_totals': new_totals
+    })
+
+@app.route('/api/save_debate', methods=['POST'])
+def save_debate_endpoint():
+    """Save a completed debate"""
+    data = request.get_json()
+
+    base_slug = generate_slug(
+        data['topic'],
+        data['advocate_model'],
+        data['skeptic_model'],
+        data['advocate_tone']
+    )
+
+    # Handle slug collisions by adding a suffix
+    slug = base_slug
+    counter = 2
+    while True:
+        try:
+            save_debate(
+                slug=slug,
+                topic=data['topic'],
+                creator_name=data.get('creator_name', 'Guest'),
+                advocate_model=data['advocate_model'],
+                skeptic_model=data['skeptic_model'],
+                advocate_tone=data['advocate_tone'],
+                skeptic_tone=data['skeptic_tone'],
+                judge_model=data['judge_model'],
+                transcript=data['transcript']
+            )
+            break  # Success
+        except Exception as e:
+            if 'UNIQUE constraint failed' in str(e):
+                # Slug collision, try with suffix
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+                if counter > 100:  # Safety limit
+                    raise Exception("Too many slug collisions")
+            else:
+                raise  # Re-raise other errors
+
+    return jsonify({
+        'success': True,
+        'slug': slug,
+        'url': f'/d/{slug}'
+    })
 
 @app.route('/_dev/mobile')
 def mobile_concepts():

@@ -259,7 +259,7 @@ def _build_elena() -> PatientGraph:
     pg.snapshot("post-patel-session-1")
 
     # ── HANDOFF PACKAGE ─────────────────────────────────────────────
-    pg.handoffs.append(HandoffPackage(
+    handoff = HandoffPackage(
         patient_id=patient.id,
         patient_name="Elena Ramirez",
         recipient="Dr. A. Patel, Behavioral Health",
@@ -289,7 +289,12 @@ def _build_elena() -> PatientGraph:
             "Partner-violence dynamics are escalating but Elena does not yet name them as such",
         ],
         consent="Patient has consented to bot-clinician communication going forward. Patient retains full control over what bot shares with clinician and what clinician shares back to bot. Both parties can lock content. Lock annotations visible in graph.",
-    ))
+    )
+    graph_state = pg.get_graph_state()
+    handoff.graph_nodes = graph_state.get("nodes", [])
+    handoff.graph_edges = graph_state.get("edges", [])
+    handoff.graph_positions = pg.get_positions()
+    pg.handoffs.append(handoff)
 
     return pg
 
@@ -506,7 +511,7 @@ def _build_daniel() -> PatientGraph:
     pg.snapshot("post-clinician-sessions")
 
     # ── HANDOFF PACKAGES ────────────────────────────────────────────
-    pg.handoffs.append(HandoffPackage(
+    handoff = HandoffPackage(
         patient_id=patient.id,
         patient_name="Daniel Ramirez",
         recipient="Dr. L. Tran, Primary Care / Sexual Health",
@@ -527,11 +532,16 @@ def _build_daniel() -> PatientGraph:
             'Patient noted concern about chart visibility ("my mother does not look at my chart") — affirm confidentiality at first contact',
             "Recommended timeline: testing within 48 hours; PrEP initiation pending negative result",
         ],
-        hypotheses=[],
+        hypotheses=["Adjustment disorder with depressed mood", "Identity conflict"],
         consent="Patient consented. Bot will support adherence between visits per Dr. Tran's clinical plan once initiated.",
-    ))
+    )
+    graph_state = pg.get_graph_state()
+    handoff.graph_nodes = graph_state.get("nodes", [])
+    handoff.graph_edges = graph_state.get("edges", [])
+    handoff.graph_positions = pg.get_positions()
+    pg.handoffs.append(handoff)
 
-    pg.handoffs.append(HandoffPackage(
+    handoff2 = HandoffPackage(
         patient_id=patient.id,
         patient_name="Daniel Ramirez",
         recipient="Dr. A. Patel, Behavioral Health",
@@ -553,6 +563,11 @@ def _build_daniel() -> PatientGraph:
             "Avoidance of HIV testing for two months may have been partly motivated by not wanting to disrupt the relationship Marco represents — flagged for clinician confirmation",
         ],
         consent="Patient consented. Two-clinician structure: Dr. Tran (sexual health) and Dr. Patel (behavioral health) operate independently unless patient authorizes coordination.",
-    ))
+    )
+    graph_state2 = pg.get_graph_state()
+    handoff2.graph_nodes = graph_state2.get("nodes", [])
+    handoff2.graph_edges = graph_state2.get("edges", [])
+    handoff2.graph_positions = pg.get_positions()
+    pg.handoffs.append(handoff2)
 
     return pg

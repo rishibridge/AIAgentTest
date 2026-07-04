@@ -548,7 +548,13 @@ function handleDebateButton() {
     } else if (debateState.active || debateState.isDebating) {
         pauseDebate();
     } else {
-        showSettings();
+        // Check if user has a handle before starting debate
+        const creatorName = localStorage.getItem('creatorName');
+        if (!creatorName) {
+            showHandleModal();
+        } else {
+            showSettings();
+        }
     }
 }
 
@@ -986,12 +992,17 @@ async function runDebateProtocol() {
                 }
 
                 if (debateEnded) {
-                    // ALWAYS generate formal verdict before ending
-                    await executeTurn('judge', false, true, false); // is_final=true
+                    // For AI judge, generate formal verdict before ending.
+                    // For human judge, final verdict is already provided via handleHumanJudge(true).
+                    if (config.judgeModel !== 'human') {
+                        await executeTurn('judge', false, true, false); // is_final=true
+                    }
 
                     // Winner Celebration (only for non-draw)
                     if (winner && winner !== 'draw') triggerWinAnimation(winner);
                     saveDebateToHistory(debateState.topic, winner || 'Unknown');
+                    // Always trigger share flow on completed debate, including early human-judge end path
+                    await autoShareCompletedDebate();
                     renderMessage({ role: 'judge', text: "Session closed.", round: 'SYSTEM', state: 'online' });
                     document.querySelector('.header-logo').classList.remove('debating');
                     setInputState('hidden');
@@ -999,6 +1010,7 @@ async function runDebateProtocol() {
                     debateState.isDebating = false;
                     setDebateControlsEnabled(true);  // Re-enable controls
                     document.body.classList.remove('debate-fullscreen');
+
                     return; // Exit the loop
                 }
             }
@@ -1048,6 +1060,9 @@ async function runDebateProtocol() {
 
         // SAVE HISTORY
         saveDebateToHistory(debateState.topic, winner || 'Unknown');
+
+        // AUTO-SHARE: Save to database and show quick share modal
+        autoShareCompletedDebate();
 
         renderMessage({ role: 'judge', text: "Session closed.", round: 'SYSTEM', state: 'online' });
         document.querySelector('.header-logo').classList.remove('debating');
@@ -1374,6 +1389,8 @@ function handleHumanJudge(isForVerdict = false) {
             } else if (endDebate) {
                 // User clicked "End & Declare Winner" - don't render message,
                 // just signal to show the verdict UI
+                const score = scoreOrWinner;
+                updateScoreBar(score, comment || 'Human Judge');
                 shouldRenderMessage = false;
             } else {
                 // Normal round evaluation - scoreOrWinner is a number
@@ -1925,7 +1942,14 @@ function saveDebateToHistory(topic, winner) {
         winner: winner,
         date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         transcript: debateState.history,  // Keep original format for backwards compatibility
-        messages: transcriptWithVoice     // New enhanced format with voice data
+        messages: transcriptWithVoice,     // New enhanced format with voice data
+        config: {
+            advocateModel: debateState.advocateModel || 'gemini',
+            skepticModel: debateState.skepticModel || 'gemini',
+            advocateTone: debateState.advocateTone || 'casual',
+            skepticTone: debateState.skepticTone || 'casual',
+            judgeModel: debateState.judgeModel || 'gemini'
+        }
     };
 
     // Add to top
@@ -2231,6 +2255,9 @@ function showHistory() {
                 </div>
                 <div class="history-stats">
                     <span>💬 ${msgCount} messages</span>
+                    <button class="history-share-btn" onclick="event.stopPropagation(); shareHistoryDebate(${index})" title="Share this debate">
+                        🔗 Share
+                    </button>
                 </div>
             `;
             list.appendChild(entry);
@@ -2432,12 +2459,433 @@ function closeSettings() {
     setTimeout(() => modal.classList.add('hidden'), 300);
 }
 
+// Share Debate Modal Functions
+
+function promptShareDebate() {
+    saveDebateToDatabase();
+}
+
+async function saveDebateToDatabase() {
+    const creatorName = (localStorage.getItem('creatorName') || 'Guest').trim() || 'Guest';
+
+    // Save name for future debates
+    localStorage.setItem('creatorName', creatorName);
+
+    // Check if we're sharing from history or current debate
+    const sourceData = window.pendingHistoryShare || debateState;
+    const isFromHistory = !!window.pendingHistoryShare;
+
+    // Build transcript
+    let transcript;
+    if (isFromHistory && sourceData.transcript) {
+        // History item already has structured transcript
+        transcript = sourceData.transcript;
+    } else {
+        // Current debate - parse from history array
+        transcript = (sourceData.history || []).map(line => {
+            let role = 'judge';
+            let text = line;
+
+            if (line.toLowerCase().startsWith('advocate:')) {
+                role = 'advocate';
+                text = line.substring(9).trim();
+            } else if (line.toLowerCase().startsWith('skeptic:')) {
+                role = 'skeptic';
+                text = line.substring(8).trim();
+            } else if (line.toLowerCase().startsWith('judge:')) {
+                role = 'judge';
+                text = line.substring(6).trim();
+            }
+
+            return { role, text };
+        });
+    }
+
+    const debateData = {
+        topic: sourceData.topic,
+        creator_name: creatorName,
+        advocate_model: sourceData.config?.advocateModel || 'gemini',
+        skeptic_model: sourceData.config?.skepticModel || 'gemini',
+        advocate_tone: sourceData.config?.advocateTone || 'casual',
+        skeptic_tone: sourceData.config?.skepticTone || 'casual',
+        judge_model: sourceData.config?.judgeModel || 'gemini',
+        transcript: transcript
+    };
+
+    try {
+        const response = await fetch('/api/save_debate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(debateData)
+        });
+
+        if (!response.ok) throw new Error('Failed to save debate');
+
+        const result = await response.json();
+
+        const shareableUrl = `${window.location.origin}/d/${result.slug}`;
+        // Store the URL for copying
+        window.lastShareableUrl = shareableUrl;
+
+        // No-modal behavior: show inline share notice in stream
+        showQuickShareModal(shareableUrl, sourceData.topic);
+
+        // Store slug in history if sharing current debate
+        if (!isFromHistory) {
+            const history = getHistory();
+            // Find the most recent entry with matching topic
+            const matchingEntry = history.find(entry => entry.topic === sourceData.topic);
+            if (matchingEntry) {
+                matchingEntry.slug = result.slug;
+                localStorage.setItem('debate_history', JSON.stringify(history));
+            }
+        }
+
+        // Clear pending history share
+        window.pendingHistoryShare = null;
+
+    } catch (error) {
+        console.error('Error saving debate:', error);
+        alert('Failed to save debate. Please try again.');
+    }
+}
+
+function copyShareLink(event) {
+    const url = window.lastShareableUrl;
+    if (!url) return;
+    navigator.clipboard.writeText(url).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => btn.textContent = originalText, 2000);
+    });
+}
+
+function closeShareModal() {
+    return;
+}
+
+async function shareHistoryDebate(index) {
+    const history = getHistory();
+    const item = history[index];
+    if (!item) return;
+
+    // If this debate was already shared, show the quick share modal
+    if (item.slug) {
+        const shareableUrl = `${window.location.origin}/d/${item.slug}`;
+        showQuickShareModal(shareableUrl, item.topic);
+        return;
+    }
+
+    // Otherwise, save it to database first (without asking for name again)
+    // Get creator name from localStorage or use Guest
+    const creatorName = localStorage.getItem('creatorName') || 'Guest';
+
+    // Build transcript
+    const transcriptSource = item.messages || item.transcript || [];
+    const transcript = transcriptSource.map(line => {
+        let role = 'judge';
+        let text = line;
+
+        if (typeof line === 'string') {
+            if (line.toLowerCase().startsWith('advocate:')) {
+                role = 'advocate';
+                text = line.substring(9).trim();
+            } else if (line.toLowerCase().startsWith('skeptic:')) {
+                role = 'skeptic';
+                text = line.substring(8).trim();
+            } else if (line.toLowerCase().startsWith('judge:')) {
+                role = 'judge';
+                text = line.substring(6).trim();
+            }
+            return { role, text };
+        }
+        return line;
+    });
+
+    const debateData = {
+        topic: item.topic,
+        creator_name: creatorName,
+        advocate_model: item.config?.advocateModel || 'gemini',
+        skeptic_model: item.config?.skepticModel || 'gemini',
+        advocate_tone: item.config?.advocateTone || 'casual',
+        skeptic_tone: item.config?.skepticTone || 'casual',
+        judge_model: item.config?.judgeModel || 'gemini',
+        transcript: transcript
+    };
+
+    try {
+        const response = await fetch('/api/save_debate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(debateData)
+        });
+
+        if (!response.ok) throw new Error('Failed to save debate');
+
+        const result = await response.json();
+        const shareableUrl = `${window.location.origin}/d/${result.slug}`;
+
+        // Store slug in history for future sharing
+        history[index].slug = result.slug;
+        localStorage.setItem('debate_history', JSON.stringify(history));
+
+        // Show quick share modal with platform buttons
+        showQuickShareModal(shareableUrl, item.topic);
+
+    } catch (error) {
+        console.error('Error saving debate:', error);
+        alert('Failed to save debate. Please try again.');
+    }
+}
+
+async function autoShareCompletedDebate() {
+    // Get the most recent debate from history (just saved)
+    const history = getHistory();
+    const latestDebate = history[0];
+    if (!latestDebate) return;
+
+    // Save to database to get shareable URL
+    const creatorName = localStorage.getItem('creatorName') || 'Guest';
+
+    const transcriptSource = latestDebate.messages || latestDebate.transcript || [];
+    const transcript = transcriptSource.map(line => {
+        let role = 'judge';
+        let text = line;
+
+        if (typeof line === 'string') {
+            if (line.toLowerCase().startsWith('advocate:')) {
+                role = 'advocate';
+                text = line.substring(9).trim();
+            } else if (line.toLowerCase().startsWith('skeptic:')) {
+                role = 'skeptic';
+                text = line.substring(8).trim();
+            } else if (line.toLowerCase().startsWith('judge:')) {
+                role = 'judge';
+                text = line.substring(6).trim();
+            }
+            return { role, text };
+        }
+        return line;
+    });
+
+    const debateData = {
+        topic: latestDebate.topic,
+        creator_name: creatorName,
+        advocate_model: latestDebate.config?.advocateModel || 'gemini',
+        skeptic_model: latestDebate.config?.skepticModel || 'gemini',
+        advocate_tone: latestDebate.config?.advocateTone || 'casual',
+        skeptic_tone: latestDebate.config?.skepticTone || 'casual',
+        judge_model: latestDebate.config?.judgeModel || 'gemini',
+        transcript: transcript
+    };
+
+    try {
+        const response = await fetch('/api/save_debate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(debateData)
+        });
+
+        if (!response.ok) throw new Error('Failed to save debate');
+
+        const result = await response.json();
+        const shareableUrl = `${window.location.origin}/d/${result.slug}`;
+
+        // Store slug in history
+        history[0].slug = result.slug;
+        localStorage.setItem('debate_history', JSON.stringify(history));
+
+        // Show quick share modal
+        showQuickShareModal(shareableUrl, latestDebate.topic);
+
+    } catch (error) {
+        console.error('Error auto-sharing debate:', error);
+    }
+}
+
+function showQuickShareModal(url, topic) {
+    window.lastShareableUrl = url;
+    window.lastShareTopic = topic;
+
+    // Determine user preference for dominant button
+    const preferred = localStorage.getItem('preferredSharePlatform') || 'twitter';
+    const preferredLabel = preferred === 'linkedin' ? 'LinkedIn' : preferred === 'facebook' ? 'Facebook' : preferred === 'reddit' ? 'Reddit' : 'X/Twitter';
+
+    // Update DOM elements in the new #quick-share-overlay modal
+    const overlay = document.getElementById('quick-share-overlay');
+    const topicDisplay = document.getElementById('share-topic-display');
+    const urlDisplay = document.getElementById('share-url-display');
+    const prefBtn = document.getElementById('btn-share-preferred');
+
+    if (topicDisplay) topicDisplay.textContent = topic;
+    if (urlDisplay) urlDisplay.textContent = url;
+
+    if (prefBtn) {
+        prefBtn.textContent = `Share on ${preferredLabel}`;
+        prefBtn.onclick = () => shareByPlatform(preferred);
+    }
+
+    // Display Modal
+    if (overlay) {
+        overlay.classList.remove('hidden');
+        // Force reflow for transition
+        void overlay.offsetWidth;
+        overlay.classList.add('visible');
+    }
+}
+
+function shareByPlatform(platform) {
+    if (platform === 'linkedin') return shareToLinkedIn();
+    if (platform === 'facebook') return shareToFacebook();
+    if (platform === 'reddit') return shareToReddit();
+    return shareToTwitter();
+}
+
+function closeQuickShareModal() {
+    const overlay = document.getElementById('quick-share-overlay');
+    if (overlay) {
+        overlay.classList.remove('visible');
+        setTimeout(() => overlay.classList.add('hidden'), 300);
+    }
+}
+
+function getAbsoluteShareUrl() {
+    let url = window.lastShareableUrl;
+    if (!url) return '';
+    if (url.startsWith('/')) {
+        url = window.location.origin + url;
+    }
+    // Swap localhost for the live production Cloud Run URL so testing social cards works locally
+    if (url.includes('127.0.0.1') || url.includes('localhost')) {
+        url = url.replace(/http:\/\/(127\.0\.0\.1|localhost)(:\d+)?/, 'https://boardroom-debate-525536279111.us-central1.run.app');
+    }
+    return url;
+}
+
+function copyQuickShareLink(btnElement) {
+    const url = getAbsoluteShareUrl();
+    if (!url) return;
+    navigator.clipboard.writeText(url).then(() => {
+        if (btnElement) {
+            const originalText = btnElement.innerHTML;
+            btnElement.innerHTML = '✅ Copied!';
+            btnElement.classList.add('success');
+            setTimeout(() => {
+                btnElement.innerHTML = originalText;
+                btnElement.classList.remove('success');
+            }, 2000);
+        }
+    });
+}
+
+function shareToTwitter() {
+    const url = getAbsoluteShareUrl();
+    if (!url) return;
+
+    const topic = window.lastShareTopic || 'AI debate';
+    localStorage.setItem('preferredSharePlatform', 'twitter');
+    const text = `Check out this AI debate: "${topic}"`;
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}&hashtags=AIDebate,TechTwitter`;
+    window.open(twitterUrl, '_blank', 'width=550,height=420');
+}
+
+function shareToLinkedIn() {
+    const url = getAbsoluteShareUrl();
+    if (!url) return;
+
+    const topic = window.lastShareTopic || 'AI debate';
+    localStorage.setItem('preferredSharePlatform', 'linkedin');
+
+    const suggestedText = `🔥 AI Debate: ${topic}\n\nWatch AI models battle it out on this controversial topic. Who do you think won?\n\n${url}`;
+
+    navigator.clipboard.writeText(suggestedText).then(() => {
+        const statusEl = document.createElement('div');
+        statusEl.textContent = '✓ Post text copied! Paste it in LinkedIn';
+        statusEl.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #34d399; color: white; padding: 12px 20px; border-radius: 8px; z-index: 10000; font-weight: 600;';
+        document.body.appendChild(statusEl);
+        setTimeout(() => statusEl.remove(), 3000);
+    });
+
+    const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
+    window.open(linkedInUrl, '_blank', 'width=550,height=520');
+}
+
+function shareToFacebook() {
+    const url = getAbsoluteShareUrl();
+    if (!url) return;
+
+    localStorage.setItem('preferredSharePlatform', 'facebook');
+    const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+    window.open(facebookUrl, '_blank', 'width=550,height=520');
+}
+
+function shareToReddit() {
+    const url = getAbsoluteShareUrl();
+    if (!url) return;
+
+    const topic = window.lastShareTopic || 'AI debate';
+    localStorage.setItem('preferredSharePlatform', 'reddit');
+    const title = `[AI Debate] ${topic}`;
+    const redditUrl = `https://reddit.com/submit?url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`;
+    window.open(redditUrl, '_blank', 'width=700,height=600');
+}
+
+// Handle modal functions
+function showHandleModal() {
+    const modal = document.getElementById('handle-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        modal.classList.add('visible');
+        document.getElementById('handle-input')?.focus();
+    }, 10);
+}
+
+function closeHandleModal() {
+    const modal = document.getElementById('handle-modal');
+    modal.classList.remove('visible');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+}
+
+function saveHandle() {
+    const handleInput = document.getElementById('handle-input');
+    const handle = handleInput?.value.trim();
+
+    if (!handle) {
+        alert('Please enter a handle');
+        handleInput?.focus();
+        return;
+    }
+
+    // Validate handle (alphanumeric, underscores, hyphens, 3-20 chars)
+    if (!/^[a-zA-Z0-9_-]{3,20}$/.test(handle)) {
+        alert('Handle must be 3-20 characters (letters, numbers, _ or - only)');
+        handleInput?.focus();
+        return;
+    }
+
+    localStorage.setItem('creatorName', handle);
+    closeHandleModal();
+
+    // Now show settings to start the debate
+    showSettings();
+}
+
+// Allow Enter key to save handle
+function handleHandleKeyPress(event) {
+    if (event.key === 'Enter') {
+        saveHandle();
+    }
+}
+
 // Close modal when clicking outside
 window.onclick = function (event) {
     const historyModal = document.getElementById('history-modal');
     const settingsModal = document.getElementById('settings-modal');
     const practiceModal = document.getElementById('practice-modal');
     const changelogModal = document.getElementById('changelog-modal');
+    const handleModal = document.getElementById('handle-modal');
     if (event.target === historyModal) {
         closeHistory();
     }
@@ -2449,6 +2897,9 @@ window.onclick = function (event) {
     }
     if (event.target === changelogModal) {
         closeChangelog();
+    }
+    if (event.target === handleModal) {
+        closeHandleModal();
     }
 }
 
@@ -2768,6 +3219,18 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('advocate-model').addEventListener('change', updateTaglineFromDropdowns);
     document.getElementById('skeptic-model').addEventListener('change', updateTaglineFromDropdowns);
     setupSmartScroll(); // Initialize scroll indicator
+
+    // Pre-fill topic from URL parameter (for remix button)
+    const urlParams = new URLSearchParams(window.location.search);
+    const topicParam = urlParams.get('topic');
+    if (topicParam) {
+        const topicInput = document.getElementById('topic-input');
+        if (topicInput) {
+            topicInput.value = topicParam;
+            // Auto-open settings panel so user can adjust models/tones
+            setTimeout(() => showSettings(), 500);
+        }
+    }
 });
 
 // ============================================
