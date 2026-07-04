@@ -339,7 +339,7 @@ def _build_daniel() -> PatientGraph:
         ("stopped_expecting", '"I have stopped\nexpecting it"', 16, "belief"),
         ("i_miss_her", '"I miss her"', 18, "belief"),
         ("marco_d", "Marco", 26, "person"),
-        ("two_years", "two years\ntogether", 14, "event"),
+        ("two_years", "two years\togeth-er", 14, "event"),
         ("marco_disclosure", "Marco's\ndisclosure\n2 months ago", 22, "event"),
         ("conf_encounter", "work conference\nencounter", 16, "event"),
         ("condom_inconsistent", "condom use\ninconsistent", 16, "event"),
@@ -511,8 +511,8 @@ def _build_daniel() -> PatientGraph:
         patient_name="Daniel Ramirez",
         recipient="Dr. L. Tran, Primary Care / Sexual Health",
         context="Bot-initiated referral. Patient has accepted. Existing Castle patient record to be reactivated per patient preference.",
-        summary="PrEP-naive. Last HIV test 6 months ago — negative. Partner currently undetectable on suppressive ART; recently disclosed an outside encounter approximately 2 months ago with inconsistent condom use during a period when his viral load was not suppressed. PEP window now closed. Patient ready to test now and initiate PrEP.",
-        authorized=[
+        clinical_narrative="PrEP-naive. Last HIV test 6 months ago — negative. Partner currently undetectable on suppressive ART; recently disclosed an outside encounter approximately 2 months ago with inconsistent condom use during a period when his viral load was not suppressed. PEP window now closed. Patient ready to test now and initiate PrEP.",
+        active_themes=[
             "Sexual health history relevant to PrEP/HIV",
             "Partner status and recent disclosure timeline",
             "Patient agreement to test and to initiate PrEP",
@@ -536,7 +536,7 @@ def _build_daniel() -> PatientGraph:
         patient_name="Daniel Ramirez",
         recipient="Dr. A. Patel, Behavioral Health",
         context="Bot-initiated referral. Patient has accepted. Patient is the son of an existing Patel patient (Elena Ramirez).",
-        summary='Twenty-four-year-old gay man, two-year partnership currently in question following partner\'s disclosure of an outside encounter; identity-faith integration unresolved; estranged-but-not-severed from devoutly Catholic mother for three years. Acute focus is the staying/leaving question with Marco.',
+        clinical_narrative='Twenty-four-year-old gay man, two-year partnership currently in question following partner\'s disclosure of an outside encounter; identity-faith integration unresolved; estranged-but-not-severed from devoutly Catholic mother for three years. Acute focus is the staying/leaving question with Marco.',
         family_overlap_flag="Daniel's mother (Elena Ramirez) is also a patient of Dr. Patel and is a separate user on this platform. Daniel does not know. Elena does not know. Firewall is preserved. This package contains nothing about Elena. Dr. Patel's knowledge of Elena from her own work with her is separate and not breached by this handoff.",
         authorized=[
             "Marco situation — recent disclosure, processing, marriage question reframed",
