@@ -106,7 +106,16 @@ const testCases = [
       if (currentPatient !== tc.patient) {
         console.log(`Navigating to Hub to select ${tc.patient}...`);
         await page.goto('https://prism-platform-525536279111.us-central1.run.app');
+        await page.waitForTimeout(2000);
+        
+        console.log("Accepting Disclaimer...");
+        try {
+          await page.getByText(/I UNDERSTAND/i).first().click({ timeout: 5000 });
+        } catch (e) {
+          console.log("No disclaimer found, continuing...");
+        }
         await page.waitForTimeout(1000);
+        
         await page.click('text="Provider Dashboard"');
         await page.waitForTimeout(1000);
         await page.click(`text="${tc.patient}"`);
@@ -130,26 +139,25 @@ const testCases = [
         await page.waitForSelector('text="Generated Session Notes"', { timeout: 60000 });
         await page.waitForTimeout(2000); // Wait for rendering
       } else {
-        await page.click('text="Interactive DDx"');
+        await page.click('text="DDx Arena"');
         await page.waitForTimeout(500);
-        if (tc.mode !== 'Copilot Mode') {
-          await page.click(`text="[${tc.mode}]"`);
-        } else {
-          await page.click('text="Copilot Mode"');
+        if (tc.mode === 'Defend a Diagnosis') {
+          await page.click('text="🛡️ Challenge"');
+        } else if (tc.mode === 'Challenge a Diagnosis') {
+          await page.click('text="✅ Advocate"');
+        } else if (tc.mode === 'Compare A vs B') {
+          await page.click('text="⚖️ Compare"');
+        } else if (tc.mode === 'Copilot Mode') {
+          await page.click('text="💬 Ask"');
         }
         await page.waitForTimeout(500);
 
         console.log(`Typing prompt: "${tc.input}"`);
-        await page.fill('input[placeholder="Message the DDx Copilot..."]', tc.input);
+        await page.fill('input[type="text"]', tc.input);
         await page.keyboard.press('Enter');
 
         console.log("Waiting for LLM response...");
-        const msgsBefore = await page.$$eval('div.fade-enter-active', els => els.length);
-        await page.waitForFunction((beforeCount) => {
-          const els = document.querySelectorAll('div.fade-enter-active');
-          return els.length > beforeCount;
-        }, msgsBefore, { timeout: 60000 });
-        await page.waitForTimeout(2000);
+        await page.waitForTimeout(12000);
       }
 
       const screenshotPath = path.join(artifactDir, `${tc.name}.png`);
