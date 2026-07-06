@@ -87,9 +87,15 @@ const testCases = [
   const artifactDir = 'C:\\Users\\rishi\\.gemini\\antigravity\\brain\\3b03917f-6614-4476-a5db-517ccfe72059\\';
   const results = [];
 
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
-  await page.setViewportSize({ width: 1400, height: 900 });
+  // Initialize browser
+  console.log("Launching browser...");
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext();
+  const page = await context.newPage();
+
+  // Navigate to GCP Deployment
+  const targetUrl = 'https://prism-platform-525536279111.us-central1.run.app';
+  console.log(`Navigating to ${targetUrl}...`);
 
   try {
     page.on('console', msg => {
@@ -157,7 +163,11 @@ const testCases = [
         await page.keyboard.press('Enter');
 
         console.log("Waiting for LLM response...");
-        await page.waitForTimeout(12000);
+        // Wait for the indicator to appear (may be fast, so catch timeout)
+        await page.waitForSelector('[data-testid="loading-indicator"]', { state: 'visible', timeout: 5000 }).catch(() => {});
+        // Wait for it to disappear, giving the LLM up to 60s
+        await page.waitForSelector('[data-testid="loading-indicator"]', { state: 'hidden', timeout: 60000 });
+        await page.waitForTimeout(1000); // Small buffer for rendering the final text
       }
 
       const screenshotPath = path.join(artifactDir, `${tc.name}.png`);

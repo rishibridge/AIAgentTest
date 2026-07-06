@@ -1,7 +1,7 @@
 /**
  * Ally API Client — connects to the real backend at localhost:8001
  */
-const API_BASE = window.location.origin.includes('localhost:5173') ? 'http://localhost:8001' : '';
+const API_BASE = window.location.origin.includes('localhost:5173') ? 'https://prism-platform-525536279111.us-central1.run.app' : '';
 
 async function apiFetch(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {

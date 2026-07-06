@@ -134,6 +134,7 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
   const [input, setInput] = useState('');
   const [ddxRole, setDdxRole] = useState('copilot');
   const [isSending, setIsSending] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState(0);
   const [showDebateTranscript, setShowDebateTranscript] = useState(false);
   
   // Scribe State
@@ -156,6 +157,26 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
   useEffect(() => {
     fetchHandoff();
   }, [patientId]);
+
+  useEffect(() => {
+    let interval;
+    if (isSending) {
+      setLoadingPhase(0);
+      interval = setInterval(() => {
+        setLoadingPhase(prev => (prev + 1) % 4);
+      }, 3500);
+    } else {
+      setLoadingPhase(0);
+    }
+    return () => clearInterval(interval);
+  }, [isSending]);
+
+  const loadingPhrases = [
+    "Querying memory graph...",
+    "Weighing diagnostic criteria...",
+    "Drafting clinical response...",
+    "Finalizing analysis..."
+  ];
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -713,7 +734,7 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                       </div>
                     ) : (
                       /* Normal single bubble */
-                      <div style={{ background: msg.sender === 'bot' ? 'rgba(95,174,176,0.06)' : 'rgba(217,184,115,0.06)', padding: '14px 18px', borderRadius: '10px', border: msg.sender === 'bot' ? '1px solid rgba(95,174,176,0.12)' : '1px solid rgba(217,184,115,0.12)', maxWidth: '90%', fontFamily: "'Work Sans', sans-serif", fontSize: '0.9rem', lineHeight: 1.6, color: '#EDEAE3' }}>
+                      <div data-testid="bot-response-bubble" style={{ background: msg.sender === 'bot' ? 'rgba(95,174,176,0.06)' : 'rgba(217,184,115,0.06)', padding: '14px 18px', borderRadius: '10px', border: msg.sender === 'bot' ? '1px solid rgba(95,174,176,0.12)' : '1px solid rgba(217,184,115,0.12)', maxWidth: '90%', fontFamily: "'Work Sans', sans-serif", fontSize: '0.9rem', lineHeight: 1.6, color: '#EDEAE3' }}>
                         {msg.text.split('\n').map((line, j) => <React.Fragment key={j}>{line}<br/></React.Fragment>)}
                         {/* Source Attribution Pills */}
                         {msg.sender === 'bot' && msg.referenced_nodes && msg.referenced_nodes.length > 0 && (
@@ -765,8 +786,8 @@ export default function ClinicianChat({ patientId, patientName, onBack }) {
                 {isSending && (
                   <div style={{ marginBottom: '18px' }}>
                     <div style={{ fontSize: '0.65rem', color: '#5FAEB0', textTransform: 'uppercase', marginBottom: '5px', letterSpacing: '0.08em' }}>Clinical Copilot</div>
-                    <div style={{ background: 'rgba(95,174,176,0.06)', padding: '14px 18px', borderRadius: '10px', border: '1px solid rgba(95,174,176,0.12)', fontFamily: "'Work Sans', sans-serif", fontSize: '0.9rem', color: '#5FAEB0' }}>
-                      Analyzing clinical data...
+                    <div data-testid="loading-indicator" style={{ background: 'rgba(95,174,176,0.06)', padding: '14px 18px', borderRadius: '10px', border: '1px solid rgba(95,174,176,0.12)', fontFamily: "'Work Sans', sans-serif", fontSize: '0.9rem', color: '#5FAEB0' }}>
+                      {loadingPhrases[loadingPhase]}
                     </div>
                   </div>
                 )}
