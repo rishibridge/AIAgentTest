@@ -3,3 +3,6 @@ data/
 *.db-wal
 *.db-shm
 node_modules/
+
+# The repo root .gitignore ignores Dockerfile globally; keep ours tracked.
+!Dockerfile

@@ -8,8 +8,10 @@ to clear before that runway hits zero. The app treats continuity as
 **critical-path scheduling against a countdown** and prioritizes a navigator's
 work by *days until a gap, net of the lead time each blocker needs*.
 
-This iteration adds **real server-side persistence** with **live cross-client
-sync** — open it in two browsers and changes appear in both in real time.
+It has **real server-side persistence** with **live cross-client sync** — open
+it in two browsers and changes appear in both in real time. Storage is
+pluggable: **SQLite** locally, **Firestore** on Google Cloud Run. See
+[DEPLOY.md](./DEPLOY.md) for the cloud deploy.
 
 ## What's inside
 
@@ -24,31 +26,43 @@ sync** — open it in two browsers and changes appear in both in real time.
 
 ## Architecture
 
-- **Backend** (`server.mjs`) — zero-dependency Node using built-in `node:http`
-  and `node:sqlite`. Serves the UI, exposes a small JSON API, and pushes live
-  updates over **Server-Sent Events** (`/api/events`). On any write the server
-  bumps a revision and every connected client re-fetches state.
-- **Storage** — an on-disk **SQLite** database (`data/continuity.db`, created
-  and seeded on first run). Mutable, collaborative entities (messages, notes,
-  tasks) are proper rows; read-mostly patient clinical profiles are stored as
-  JSON. The server stamps real timestamps on everything created at runtime.
+- **Backend** (`server.mjs`) — Node using built-in `node:http`. Serves the UI,
+  exposes a small JSON API, and pushes live updates over **Server-Sent Events**
+  (`/api/events`). On any write the store notifies the server, which bumps a
+  revision and every connected client re-fetches state.
+- **Storage — pluggable, selected at startup** (`store/`):
+  - **SQLite** (`store/sqlite.mjs`) — default locally; on-disk
+    (`data/continuity.db`), zero-dependency via `node:sqlite`. In-process live
+    notifications (single instance).
+  - **Firestore** (`store/firestore.mjs`) — used on Cloud Run (auto-detected via
+    `K_SERVICE`) or with `STORE=firestore`. Live sync uses Firestore
+    `onSnapshot` listeners re-broadcast over SSE, so it works across multiple
+    Cloud Run instances.
+  - Both expose the same contract (`getState`, `addMessage`, `markThreadRead`,
+    `addNote`, `setTaskStatus`, `reset`, `subscribe`). Mutable entities
+    (messages, notes, tasks) are rows/documents; read-mostly patient profiles
+    are JSON. Items created at runtime get real server timestamps.
 - **Frontend** (`public/index.html`) — a single self-contained page that reads
   from the API and subscribes to SSE; UI selection (current patient, open
-  thread) is client-side, data is server-side.
+  thread) is client-side, data is server-side. Identical for both stores.
 
-## Run it
+## Run it locally
 
-Requires **Node 22.5+** (for the built-in `node:sqlite`). No `npm install` —
-there are no dependencies.
+Requires **Node 22.5+** (for the built-in `node:sqlite`). The default SQLite
+path needs no dependencies:
 
 ```bash
 cd prep_navigator
-npm start            # → http://localhost:5173
+npm start            # → http://localhost:5173  (SQLite)
 ```
 
 Then open **two** browser windows at the same URL, act in one (send a message,
 clear a task, add a note) and watch it appear in the other. The **Reset**
-button in the top bar reseeds the server's sample data for everyone.
+button in the top bar reseeds the sample data for everyone.
+
+To deploy to **Google Cloud Run + Firestore**, follow [DEPLOY.md](./DEPLOY.md).
+To exercise the Firestore path locally, run the Firestore emulator and start
+with `STORE=firestore` (see DEPLOY.md → Local development).
 
 ### Configuration
 
