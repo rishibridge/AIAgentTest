@@ -1,0 +1,14 @@
+{
+  "name": "prep-navigator-console",
+  "version": "1.0.0",
+  "description": "Continuity — a PrEP navigator console for monitoring patient lifecycle and preventing gaps in care. Real server-side persistence (SQLite) with live cross-client sync.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node --experimental-sqlite server.mjs",
+    "dev": "node --watch --experimental-sqlite server.mjs"
+  }
+}
