@@ -1,0 +1,47 @@
+# Continuous deployment: build the container and deploy to Cloud Run.
+# Used by a Cloud Build trigger connected to the GitHub repo — every push to
+# the configured branch builds and deploys automatically.
+#
+# Trigger config file path: prep_navigator/cloudbuild.yaml
+# The whole repo is checked out; the app lives in prep_navigator/.
+
+substitutions:
+  _REGION: us-central1
+  _SERVICE: continuity
+  _REPO: continuity            # Artifact Registry repo (create once, see DEPLOY.md)
+
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA
+      - -f
+      - prep_navigator/Dockerfile
+      - prep_navigator
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA
+
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+      - --min-instances=1
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA
+
+options:
+  logging: CLOUD_LOGGING_ONLY
