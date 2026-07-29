@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Continuity — a PrEP navigator console demo: prioritized worklist, patient lifecycle, messaging, inbox, and notes. Browser-only static build.">
+<meta name="description" content="Continuity — a PrEP navigator console demo: continuity board, worklist, patient lifecycle, multi-channel outreach, and inbox. Browser-only static build.">
 <title>Continuity — PrEP Navigator Console</title>
 <style>
   :root {
@@ -217,7 +217,7 @@
   .note .nh { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
   .note .nt { font-size: 12.5px; } .note .nm { font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-left: auto; }
   .ntype { font-size: 9.5px; font-family: var(--mono); padding: 1px 7px; border-radius: 20px; letter-spacing: .03em; text-transform: uppercase; }
-  .ntype.Call { background: var(--info); color: #fff; } .ntype.Need { background: var(--warn); color: #fff; } .ntype.Note { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line-2); }
+  .ntype.Call { background: var(--info); color: #fff; } .ntype.Need { background: var(--warn); color: #fff; } .ntype.Note { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line-2); } .ntype.Visit { background: var(--provider); color: #fff; } .ntype.Email { background: var(--pharm); color: #fff; }
   .noteform { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
   .seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 7px; overflow: hidden; margin-bottom: 8px; }
   .seg button { border: none; background: var(--surface); font-family: inherit; font-size: 11px; font-weight: 600; color: var(--ink-3); padding: 5px 12px; cursor: pointer; border-right: 1px solid var(--line-2); }
@@ -291,6 +291,28 @@
   .hint { font-size: 11.5px; color: var(--ink-3); font-family: var(--mono); }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--ink-2); font-family: var(--mono); margin-top: 4px; }
   .legend span { display: inline-flex; align-items: center; gap: 5px; } .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  /* continuity board */
+  .boardwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); background: var(--surface); }
+  .board { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
+  .board th { text-align: left; font-size: 10.5px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); font-weight: 600; padding: 11px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); position: sticky; top: 0; z-index: 1; }
+  .board th.num, .board td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .board td { padding: 11px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .board tbody tr:last-child td { border-bottom: none; }
+  .board tbody tr { cursor: pointer; }
+  .board tbody tr:hover { background: var(--surface-2); }
+  .board tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .board .bpt { font-weight: 650; font-size: 13.5px; }
+  .board .bmrn { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+  .board .supplybar { display: flex; align-items: center; gap: 9px; justify-content: flex-end; }
+  .board .supplybar .bar { width: 66px; height: 7px; border-radius: 5px; background: var(--line); overflow: hidden; flex: none; }
+  .board .supplybar .bar i { display: block; height: 100%; border-radius: 5px; }
+  .board .bignum { font-family: var(--mono); font-weight: 650; font-size: 15px; letter-spacing: -.01em; }
+  .board .bignum small { font-weight: 400; font-size: 10px; color: var(--ink-3); }
+  .board .actwithin { font-family: var(--mono); font-weight: 650; font-size: 14px; }
+  .board .runsout { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+  .bstatus { font-size: 10.5px; font-family: var(--mono); padding: 2px 9px; border-radius: 20px; letter-spacing: .03em; white-space: nowrap; }
+  .bstatus.crit { background: var(--crit-wash); color: var(--crit); } .bstatus.warn { background: var(--warn-wash); color: var(--warn); } .bstatus.ok { background: var(--good-wash); color: var(--good); }
 </style>
 </head>
 <body>
@@ -299,7 +321,10 @@
     <div class="brand"><div class="mark" aria-hidden="true"></div><div><b>Continuity</b><span>PrEP Navigator</span></div></div>
     <div class="navlabel">Care</div>
     <nav class="nav">
-      <button class="navitem" data-view="worklist" aria-current="true">
+      <button class="navitem" data-view="board" aria-current="true">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M4 12h16M4 19h16M8 5v14"/></svg>
+        Continuity board</button>
+      <button class="navitem" data-view="worklist">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8M4 5h11M4 12h5M4 19h9"/></svg>
         Worklist <span class="badge" id="worklistBadge">0</span></button>
       <button class="navitem" data-view="patient">
@@ -338,7 +363,14 @@
       </div>
     </header>
 
-    <section class="view active" id="view-worklist">
+    <section class="view active" id="view-board">
+      <div class="sechead"><h2>Continuity board</h2><p>Every patient — <b>when they run out of meds</b> and <b>days to the next best action</b> to keep supply continuous. Sorted by soonest action.</p></div>
+      <div class="boardwrap"><table class="board" id="boardTable"><thead><tr>
+        <th>Patient</th><th class="num">Days of supply</th><th>Runs out</th><th>Next best action</th><th class="num">Act within</th><th>Status</th>
+      </tr></thead><tbody id="boardBody"></tbody></table></div>
+    </section>
+
+    <section class="view" id="view-worklist">
       <div class="sechead"><h2>Today's queue</h2><p>Ranked by <b>days until a supply gap</b>, net of the lead time each blocking step needs to clear.</p></div>
       <div class="filters" id="filters" role="group" aria-label="Filter tasks"></div>
       <div id="lanes"></div>
@@ -408,37 +440,37 @@ let SEQ = 100; const uid = pfx => pfx + (SEQ++);
 
 // ---------- seed data (fictional) ----------
 function seedState(){ return { patients: [
-  { id:"marcus", name:"Marcus R.", age:31, mrn:"PN-40213", supply:4, mpr:0.91, sev:"crit", type:"lab", provider:"Dr. Osei", pharmacy:"CVS #4471",
+  { id:"marcus", name:"Marcus R.", age:31, mrn:"PN-40213", supply:4, mpr:0.91, sev:"crit", type:"lab", action:"Order HIV test", actWithin:0, provider:"Dr. Osei", pharmacy:"Mail order",
     headline:"Order quarterly HIV Ag/Ab + rapid — result gates the refill", why:"Supply ends in 4d · lab needs 2d turnaround → order today or supply lapses",
     lead:"needs 2d lead", leadsev:"crit",
     track:[ {label:"HIV test", dd:"due now", pos:8, sev:"crit"}, {label:"Refill", dd:"day 4", pos:40, sev:"warn"} ], fill:70, gapAt:78,
     steps:[ {s:"done", t:"Encounter complete", d:"Telehealth visit 12 Jun · quarterly", when:"12 Jun"},
       {s:"active", t:"Quarterly HIV Ag/Ab test", d:"Required within 90d to authorize refill — last neg 18 Apr", when:"OVERDUE\nby 9d"},
-      {s:"wait", t:"Pharmacy refill (30d)", d:"Held at CVS #4471 pending lab clearance", when:"ready\non result"},
+      {s:"wait", t:"Approve refill (30d)", d:"Rx can't be written until a current HIV result is in — then ships", when:"on\nresult"},
       {s:"wait", t:"Next quarterly labs", d:"HIV + renal + STI panel", when:"~12 Sep"} ],
     labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"18 Apr · 100d ago", sev:"crit"}, {k:"Creatinine", v:"0.9 mg/dL", s:"CrCl 104 · normal", sev:"ok"},
       {k:"HBV sAg", v:"Neg", s:"baseline 4 Jan", sev:"ok"}, {k:"STI panel", v:"GC/CT neg", s:"18 Apr", sev:"ok"} ],
     rx:{drug:"Emtricitabine/Tenofovir DF", refills:"2 of 6 left", exp:"expires 04 Jan 27"},
-    feed:[ {sev:"crit", t:"<b>Refill hold</b> — pharmacy flagged HIV test > 90d", m:"today · 08:12 · Surescripts"},
+    feed:[ {sev:"crit", t:"<b>Refill blocked</b> — HIV test > 90d; Rx needs a current result before it can ship", m:"today · 08:12 · Surescripts"},
       {sev:"info", t:"Reminder SMS sent — 'time for your PrEP labs'", m:"yesterday · auto"}, {sev:"ok", t:"Telehealth encounter documented", m:"12 Jun · Dr. Osei"} ],
     threads:[
       { id:"sms", kind:"patient", label:"Patient · SMS", with:"Marcus R.", msgs:[
         {role:"nav", from:"Rae Navarro", t:"Hi Marcus — you're due for a quick HIV test before your next refill. Home kit or clinic?", time:"Mon 09:12"},
         {role:"patient", from:"Marcus R.", t:"A home kit would be easier, I'm slammed at work", time:"Mon 09:31"},
         {role:"nav", from:"Rae Navarro", t:"Done — ordering it now, arrives in 2 days. Refill unlocks the moment results are in 👍", time:"Mon 09:34"} ] },
-      { id:"team", kind:"team", label:"Care team", with:"Dr. Osei · CVS #4471", msgs:[
+      { id:"team", kind:"team", label:"Care team", with:"Dr. Osei · Mail-order pharmacy", msgs:[
         {role:"provider", from:"Dr. Osei", t:"Marcus is overdue on quarterly HIV. I'll e-sign a home test order if you route the packet.", time:"Tue 08:05", unread:true},
-        {role:"pharmacist", from:"CVS #4471", t:"Refill is on hold our side until we see a current HIV result.", time:"Tue 08:40", unread:true} ] } ],
+        {role:"pharmacist", from:"Mail-order Rx", t:"Can't write or ship the refill without a current HIV result on file — standing by.", time:"Tue 08:40", unread:true} ] } ],
     notes:[ {type:"Call", author:"Rae Navarro", t:"Called Marcus 08:20 — confirmed prefers home test, day-shift work. Ordered OraQuick, ETA 2d.", time:"Tue 08:22"},
       {type:"Need", author:"Rae Navarro", t:"Needs evening/weekend lab options going forward — day job limits clinic visits.", time:"Tue 08:25"} ] },
 
-  { id:"dana", name:"Dana W.", age:27, mrn:"PN-39880", supply:12, mpr:0.97, sev:"crit", type:"renew", provider:"Dr. Lin", pharmacy:"Walgreens #221",
+  { id:"dana", name:"Dana W.", age:27, mrn:"PN-39880", supply:12, mpr:0.97, sev:"crit", type:"renew", action:"Renew Rx", actWithin:4, provider:"Dr. Lin", pharmacy:"Mail order",
     headline:"Prescription out of refills — route renewal packet to prescriber", why:"0 refills left · renewal needs an encounter first → 8d critical path vs 12d supply",
     lead:"needs 8d lead", leadsev:"crit",
     track:[ {label:"Encounter", dd:"day 3", pos:24, sev:"warn"}, {label:"Renewal", dd:"day 6", pos:52, sev:"warn"}, {label:"Refill", dd:"day 8", pos:70, sev:"ok"} ], fill:82, gapAt:88,
     steps:[ {s:"active", t:"Schedule renewal encounter", d:"Telehealth slot — prescriber Dr. Lin", when:"book\ntoday"},
       {s:"wait", t:"Send renewal packet", d:"Auto-compiled: last HIV neg, renal, adherence 0.97", when:"on visit"},
-      {s:"wait", t:"New Rx to pharmacy", d:"90-day supply requested", when:"~+6d"}, {s:"wait", t:"Refill dispensed", d:"Walgreens #221", when:"~+8d"} ],
+      {s:"wait", t:"New Rx to pharmacy", d:"90-day supply requested", when:"~+6d"}, {s:"wait", t:"Refill ships", d:"Mail-order · to patient's door", when:"~+8d"} ],
     labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"02 Jul · 25d ago", sev:"ok"}, {k:"Creatinine", v:"0.8 mg/dL", s:"CrCl 118", sev:"ok"},
       {k:"STI panel", v:"CT positive", s:"treated 02 Jul", sev:"warn"}, {k:"HCV Ab", v:"Neg", s:"02 Jul", sev:"ok"} ],
     rx:{drug:"Emtricitabine/Tenofovir DF", refills:"0 of 6 left", exp:"expires 30 Jul 26"},
@@ -453,16 +485,16 @@ function seedState(){ return { patients: [
     notes:[ {type:"Call", author:"Rae Navarro", t:"Reached Dana, booked Thu 4pm telehealth. Reminded re: CT follow-up (treated 2 Jul).", time:"Today 10:20"},
       {type:"Need", author:"Rae Navarro", t:"Prefers video visits; transport is a barrier for in-person.", time:"Today 10:21"} ] },
 
-  { id:"sam", name:"Sam T.", age:44, mrn:"PN-41002", supply:18, mpr:0.94, sev:"warn", type:"pa", provider:"Dr. Osei", pharmacy:"Costco Rx",
+  { id:"sam", name:"Sam T.", age:44, mrn:"PN-41002", supply:18, mpr:0.94, sev:"warn", type:"pa", action:"Re-enroll copay", actWithin:13, provider:"Dr. Osei", pharmacy:"Mail order",
     headline:"Copay assistance expiring — re-enroll before next fill", why:"Coverage ends in 15d · PA reprocessing ~5d → start before fill #4",
     lead:"needs 5d lead", leadsev:"warn",
     track:[ {label:"PA renew", dd:"day 5", pos:30, sev:"warn"}, {label:"Refill", dd:"day 18", pos:82, sev:"ok"} ], fill:60, gapAt:78,
     steps:[ {s:"active", t:"Re-enroll copay assistance", d:"Manufacturer PAP — income re-attestation on file", when:"submit\ntoday"},
-      {s:"wait", t:"Confirm PA active", d:"Payer BIN/PCN verification", when:"~+5d"}, {s:"wait", t:"Refill dispensed", d:"$0 copay restored", when:"~+18d"} ],
+      {s:"wait", t:"Confirm PA active", d:"Payer BIN/PCN verification", when:"~+5d"}, {s:"wait", t:"Refill ships", d:"$0 copay restored", when:"~+18d"} ],
     labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"20 May · 68d ago", sev:"ok"}, {k:"Creatinine", v:"1.1 mg/dL", s:"CrCl 82 · monitor", sev:"warn"},
       {k:"STI panel", v:"Neg", s:"20 May", sev:"ok"}, {k:"HBV sAg", v:"Neg", s:"baseline", sev:"ok"} ],
     rx:{drug:"Emtricitabine/Tenofovir AF", refills:"3 of 6 left", exp:"expires 12 Nov 26"},
-    feed:[ {sev:"warn", t:"<b>Assistance expiring</b> in 15 days", m:"today · benefits sync"}, {sev:"ok", t:"Refill #3 picked up", m:"09 Jul"} ],
+    feed:[ {sev:"warn", t:"<b>Assistance expiring</b> in 15 days", m:"today · benefits sync"}, {sev:"ok", t:"Refill #3 shipped", m:"09 Jul"} ],
     threads:[
       { id:"sms", kind:"patient", label:"Patient · SMS", with:"Sam T.", msgs:[
         {role:"nav", from:"Rae Navarro", t:"Sam, your $0 copay program is up for renewal — reply YES and I'll handle it.", time:"Yst 15:10"},
@@ -471,25 +503,25 @@ function seedState(){ return { patients: [
         {role:"pharmacist", from:"Costco Rx", t:"Heads up — current PA expires in 15 days.", time:"Yst 14:30"} ] } ],
     notes:[ {type:"Call", author:"Rae Navarro", t:"Left VM re: renal recheck (CrCl 82, monitor). Copay re-enrollment submitted.", time:"Yst 15:25"} ] },
 
-  { id:"jordan", name:"Jordan P.", age:23, mrn:"PN-40771", supply:9, mpr:0.88, sev:"warn", type:"refill", provider:"Dr. Rao", pharmacy:"Rite Aid #88",
-    headline:"Refill filled 6 days ago — nudge pickup before supply runs out", why:"Filled & waiting · supply ends 9d · adherence trending down (0.88)",
-    lead:"no lead needed", leadsev:"ok",
-    track:[ {label:"Pickup", dd:"waiting", pos:20, sev:"warn"}, {label:"Supply end", dd:"day 9", pos:66, sev:"warn"} ], fill:74, gapAt:83,
-    steps:[ {s:"done", t:"Refill dispensed", d:"30-day · ready at counter", when:"21 Jul"},
-      {s:"active", t:"Confirm pickup", d:"6 days on shelf — auto return-to-stock at 14d", when:"nudge\nnow"}, {s:"wait", t:"Quarterly labs", d:"HIV + renal due next cycle", when:"~15 Aug"} ],
+  { id:"jordan", name:"Jordan P.", age:23, mrn:"PN-40771", supply:9, mpr:0.88, sev:"warn", type:"refill", action:"Approve refill", actWithin:1, provider:"Dr. Rao", pharmacy:"Mail order",
+    headline:"Refill ready for approval — approve to ship before supply runs out", why:"Awaiting your approval · supply ends 9d · adherence trending down (0.88)",
+    lead:"ships same day", leadsev:"ok",
+    track:[ {label:"Approve", dd:"now", pos:20, sev:"warn"}, {label:"Supply end", dd:"day 9", pos:66, sev:"warn"} ], fill:74, gapAt:83,
+    steps:[ {s:"done", t:"Refill request received", d:"Mail-order pharmacy · 30-day, labs current", when:"21 Jul"},
+      {s:"active", t:"Approve refill", d:"Ships same day once you approve — arrives in ~2 days", when:"approve\nnow"}, {s:"wait", t:"Quarterly labs", d:"HIV + renal due next cycle", when:"~15 Aug"} ],
     labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"01 Jun · 56d ago", sev:"ok"}, {k:"Creatinine", v:"0.9 mg/dL", s:"CrCl 110", sev:"ok"},
       {k:"STI panel", v:"Neg", s:"01 Jun", sev:"ok"}, {k:"Adherence", v:"MPR 0.88", s:"↓ from 0.95", sev:"warn"} ],
     rx:{drug:"Emtricitabine/Tenofovir DF", refills:"4 of 6 left", exp:"expires 20 Feb 27"},
-    feed:[ {sev:"warn", t:"<b>Not picked up</b> — 6 days on shelf", m:"today · pharmacy sync"}, {sev:"info", t:"Adherence dip flagged by rules engine", m:"2 days ago"} ],
+    feed:[ {sev:"warn", t:"<b>Refill awaiting approval</b> — ready to ship", m:"today · pharmacy sync"}, {sev:"info", t:"Adherence dip flagged by rules engine", m:"2 days ago"} ],
     threads:[
-      { id:"sms", kind:"patient", label:"Patient · SMS", with:"Jordan P.", msgs:[
-        {role:"nav", from:"Rae Navarro", t:"Hi Jordan! Your refill's been ready at Rite Aid #88 since Tue. All ok? Want me to switch you to mail-order?", time:"Today 08:15"},
-        {role:"patient", from:"Jordan P.", t:"oh! forgot. mail order sounds good actually", time:"Today 08:44", unread:true} ] },
-      { id:"team", kind:"team", label:"Care team", with:"Rite Aid #88", msgs:[
-        {role:"pharmacist", from:"Rite Aid #88", t:"Refill goes back to stock in 8 days if not collected — flagging.", time:"Today 07:50", unread:true} ] } ],
-    notes:[ {type:"Note", author:"Rae Navarro", t:"Adherence dipped 0.95 → 0.88. Switching to 90-day mail-order to cut pickup friction.", time:"Today 08:46"} ] },
+      { id:"sms", kind:"patient", label:"Patient", with:"Jordan P.", msgs:[
+        {role:"nav", from:"Rae Navarro", t:"Hi Jordan — approving your refill now, it ships today and should arrive in ~2 days 📦 All good?", time:"Today 08:15"},
+        {role:"patient", from:"Jordan P.", t:"awesome, thank you!", time:"Today 08:44", unread:true} ] },
+      { id:"team", kind:"team", label:"Care team", with:"Mail-order pharmacy", msgs:[
+        {role:"pharmacist", from:"Mail-order Rx", t:"Refill is queued and ready to ship — awaiting navigator approval.", time:"Today 07:50", unread:true} ] } ],
+    notes:[ {type:"Note", author:"Rae Navarro", t:"Adherence dipped 0.95 → 0.88. Moving to 90-day fills to reduce touchpoints.", time:"Today 08:46"} ] },
 
-  { id:"aisha", name:"Aisha K.", age:35, mrn:"PN-39510", supply:26, mpr:0.99, sev:"warn", type:"lab", provider:"Dr. Lin", pharmacy:"Mail order",
+  { id:"aisha", name:"Aisha K.", age:35, mrn:"PN-39510", supply:26, mpr:0.99, sev:"warn", type:"lab", action:"Schedule labs", actWithin:6, provider:"Dr. Lin", pharmacy:"Mail order",
     headline:"Quarterly labs due in 20 days — schedule now to stay ahead", why:"On track · pre-scheduling labs keeps the next refill unblocked",
     lead:"schedule ahead", leadsev:"ok",
     track:[ {label:"Labs", dd:"day 20", pos:52, sev:"ok"}, {label:"Refill", dd:"day 26", pos:74, sev:"ok"} ], fill:56, gapAt:82,
@@ -617,7 +649,8 @@ function msgHTML(m){
   const side = m.role==="nav" ? "out" : "in";
   const who = m.role==="nav" ? "You" : `${esc(m.from)} · ${ROLE_LABEL[m.role]}`;
   const to = m.to ? `<span class="toChip">→ ${esc(m.to)}</span>` : "";
-  return `<div class="msg ${side}"><div class="who"><i class="r-${m.role}"></i>${who}${to}</div>${mentionize(esc(m.t))}<div class="mtime">${esc(m.time)}</div></div>`;
+  const chan = m.chan ? `<span class="toChip">${esc(m.chan)}</span>` : "";
+  return `<div class="msg ${side}"><div class="who"><i class="r-${m.role}"></i>${who}${to}${chan}</div>${mentionize(esc(m.t))}<div class="mtime">${esc(m.time)}</div></div>`;
 }
 function teamRecipients(p){ return [ {label:"Care team", mention:""},
   {label:p.provider, mention:"@"+p.provider.replace(/^Dr\.?\s*/,"").split(" ")[0]},
@@ -644,7 +677,7 @@ function renderP360(p){
   cp.innerHTML = `<div class="hd"><h3>Critical path to next refill</h3><span class="hint" style="margin-left:auto">act on behalf of patient →</span></div>
     <div class="bd"><div class="cp">${p.steps.map((s,i)=>`<div class="step ${s.s}"><div class="num">${s.s==="done"?"✓":i+1}</div>
       <div><div class="t">${s.t}</div><div class="d">${s.d}</div></div><div class="when"><b>${s.when.split("\n")[0]}</b>${s.when.includes("\n")?s.when.split("\n")[1]:""}</div></div>`).join("")}</div>
-    <div class="actions" style="margin-top:16px"><button class="btn">Order labs</button><button class="btn ghost">Request refill</button><button class="btn ghost">Route renewal</button><button class="btn ghost">Schedule encounter</button></div></div>`;
+    <div class="actions" style="margin-top:16px"><button class="btn">Order labs</button><button class="btn ghost">Approve refill</button><button class="btn ghost">Route renewal</button><button class="btn ghost">Schedule encounter</button></div></div>`;
   main.appendChild(cp);
   const clin = document.createElement("div"); clin.className="card";
   clin.innerHTML = `<div class="hd"><h3>Clinical requirements</h3></div><div class="bd">
@@ -674,15 +707,17 @@ function renderMsgCard(p){
   if(th.kind==="team"){
     const recips = teamRecipients(p);
     routebar = `<div class="routebar">To: <select id="routeto">${recips.map((r,i)=>`<option value="${i}">${esc(r.label)}</option>`).join("")}</select><span>@mention inserts automatically</span></div>`;
+  } else {
+    routebar = `<div class="routebar">Via: <select id="pchan"><option ${patientChan==='SMS'?'selected':''}>SMS</option><option ${patientChan==='Email'?'selected':''}>Email</option></select><span>text or email the patient</span></div>`;
   }
   const chanNote = th.kind==="team"
     ? `<div class="chanhint"><i class="tag t-enc" style="padding:1px 6px">INTERNAL</i> Care-team thread — ${esc(th.with)}. Not visible to the patient.</div>`
-    : `<div class="chanhint">Two-way SMS with ${esc(p.name)} · consented</div>`;
+    : `<div class="chanhint">Reach ${esc(p.name)} by SMS or email · consented. Log calls &amp; in-person visits in Notes below.</div>`;
   $("#msgcard").innerHTML = `<div class="hd"><h3>Messages</h3><span class="hint" style="margin-left:auto">${p.threads.length} channels</span></div>
     <div class="bd"><div class="tabs" role="tablist">${tabs}</div>
       <div class="thread" id="thread">${th.msgs.map(msgHTML).join("")}</div>
       <div style="margin-top:12px">${routebar}<div class="templates">${tmpls}</div>
-      <form class="composer" id="composer"><input type="text" autocomplete="off" placeholder="${th.kind==='team'?'Message care team…':'Message patient (SMS)…'}" aria-label="Message"/><button class="btn sm" type="submit">Send</button></form>
+      <form class="composer" id="composer"><input type="text" autocomplete="off" placeholder="${th.kind==='team'?'Message care team…':'Message patient…'}" aria-label="Message"/><button class="btn sm" type="submit">Send</button></form>
       ${chanNote}</div></div>`;
   $("#msgcard").querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{ currentChannel[p.id]=b.dataset.tid; renderMsgCard(P(p.id)); }));
   const inp = $("#composer input");
@@ -690,14 +725,17 @@ function renderMsgCard(p){
   const th2 = $("#thread"); th2.scrollTop = th2.scrollHeight;
   if(th.kind==="team"){ const sel=$("#routeto"); sel.addEventListener("change",()=>{ const r=teamRecipients(p)[+sel.value];
     if(r.mention){ const rest=inp.value.replace(/^@\w+\s*/,""); inp.value=r.mention+" "+rest; } inp.focus(); }); }
+  if(th.kind==="patient"){ const s=$("#pchan"); s.addEventListener("change",()=>{ patientChan=s.value; }); }
   $("#composer").addEventListener("submit",e=>{
     e.preventDefault(); const v=inp.value.trim(); if(!v) return;
     const msg={role:"nav", from:"Rae Navarro", t:v, time:"just now"};
     if(th.kind==="team"){ const r=teamRecipients(p)[+($("#routeto").value||0)]; if(r && r.label!=="Care team") msg.to=r.label; }
+    else { msg.chan=($("#pchan")||{value:patientChan}).value; }
     th.msgs.push(msg); inp.value=""; persist(); renderMsgCard(P(p.id)); updateBadges();
   });
 }
 let noteType = "Call";
+let patientChan = "SMS";
 function renderNotesCard(p){
   const wantTask = noteType==="Need";
   $("#notescard").innerHTML = `<div class="hd"><h3>Notes &amp; call log</h3><span class="hint" style="margin-left:auto">${p.notes.length}</span></div>
@@ -705,9 +743,10 @@ function renderNotesCard(p){
       <form class="noteform" id="noteform">
         <div class="seg" role="group" aria-label="Note type">
           <button type="button" data-nt="Call" aria-pressed="${noteType==='Call'}">Call</button>
+          <button type="button" data-nt="Visit" aria-pressed="${noteType==='Visit'}">Visit</button>
           <button type="button" data-nt="Need" aria-pressed="${noteType==='Need'}">Need</button>
           <button type="button" data-nt="Note" aria-pressed="${noteType==='Note'}">Note</button></div>
-        <textarea placeholder="Log a call, a patient need, or a note for the care team…" aria-label="New note"></textarea>
+        <textarea placeholder="Log a call, an in-person visit, a patient need, or a note for the care team…" aria-label="New note"></textarea>
         <div class="r"><label><input type="checkbox" id="mkTask" ${wantTask?"checked":""}> Add to worklist</label>
           <button class="btn sm grow" type="submit">Add note</button></div></form></div>`;
   $("#noteform").querySelectorAll(".seg button").forEach(b=>b.addEventListener("click",()=>{ noteType=b.dataset.nt;
@@ -800,14 +839,41 @@ function renderPanel(){
     .map(f=>`<div class="frow"><div class="fl">${f.l}</div><div class="bar" style="width:${f.v}%">${f.v}%</div><div class="fv">${f.n}</div></div>`).join("");
 }
 
+// ---------- continuity board ----------
+const OUT_BASE = Date.UTC(2026, 6, 27);   // "today" in the demo
+function outDate(days){ const d = new Date(OUT_BASE + days*86400000); return d.toLocaleDateString("en-US",{ day:"2-digit", month:"short", timeZone:"UTC" }); }
+function renderBoard(){
+  const rows = STATE.patients.slice().sort((a,b)=> (a.actWithin??a.supply) - (b.actWithin??b.supply));
+  $("#boardBody").innerHTML = rows.map(p=>{
+    const aw = (p.actWithin!=null) ? p.actWithin : Math.max(0, p.supply-2);
+    const awSev = aw<=1 ? "crit" : aw<=7 ? "warn" : "ok";
+    const supSev = p.supply<=7 ? "crit" : p.supply<=20 ? "warn" : "ok";
+    const pct = Math.max(6, Math.min(100, Math.round(p.supply/45*100)));
+    return `<tr tabindex="0" role="button" data-id="${p.id}" aria-label="Open ${esc(p.name)}">
+      <td><div class="bpt">${esc(p.name)}</div><div class="bmrn">${esc(p.mrn)} · MPR ${p.mpr.toFixed(2)}</div></td>
+      <td class="num"><div class="supplybar"><span class="bignum st-${supSev}">${p.supply}<small>d</small></span><span class="bar"><i class="sev-${supSev}" style="width:${pct}%"></i></span></div></td>
+      <td><span class="runsout st-${supSev}">${outDate(p.supply)}</span></td>
+      <td><span class="tag ${TYPE_TAG[p.type]}">${TYPE_LABEL[p.type]}</span> ${esc(p.action || p.headline)}</td>
+      <td class="num"><span class="actwithin st-${awSev}">${aw===0 ? "today" : aw+"d"}</span></td>
+      <td><span class="bstatus ${awSev}">${awSev==="crit" ? "Act now" : awSev==="warn" ? "This week" : "On track"}</span></td>
+    </tr>`;
+  }).join("");
+  $("#boardBody").querySelectorAll("tr").forEach(tr=>{
+    const open = ()=>{ selectPatient(tr.dataset.id); switchView("patient"); };
+    tr.addEventListener("click", open);
+    tr.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(); } });
+  });
+}
+
 // ---------- views + data controls ----------
-const TITLES = { worklist:["Worklist","Prioritized by time-to-gap · 27 Jul 2026"], patient:["Patient 360","Lifecycle, orders & collaboration"],
+const TITLES = { board:["Continuity board","When each patient runs out · days to next best action"],
+  worklist:["Worklist","Prioritized by time-to-gap · 27 Jul 2026"], patient:["Patient 360","Lifecycle, orders & collaboration"],
   inbox:["Inbox","Patient & care-team messaging"], panel:["Panel Health","Cohort continuity metrics"] };
 function switchView(v){
   document.querySelectorAll(".view").forEach(s=>s.classList.toggle("active", s.id==="view-"+v));
   document.querySelectorAll(".navitem").forEach(n=>n.setAttribute("aria-current", n.dataset.view===v));
   $("#viewtitle").firstChild.textContent = TITLES[v][0]; $("#viewsub").textContent = TITLES[v][1];
-  if(v==="panel") renderPanel(); if(v==="inbox") renderInbox(); if(v==="worklist") renderWorklist();
+  if(v==="board") renderBoard(); if(v==="panel") renderPanel(); if(v==="inbox") renderInbox(); if(v==="worklist") renderWorklist();
 }
 function renderAll(){ renderWorklist(); if(!P(currentPatient)) currentPatient=STATE.patients[0].id; selectPatient(currentPatient);
   if($("#view-inbox").classList.contains("active")) renderInbox(); updateBadges(); }
@@ -837,7 +903,7 @@ $("#resetBtn").addEventListener("click",()=>{ try{ localStorage.removeItem(LS_KE
 // init
 if(!(window.claude && window.claude.downloads)) $("#exportBtn").style.display="none";
 hydrate();
-renderWorklist(); selectPatient("marcus"); updateBadges();
+renderWorklist(); selectPatient("marcus"); updateBadges(); switchView("board");
 </script>
 </body>
 </html>
