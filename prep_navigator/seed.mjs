@@ -6,7 +6,7 @@
 export const PATIENTS = [
   {
     id: "marcus", name: "Marcus R.", age: 31, mrn: "PN-40213", supply: 4, mpr: 0.91,
-    sev: "crit", type: "lab", provider: "Dr. Osei", pharmacy: "CVS #4471",
+    sev: "crit", type: "lab", action: "Order HIV test", actWithin: 0, provider: "Dr. Osei", pharmacy: "Mail order",
     headline: "Order quarterly HIV Ag/Ab + rapid — result gates the refill",
     why: "Supply ends in 4d · lab needs 2d turnaround → order today or supply lapses",
     lead: "needs 2d lead", leadsev: "crit",
@@ -15,7 +15,7 @@ export const PATIENTS = [
     steps: [
       { s: "done", t: "Encounter complete", d: "Telehealth visit 12 Jun · quarterly", when: "12 Jun" },
       { s: "active", t: "Quarterly HIV Ag/Ab test", d: "Required within 90d to authorize refill — last neg 18 Apr", when: "OVERDUE\nby 9d" },
-      { s: "wait", t: "Pharmacy refill (30d)", d: "Held at CVS #4471 pending lab clearance", when: "ready\non result" },
+      { s: "wait", t: "Approve refill (30d)", d: "Rx can't be written until a current HIV result is in — then ships", when: "on\nresult" },
       { s: "wait", t: "Next quarterly labs", d: "HIV + renal + STI panel", when: "~12 Sep" },
     ],
     labs: [
@@ -26,19 +26,19 @@ export const PATIENTS = [
     ],
     rx: { drug: "Emtricitabine/Tenofovir DF", refills: "2 of 6 left", exp: "expires 04 Jan 27" },
     feed: [
-      { sev: "crit", t: "<b>Refill hold</b> — pharmacy flagged HIV test > 90d", m: "today · 08:12 · Surescripts" },
+      { sev: "crit", t: "<b>Refill blocked</b> — HIV test > 90d; Rx needs a current result before it can ship", m: "today · 08:12 · Surescripts" },
       { sev: "info", t: "Reminder SMS sent — 'time for your PrEP labs'", m: "yesterday · auto" },
       { sev: "ok", t: "Telehealth encounter documented", m: "12 Jun · Dr. Osei" },
     ],
     threads: [
-      { id: "sms", kind: "patient", label: "Patient · SMS", with: "Marcus R.", msgs: [
+      { id: "sms", kind: "patient", label: "Patient", with: "Marcus R.", msgs: [
         { role: "nav", from: "Rae Navarro", t: "Hi Marcus — you're due for a quick HIV test before your next refill. Home kit or clinic?", time: "Mon 09:12" },
         { role: "patient", from: "Marcus R.", t: "A home kit would be easier, I'm slammed at work", time: "Mon 09:31" },
         { role: "nav", from: "Rae Navarro", t: "Done — ordering it now, arrives in 2 days. Refill unlocks the moment results are in 👍", time: "Mon 09:34" },
       ] },
       { id: "team", kind: "team", label: "Care team", with: "Dr. Osei · CVS #4471", msgs: [
         { role: "provider", from: "Dr. Osei", t: "Marcus is overdue on quarterly HIV. I'll e-sign a home test order if you route the packet.", time: "Tue 08:05", unread: true },
-        { role: "pharmacist", from: "CVS #4471", t: "Refill is on hold our side until we see a current HIV result.", time: "Tue 08:40", unread: true },
+        { role: "pharmacist", from: "Mail-order Rx", t: "Can't write or ship the refill without a current HIV result on file — standing by.", time: "Tue 08:40", unread: true },
       ] },
     ],
     notes: [
@@ -48,7 +48,7 @@ export const PATIENTS = [
   },
   {
     id: "dana", name: "Dana W.", age: 27, mrn: "PN-39880", supply: 12, mpr: 0.97,
-    sev: "crit", type: "renew", provider: "Dr. Lin", pharmacy: "Walgreens #221",
+    sev: "crit", type: "renew", action: "Renew Rx", actWithin: 4, provider: "Dr. Lin", pharmacy: "Mail order",
     headline: "Prescription out of refills — route renewal packet to prescriber",
     why: "0 refills left · renewal needs an encounter first → 8d critical path vs 12d supply",
     lead: "needs 8d lead", leadsev: "crit",
@@ -58,7 +58,7 @@ export const PATIENTS = [
       { s: "active", t: "Schedule renewal encounter", d: "Telehealth slot — prescriber Dr. Lin", when: "book\ntoday" },
       { s: "wait", t: "Send renewal packet", d: "Auto-compiled: last HIV neg, renal, adherence 0.97", when: "on visit" },
       { s: "wait", t: "New Rx to pharmacy", d: "90-day supply requested", when: "~+6d" },
-      { s: "wait", t: "Refill dispensed", d: "Walgreens #221", when: "~+8d" },
+      { s: "wait", t: "Refill ships", d: "Mail-order · to patient's door", when: "~+8d" },
     ],
     labs: [
       { k: "HIV Ag/Ab", v: "Neg", s: "02 Jul · 25d ago", sev: "ok" },
@@ -72,7 +72,7 @@ export const PATIENTS = [
       { sev: "ok", t: "CT treatment confirmed by pharmacy", m: "05 Jul" },
     ],
     threads: [
-      { id: "sms", kind: "patient", label: "Patient · SMS", with: "Dana W.", msgs: [
+      { id: "sms", kind: "patient", label: "Patient", with: "Dana W.", msgs: [
         { role: "nav", from: "Rae Navarro", t: "Hey Dana, your prescription needs a renewal. 15-min video visit Thursday 4pm?", time: "Today 10:02" },
         { role: "patient", from: "Dana W.", t: "Thursday works!", time: "Today 10:19", unread: true },
       ] },
@@ -88,7 +88,7 @@ export const PATIENTS = [
   },
   {
     id: "sam", name: "Sam T.", age: 44, mrn: "PN-41002", supply: 18, mpr: 0.94,
-    sev: "warn", type: "pa", provider: "Dr. Osei", pharmacy: "Costco Rx",
+    sev: "warn", type: "pa", action: "Re-enroll copay", actWithin: 13, provider: "Dr. Osei", pharmacy: "Mail order",
     headline: "Copay assistance expiring — re-enroll before next fill",
     why: "Coverage ends in 15d · PA reprocessing ~5d → start before fill #4",
     lead: "needs 5d lead", leadsev: "warn",
@@ -97,7 +97,7 @@ export const PATIENTS = [
     steps: [
       { s: "active", t: "Re-enroll copay assistance", d: "Manufacturer PAP — income re-attestation on file", when: "submit\ntoday" },
       { s: "wait", t: "Confirm PA active", d: "Payer BIN/PCN verification", when: "~+5d" },
-      { s: "wait", t: "Refill dispensed", d: "$0 copay restored", when: "~+18d" },
+      { s: "wait", t: "Refill ships", d: "$0 copay restored", when: "~+18d" },
     ],
     labs: [
       { k: "HIV Ag/Ab", v: "Neg", s: "20 May · 68d ago", sev: "ok" },
@@ -108,10 +108,10 @@ export const PATIENTS = [
     rx: { drug: "Emtricitabine/Tenofovir AF", refills: "3 of 6 left", exp: "expires 12 Nov 26" },
     feed: [
       { sev: "warn", t: "<b>Assistance expiring</b> in 15 days", m: "today · benefits sync" },
-      { sev: "ok", t: "Refill #3 picked up", m: "09 Jul" },
+      { sev: "ok", t: "Refill #3 shipped", m: "09 Jul" },
     ],
     threads: [
-      { id: "sms", kind: "patient", label: "Patient · SMS", with: "Sam T.", msgs: [
+      { id: "sms", kind: "patient", label: "Patient", with: "Sam T.", msgs: [
         { role: "nav", from: "Rae Navarro", t: "Sam, your $0 copay program is up for renewal — reply YES and I'll handle it.", time: "Yst 15:10" },
         { role: "patient", from: "Sam T.", t: "YES, thanks Rae", time: "Yst 15:22" },
       ] },
@@ -125,15 +125,15 @@ export const PATIENTS = [
   },
   {
     id: "jordan", name: "Jordan P.", age: 23, mrn: "PN-40771", supply: 9, mpr: 0.88,
-    sev: "warn", type: "refill", provider: "Dr. Rao", pharmacy: "Rite Aid #88",
-    headline: "Refill filled 6 days ago — nudge pickup before supply runs out",
-    why: "Filled & waiting · supply ends 9d · adherence trending down (0.88)",
-    lead: "no lead needed", leadsev: "ok",
-    track: [ { label: "Pickup", dd: "waiting", pos: 20, sev: "warn" }, { label: "Supply end", dd: "day 9", pos: 66, sev: "warn" } ],
+    sev: "warn", type: "refill", action: "Approve refill", actWithin: 1, provider: "Dr. Rao", pharmacy: "Mail order",
+    headline: "Refill ready for approval — approve to ship before supply runs out",
+    why: "Awaiting your approval · supply ends 9d · adherence trending down (0.88)",
+    lead: "ships same day", leadsev: "ok",
+    track: [ { label: "Approve", dd: "now", pos: 20, sev: "warn" }, { label: "Supply end", dd: "day 9", pos: 66, sev: "warn" } ],
     fill: 74, gapAt: 83,
     steps: [
-      { s: "done", t: "Refill dispensed", d: "30-day · ready at counter", when: "21 Jul" },
-      { s: "active", t: "Confirm pickup", d: "6 days on shelf — auto return-to-stock at 14d", when: "nudge\nnow" },
+      { s: "done", t: "Refill request received", d: "Mail-order pharmacy · 30-day, labs current", when: "21 Jul" },
+      { s: "active", t: "Approve refill", d: "Ships same day once you approve — arrives in ~2 days", when: "approve\nnow" },
       { s: "wait", t: "Quarterly labs", d: "HIV + renal due next cycle", when: "~15 Aug" },
     ],
     labs: [
@@ -144,16 +144,16 @@ export const PATIENTS = [
     ],
     rx: { drug: "Emtricitabine/Tenofovir DF", refills: "4 of 6 left", exp: "expires 20 Feb 27" },
     feed: [
-      { sev: "warn", t: "<b>Not picked up</b> — 6 days on shelf", m: "today · pharmacy sync" },
+      { sev: "warn", t: "<b>Refill awaiting approval</b> — ready to ship", m: "today · pharmacy sync" },
       { sev: "info", t: "Adherence dip flagged by rules engine", m: "2 days ago" },
     ],
     threads: [
-      { id: "sms", kind: "patient", label: "Patient · SMS", with: "Jordan P.", msgs: [
-        { role: "nav", from: "Rae Navarro", t: "Hi Jordan! Your refill's been ready at Rite Aid #88 since Tue. All ok? Want me to switch you to mail-order?", time: "Today 08:15" },
-        { role: "patient", from: "Jordan P.", t: "oh! forgot. mail order sounds good actually", time: "Today 08:44", unread: true },
+      { id: "sms", kind: "patient", label: "Patient", with: "Jordan P.", msgs: [
+        { role: "nav", from: "Rae Navarro", t: "Hi Jordan — approving your refill now, it ships today and should arrive in ~2 days 📦 All good?", time: "Today 08:15" },
+        { role: "patient", from: "Jordan P.", t: "awesome, thank you!", time: "Today 08:44", unread: true },
       ] },
-      { id: "team", kind: "team", label: "Care team", with: "Rite Aid #88", msgs: [
-        { role: "pharmacist", from: "Rite Aid #88", t: "Refill goes back to stock in 8 days if not collected — flagging.", time: "Today 07:50", unread: true },
+      { id: "team", kind: "team", label: "Care team", with: "Mail-order pharmacy", msgs: [
+        { role: "pharmacist", from: "Mail-order Rx", t: "Refill is queued and ready to ship — awaiting navigator approval.", time: "Today 07:50", unread: true },
       ] },
     ],
     notes: [
@@ -162,7 +162,7 @@ export const PATIENTS = [
   },
   {
     id: "aisha", name: "Aisha K.", age: 35, mrn: "PN-39510", supply: 26, mpr: 0.99,
-    sev: "warn", type: "lab", provider: "Dr. Lin", pharmacy: "Mail order",
+    sev: "warn", type: "lab", action: "Schedule labs", actWithin: 6, provider: "Dr. Lin", pharmacy: "Mail order",
     headline: "Quarterly labs due in 20 days — schedule now to stay ahead",
     why: "On track · pre-scheduling labs keeps the next refill unblocked",
     lead: "schedule ahead", leadsev: "ok",
@@ -185,7 +185,7 @@ export const PATIENTS = [
       { sev: "info", t: "Labs pre-scheduling window opened", m: "today" },
     ],
     threads: [
-      { id: "sms", kind: "patient", label: "Patient · SMS", with: "Aisha K.", msgs: [
+      { id: "sms", kind: "patient", label: "Patient", with: "Aisha K.", msgs: [
         { role: "nav", from: "Rae Navarro", t: "Hi Aisha — time to book your quarterly labs. Mobile phlebotomy can come to you; pick a morning?", time: "Today 11:00" },
         { role: "patient", from: "Aisha K.", t: "Tuesday AM would be perfect", time: "Today 11:12", unread: true },
       ] },

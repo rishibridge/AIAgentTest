@@ -212,7 +212,7 @@
   .note .nh { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
   .note .nt { font-size: 12.5px; } .note .nm { font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-left: auto; }
   .ntype { font-size: 9.5px; font-family: var(--mono); padding: 1px 7px; border-radius: 20px; letter-spacing: .03em; text-transform: uppercase; }
-  .ntype.Call { background: var(--info); color: #fff; } .ntype.Need { background: var(--warn); color: #fff; } .ntype.Note { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line-2); }
+  .ntype.Call { background: var(--info); color: #fff; } .ntype.Need { background: var(--warn); color: #fff; } .ntype.Note { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line-2); } .ntype.Visit { background: var(--provider); color: #fff; } .ntype.Email { background: var(--pharm); color: #fff; }
   .noteform { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
   .seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 7px; overflow: hidden; margin-bottom: 8px; }
   .seg button { border: none; background: var(--surface); font-family: inherit; font-size: 11px; font-weight: 600; color: var(--ink-3); padding: 5px 12px; cursor: pointer; border-right: 1px solid var(--line-2); }
@@ -281,6 +281,22 @@
   .hint { font-size: 11.5px; color: var(--ink-3); font-family: var(--mono); }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--ink-2); font-family: var(--mono); margin-top: 4px; }
   .legend span { display: inline-flex; align-items: center; gap: 5px; } .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .boardwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); background: var(--surface); }
+  .board { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
+  .board th { text-align: left; font-size: 10.5px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); font-weight: 600; padding: 11px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); position: sticky; top: 0; z-index: 1; }
+  .board th.num, .board td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .board td { padding: 11px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .board tbody tr:last-child td { border-bottom: none; }
+  .board tbody tr { cursor: pointer; } .board tbody tr:hover { background: var(--surface-2); }
+  .board tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .board .bpt { font-weight: 650; font-size: 13.5px; } .board .bmrn { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+  .board .supplybar { display: flex; align-items: center; gap: 9px; justify-content: flex-end; }
+  .board .supplybar .bar { width: 66px; height: 7px; border-radius: 5px; background: var(--line); overflow: hidden; flex: none; }
+  .board .supplybar .bar i { display: block; height: 100%; border-radius: 5px; }
+  .board .bignum { font-family: var(--mono); font-weight: 650; font-size: 15px; letter-spacing: -.01em; } .board .bignum small { font-weight: 400; font-size: 10px; color: var(--ink-3); }
+  .board .actwithin { font-family: var(--mono); font-weight: 650; font-size: 14px; } .board .runsout { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+  .bstatus { font-size: 10.5px; font-family: var(--mono); padding: 2px 9px; border-radius: 20px; letter-spacing: .03em; white-space: nowrap; }
+  .bstatus.crit { background: var(--crit-wash); color: var(--crit); } .bstatus.warn { background: var(--warn-wash); color: var(--warn); } .bstatus.ok { background: var(--good-wash); color: var(--good); }
 </style>
 </head>
 <body>
@@ -289,7 +305,10 @@
     <div class="brand"><div class="mark" aria-hidden="true"></div><div><b>Continuity</b><span>PrEP Navigator</span></div></div>
     <div class="navlabel">Care</div>
     <nav class="nav">
-      <button class="navitem" data-view="worklist" aria-current="true">
+      <button class="navitem" data-view="board" aria-current="true">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M4 12h16M4 19h16M8 5v14"/></svg>
+        Continuity board</button>
+      <button class="navitem" data-view="worklist">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8M4 5h11M4 12h5M4 19h9"/></svg>
         Worklist <span class="badge" id="worklistBadge">0</span></button>
       <button class="navitem" data-view="patient">
@@ -323,7 +342,14 @@
       </div>
     </header>
 
-    <section class="view active" id="view-worklist">
+    <section class="view active" id="view-board">
+      <div class="sechead"><h2>Continuity board</h2><p>Every patient — <b>when they run out of meds</b> and <b>days to the next best action</b> to keep supply continuous. Sorted by soonest action.</p></div>
+      <div class="boardwrap"><table class="board" id="boardTable"><thead><tr>
+        <th>Patient</th><th class="num">Days of supply</th><th>Runs out</th><th>Next best action</th><th class="num">Act within</th><th>Status</th>
+      </tr></thead><tbody id="boardBody"></tbody></table></div>
+    </section>
+
+    <section class="view" id="view-worklist">
       <div class="sechead"><h2>Today's queue</h2><p>Ranked by <b>days until a supply gap</b>, net of the lead time each blocking step needs to clear.</p></div>
       <div class="filters" id="filters" role="group" aria-label="Filter tasks"></div>
       <div id="lanes"></div>
@@ -433,6 +459,7 @@ async function refreshAll(){
   if(!P(currentPatient)) currentPatient = STATE.patients[0] ? STATE.patients[0].id : null;
   if(currentPatient && !currentChannel[currentPatient]) currentChannel[currentPatient] = "sms";
   renderWorklist();
+  if($("#view-board").classList.contains("active")) renderBoard();
   if(currentPatient) renderPatientView();
   if($("#view-inbox").classList.contains("active")) renderInbox();
   if($("#view-panel").classList.contains("active")) renderPanel();
@@ -539,7 +566,7 @@ function renderP360(p){
   cp.innerHTML = `<div class="hd"><h3>Critical path to next refill</h3><span class="hint" style="margin-left:auto">act on behalf of patient →</span></div>
     <div class="bd"><div class="cp">${p.steps.map((s,i)=>`<div class="step ${s.s}"><div class="num">${s.s==="done"?"✓":i+1}</div>
       <div><div class="t">${s.t}</div><div class="d">${s.d}</div></div><div class="when"><b>${s.when.split("\n")[0]}</b>${s.when.includes("\n")?s.when.split("\n")[1]:""}</div></div>`).join("")}</div>
-    <div class="actions" style="margin-top:16px"><button class="btn">Order labs</button><button class="btn ghost">Request refill</button><button class="btn ghost">Route renewal</button><button class="btn ghost">Schedule encounter</button></div></div>`;
+    <div class="actions" style="margin-top:16px"><button class="btn">Order labs</button><button class="btn ghost">Approve refill</button><button class="btn ghost">Route renewal</button><button class="btn ghost">Schedule encounter</button></div></div>`;
   main.appendChild(cp);
   const clin = document.createElement("div"); clin.className="card";
   clin.innerHTML = `<div class="hd"><h3>Clinical requirements</h3></div><div class="bd">
@@ -599,6 +626,7 @@ function renderNotesCard(p){
       <form class="noteform" id="noteform">
         <div class="seg" role="group" aria-label="Note type">
           <button type="button" data-nt="Call" aria-pressed="${noteType==='Call'}">Call</button>
+          <button type="button" data-nt="Visit" aria-pressed="${noteType==='Visit'}">Visit</button>
           <button type="button" data-nt="Need" aria-pressed="${noteType==='Need'}">Need</button>
           <button type="button" data-nt="Note" aria-pressed="${noteType==='Note'}">Note</button></div>
         <textarea placeholder="Log a call, a patient need, or a note for the care team…" aria-label="New note"></textarea>
@@ -690,14 +718,41 @@ function renderPanel(){
     .map(f=>`<div class="frow"><div class="fl">${f.l}</div><div class="bar" style="width:${f.v}%">${f.v}%</div><div class="fv">${f.n}</div></div>`).join("");
 }
 
+// ---------- continuity board ----------
+const OUT_BASE = Date.UTC(2026, 6, 27);
+function outDate(days){ const d = new Date(OUT_BASE + days*86400000); return d.toLocaleDateString("en-US",{ day:"2-digit", month:"short", timeZone:"UTC" }); }
+function renderBoard(){
+  const rows = STATE.patients.slice().sort((a,b)=> (a.actWithin??a.supply) - (b.actWithin??b.supply));
+  $("#boardBody").innerHTML = rows.map(p=>{
+    const aw = (p.actWithin!=null) ? p.actWithin : Math.max(0, p.supply-2);
+    const awSev = aw<=1 ? "crit" : aw<=7 ? "warn" : "ok";
+    const supSev = p.supply<=7 ? "crit" : p.supply<=20 ? "warn" : "ok";
+    const pct = Math.max(6, Math.min(100, Math.round(p.supply/45*100)));
+    return `<tr tabindex="0" role="button" data-id="${p.id}" aria-label="Open ${esc(p.name)}">
+      <td><div class="bpt">${esc(p.name)}</div><div class="bmrn">${esc(p.mrn)} · MPR ${p.mpr.toFixed(2)}</div></td>
+      <td class="num"><div class="supplybar"><span class="bignum st-${supSev}">${p.supply}<small>d</small></span><span class="bar"><i class="sev-${supSev}" style="width:${pct}%"></i></span></div></td>
+      <td><span class="runsout st-${supSev}">${outDate(p.supply)}</span></td>
+      <td><span class="tag ${TYPE_TAG[p.type]}">${TYPE_LABEL[p.type]}</span> ${esc(p.action || p.headline)}</td>
+      <td class="num"><span class="actwithin st-${awSev}">${aw===0 ? "today" : aw+"d"}</span></td>
+      <td><span class="bstatus ${awSev}">${awSev==="crit" ? "Act now" : awSev==="warn" ? "This week" : "On track"}</span></td>
+    </tr>`;
+  }).join("");
+  $("#boardBody").querySelectorAll("tr").forEach(tr=>{
+    const open = ()=>{ selectPatient(tr.dataset.id); switchView("patient"); };
+    tr.addEventListener("click", open);
+    tr.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(); } });
+  });
+}
+
 // ---------- views ----------
-const TITLES = { worklist:["Worklist","Prioritized by time-to-gap"], patient:["Patient 360","Lifecycle, orders & collaboration"],
+const TITLES = { board:["Continuity board","When each patient runs out · days to next best action"],
+  worklist:["Worklist","Prioritized by time-to-gap"], patient:["Patient 360","Lifecycle, orders & collaboration"],
   inbox:["Inbox","Patient & care-team messaging"], panel:["Panel Health","Cohort continuity metrics"] };
 function switchView(v){
   document.querySelectorAll(".view").forEach(s=>s.classList.toggle("active", s.id==="view-"+v));
   document.querySelectorAll(".navitem").forEach(n=>n.setAttribute("aria-current", n.dataset.view===v));
   $("#viewtitle").firstChild.textContent = TITLES[v][0]; $("#viewsub").textContent = TITLES[v][1];
-  if(v==="panel") renderPanel(); if(v==="inbox") renderInbox(); if(v==="worklist") renderWorklist();
+  if(v==="board") renderBoard(); if(v==="panel") renderPanel(); if(v==="inbox") renderInbox(); if(v==="worklist") renderWorklist();
 }
 document.querySelectorAll(".navitem").forEach(n=>n.addEventListener("click",()=>switchView(n.dataset.view)));
 $("#ifilters").addEventListener("click",e=>{ const b=e.target.closest(".chip"); if(!b) return; inboxFilter=b.dataset.f;
@@ -718,7 +773,7 @@ function subscribe(){
 
 // ---------- init ----------
 (async function init(){
-  try { await refreshAll(); if(STATE.patients[0]) selectPatient(STATE.patients[0].id); subscribe(); }
+  try { await refreshAll(); if(STATE.patients[0]) selectPatient(STATE.patients[0].id); switchView("board"); subscribe(); }
   catch(e){ toast("Couldn't reach the server — is it running?"); setLive(false); }
 })();
 </script>
