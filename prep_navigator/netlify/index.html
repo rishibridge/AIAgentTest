@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Continuity — a PrEP navigator console demo: continuity board, worklist, patient lifecycle, multi-channel outreach, and inbox. Browser-only static build.">
+<meta name="description" content="Continuity — a PrEP navigator console demo: continuity board, worklist with field-outreach escalation, patient lifecycle, multi-channel outreach, and inbox. Browser-only static build.">
 <title>Continuity — PrEP Navigator Console</title>
 <style>
   :root {
@@ -118,7 +118,8 @@
   .tag { font-size: 10.5px; font-family: var(--mono); padding: 2px 7px; border-radius: 5px; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
   .t-lab { background: var(--info); color: #fff; } .t-enc { background: var(--provider); color: #fff; }
   .t-refill { background: var(--accent); color: #fff; } .t-renew { background: var(--warn); color: #fff; }
-  .t-pa { background: var(--pharm); color: #fff; } .t-note { background: var(--ink-2); color: var(--surface); }
+  .t-pa { background: var(--pharm); color: #fff; } .t-note { background: var(--ink-2); color: var(--surface); } .t-outreach { background: #7a4510; color: #fff; }
+  .asgn { font-size: 9.5px; font-family: var(--mono); padding: 1px 7px; border-radius: 20px; letter-spacing: .03em; background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); }
   .t-out { background: var(--crit-wash); color: var(--crit); border: 1px solid var(--crit); }
   .sev-crit { background: var(--crit); } .sev-warn { background: var(--warn); } .sev-ok { background: var(--good); }
   .st-crit { color: var(--crit); } .st-warn { color: var(--warn); } .st-ok { color: var(--good); }
@@ -538,10 +539,79 @@ function seedState(){ return { patients: [
       { id:"team", kind:"team", label:"Care team", with:"Dr. Lin", msgs:[
         {role:"provider", from:"Dr. Lin", t:"All stable — fine to keep the 90-day cadence.", time:"Mon 16:20"} ] } ],
     notes:[ {type:"Note", author:"Rae Navarro", t:"Model adherence (MPR 0.99). Pre-scheduling labs to stay ahead of the refill.", time:"Today 11:05"} ] },
+
+  { id:"terrell", name:"Terrell J.", age:29, mrn:"PN-41190", supply:6, mpr:0.79, sev:"crit", type:"outreach", action:"Home visit", actWithin:0, assignee:"Field Outreach", provider:"Dr. Osei", pharmacy:"Mail order",
+    headline:"Unreachable 8 days — field visit to re-engage before supply lapses", why:"3 calls + 2 texts + 1 email, no reply · supply ends 6d · MPR 0.79",
+    lead:"dispatch today", leadsev:"crit",
+    track:[ {label:"Field visit", dd:"now", pos:14, sev:"crit"}, {label:"Supply end", dd:"day 6", pos:60, sev:"crit"} ], fill:80, gapAt:70,
+    steps:[ {s:"done", t:"Remote outreach exhausted", d:"3 calls · 2 SMS · 1 email over 8 days — no response", when:"18–26 Jul"},
+      {s:"active", t:"Field outreach home visit", d:"Assigned to community outreach team — last address on file", when:"dispatch\ntoday"},
+      {s:"wait", t:"Approve refill", d:"Ships once re-engaged and HIV result is current", when:"on\ncontact"} ],
+    labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"12 May · 76d ago", sev:"warn"}, {k:"Creatinine", v:"1.0 mg/dL", s:"CrCl 96", sev:"ok"}, {k:"Adherence", v:"MPR 0.79", s:"↓ falling", sev:"crit"} ],
+    rx:{drug:"Emtricitabine/Tenofovir DF", refills:"1 of 6 left", exp:"expires 15 Sep 26"},
+    feed:[ {sev:"crit", t:"<b>Unreachable</b> — 8 days, all remote channels tried", m:"today · rules engine"}, {sev:"warn", t:"Escalated to field outreach", m:"today · Rae Navarro"} ],
+    threads:[
+      { id:"sms", kind:"patient", label:"Patient", with:"Terrell J.", msgs:[
+        {role:"nav", from:"Rae Navarro", t:"Hi Terrell, checking in on your PrEP — please call me back, I want to make sure you don't run out.", time:"Thu 14:02"},
+        {role:"nav", from:"Rae Navarro", t:"Following up — I can send a home test kit or have someone stop by. Reply anytime.", time:"Mon 09:10"} ] },
+      { id:"team", kind:"team", label:"Care team", with:"Field outreach · Dr. Osei", msgs:[
+        {role:"nav", from:"Rae Navarro", t:"@Field can you attempt a home visit? 8 days unreachable, supply ends in 6.", time:"today 08:30", unread:true} ] } ],
+    notes:[ {type:"Call", author:"Rae Navarro", t:"3rd call attempt, voicemail full. Escalating to field outreach for in-person.", time:"today 08:25"} ] },
+
+  { id:"priya", name:"Priya N.", age:24, mrn:"PN-41205", supply:2, mpr:1.00, sev:"warn", type:"refill", action:"Approve first fill", actWithin:1, provider:"Dr. Lin", pharmacy:"Mail order",
+    headline:"New start — approve first fill to begin protection", why:"Baseline labs complete · eligible · first fill ready to ship",
+    lead:"ships same day", leadsev:"ok",
+    track:[ {label:"First fill", dd:"now", pos:16, sev:"warn"} ], fill:12, gapAt:80,
+    steps:[ {s:"done", t:"Intake & eligibility", d:"Risk assessment complete", when:"24 Jul"},
+      {s:"done", t:"Baseline labs", d:"HIV neg · renal normal · HBV neg", when:"25 Jul"},
+      {s:"active", t:"Approve first fill", d:"90-day supply ready — ships on approval", when:"approve\nnow"} ],
+    labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"25 Jul · baseline", sev:"ok"}, {k:"Creatinine", v:"0.8 mg/dL", s:"CrCl 120", sev:"ok"}, {k:"HBV sAg", v:"Neg", s:"25 Jul", sev:"ok"} ],
+    rx:{drug:"Emtricitabine/Tenofovir DF", refills:"new Rx", exp:"expires 25 Jul 27"},
+    feed:[ {sev:"ok", t:"Baseline labs resulted — eligible", m:"25 Jul"}, {sev:"info", t:"First fill queued", m:"today"} ],
+    threads:[
+      { id:"sms", kind:"patient", label:"Patient", with:"Priya N.", msgs:[
+        {role:"patient", from:"Priya N.", t:"Excited to start! When does it arrive?", time:"Today 09:40", unread:true},
+        {role:"nav", from:"Rae Navarro", t:"Approving now — ships today, arrives in ~2 days 🎉", time:"Today 09:45"} ] },
+      { id:"team", kind:"team", label:"Care team", with:"Dr. Lin", msgs:[
+        {role:"provider", from:"Dr. Lin", t:"Cleared to start — first fill approved on my end.", time:"Today 08:00"} ] } ],
+    notes:[ {type:"Note", author:"Rae Navarro", t:"New start, highly motivated. Set 90-day cadence.", time:"Today 09:46"} ] },
+
+  { id:"devon", name:"Devon R.", age:38, mrn:"PN-38900", supply:68, mpr:0.99, sev:"ok", type:"refill", action:"On track — refill auto-ships", actWithin:40, provider:"Dr. Rao", pharmacy:"Mail order",
+    headline:"Continuous — next refill auto-ships, labs current", why:"90-day supply · MPR 0.99 · quarterly labs done",
+    lead:"none", leadsev:"ok",
+    track:[ {label:"Labs", dd:"day 40", pos:60, sev:"ok"}, {label:"Refill", dd:"day 68", pos:84, sev:"ok"} ], fill:24, gapAt:92,
+    steps:[ {s:"done", t:"90-day refill shipped", d:"Mail-order", when:"10 Jul"},
+      {s:"wait", t:"Quarterly labs", d:"HIV + renal", when:"~5 Sep"}, {s:"wait", t:"Next refill", d:"auto-ships on labs", when:"~9 Oct"} ],
+    labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"08 Jul", sev:"ok"}, {k:"Creatinine", v:"0.9 mg/dL", s:"CrCl 108", sev:"ok"}, {k:"Adherence", v:"MPR 0.99", s:"excellent", sev:"ok"} ],
+    rx:{drug:"Emtricitabine/Tenofovir DF", refills:"3 of 6 left", exp:"expires 18 Apr 27"},
+    feed:[ {sev:"ok", t:"90-day refill shipped", m:"10 Jul"} ],
+    threads:[
+      { id:"sms", kind:"patient", label:"Patient", with:"Devon R.", msgs:[
+        {role:"nav", from:"Rae Navarro", t:"All set for the quarter, Devon — labs due early Sep, I'll book mobile phlebotomy closer to then.", time:"10 Jul"} ] },
+      { id:"team", kind:"team", label:"Care team", with:"Dr. Rao", msgs:[
+        {role:"provider", from:"Dr. Rao", t:"No changes — stable.", time:"09 Jul"} ] } ],
+    notes:[ {type:"Note", author:"Rae Navarro", t:"Model continuity. No action until labs window.", time:"10 Jul"} ] },
+
+  { id:"kwame", name:"Kwame B.", age:33, mrn:"PN-40560", supply:0, mpr:0.61, sev:"crit", type:"outreach", action:"Re-engage (home visit)", actWithin:0, assignee:"Field Outreach", provider:"Dr. Lin", pharmacy:"Mail order",
+    headline:"Lapsed — 0 days supply, lost to follow-up; field re-engagement", why:"Coverage gap now · unreachable 3 weeks · MPR 0.61",
+    lead:"dispatch now", leadsev:"crit",
+    track:[ {label:"Field visit", dd:"now", pos:10, sev:"crit"} ], fill:96, gapAt:18,
+    steps:[ {s:"done", t:"Remote outreach exhausted", d:"5 attempts over 3 weeks", when:"Jul"},
+      {s:"active", t:"Field re-engagement visit", d:"Community outreach — confirm status & restart", when:"dispatch\nnow"},
+      {s:"wait", t:"Re-test + restart", d:"HIV test before any restart", when:"on\ncontact"} ],
+    labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"02 Apr · 116d ago", sev:"crit"}, {k:"Adherence", v:"MPR 0.61", s:"lapsed", sev:"crit"} ],
+    rx:{drug:"Emtricitabine/Tenofovir DF", refills:"0 of 6 left", exp:"expired 01 Jul 26"},
+    feed:[ {sev:"crit", t:"<b>Coverage gap</b> — 0 days supply", m:"today"}, {sev:"warn", t:"Escalated to field outreach", m:"3 days ago"} ],
+    threads:[
+      { id:"sms", kind:"patient", label:"Patient", with:"Kwame B.", msgs:[
+        {role:"nav", from:"Rae Navarro", t:"Kwame, we've missed you — your PrEP lapsed. No judgment, let's get you covered again. Call anytime.", time:"last wk"} ] },
+      { id:"team", kind:"team", label:"Care team", with:"Field outreach", msgs:[
+        {role:"nav", from:"Rae Navarro", t:"@Field please attempt in-person — lapsed 3 wks, unreachable.", time:"3 days ago", unread:true} ] } ],
+    notes:[ {type:"Call", author:"Rae Navarro", t:"5th attempt failed. Field outreach assigned for door knock.", time:"3 days ago"} ] },
 ], tasks: [] }; }
 
-const TYPE_TAG = { lab:"t-lab", enc:"t-enc", refill:"t-refill", renew:"t-renew", pa:"t-pa", note:"t-note" };
-const TYPE_LABEL = { lab:"LAB", enc:"ENCOUNTER", refill:"REFILL", renew:"RENEWAL", pa:"BENEFITS", note:"FOLLOW-UP" };
+const TYPE_TAG = { lab:"t-lab", enc:"t-enc", refill:"t-refill", renew:"t-renew", pa:"t-pa", note:"t-note", outreach:"t-outreach" };
+const TYPE_LABEL = { lab:"LAB", enc:"ENCOUNTER", refill:"REFILL", renew:"RENEWAL", pa:"BENEFITS", note:"FOLLOW-UP", outreach:"OUTREACH" };
 const TEMPLATES = {
   patient:[
     {k:"Lab due", f:p=>`Hi ${first(p)} — you're due for your quarterly PrEP labs (HIV + kidney). Want a clinic slot or a home test kit?`},
@@ -563,7 +633,18 @@ const SEED = structuredClone(STATE);
 function seedTasks(){
   if(STATE.tasks && STATE.tasks.length) return;
   STATE.tasks = STATE.patients.map(p=>({ id:"t-"+p.id, pid:p.id, type:p.type, title:p.headline, why:p.why,
-    sev:p.sev, supply:p.supply, lead:p.lead, leadsev:p.leadsev, status:"open", source:"lifecycle" }));
+    sev:p.sev, supply:p.supply, lead:p.lead, leadsev:p.leadsev, status:"open", source:"lifecycle",
+    assignee:p.assignee || "Navigator" }));
+}
+// Create a field-outreach task for a patient who can't be reached remotely.
+function escalateToOutreach(pid, reason){
+  const p = P(pid); if(!p) return;
+  if(STATE.tasks.some(t=>t.pid===pid && t.type==="outreach" && t.status==="open")){ toast(`${p.name} already has an open field-outreach task`); return; }
+  STATE.tasks.unshift({ id:uid("t-outreach-"), pid, type:"outreach", title:"Field outreach — home visit to re-engage",
+    why: reason || ("Unreachable by SMS/email/call · supply ends "+p.supply+"d"), sev: p.supply<=7?"crit":"warn",
+    supply:p.supply, lead:"dispatch", leadsev:"crit", status:"open", source:"escalation", assignee:"Field Outreach" });
+  persist(); toast(`Escalated ${p.name} to field outreach`);
+  renderWorklist(); if($("#view-board").classList.contains("active")) renderBoard();
 }
 const P = id => STATE.patients.find(p=>p.id===id);
 const unreadIn = th => th.msgs.filter(m=>m.role!=="nav" && m.unread).length;
@@ -579,14 +660,21 @@ function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("sh
 
 // ---------- worklist + tasks ----------
 let filterType = "all";
+let assigneeFilter = "all";   // all | Navigator | Field Outreach
+function byAssignee(t){ return assigneeFilter==="all" || t.assignee===assigneeFilter; }
 function openTasks(){ return STATE.tasks.filter(t=>t.status==="open"); }
 function renderFilters(){
-  const open = openTasks(); const counts = {}; open.forEach(t=>counts[t.type]=(counts[t.type]||0)+1);
-  const order = ["lab","enc","refill","renew","pa","note"];
-  const chips = [`<button class="chip" data-ft="all" aria-pressed="${filterType==='all'}">All ${open.length}</button>`]
+  const open = openTasks();
+  const aCounts = { all:open.length, "Navigator":open.filter(t=>t.assignee!=="Field Outreach").length, "Field Outreach":open.filter(t=>t.assignee==="Field Outreach").length };
+  const aChips = [ ["all","All queues"], ["Navigator","My queue"], ["Field Outreach","Field outreach"] ]
+    .map(([v,l])=>`<button class="chip" data-asgn="${v}" aria-pressed="${assigneeFilter===v}">${l} ${aCounts[v]||0}</button>`).join("");
+  const inQ = open.filter(byAssignee); const counts = {}; inQ.forEach(t=>counts[t.type]=(counts[t.type]||0)+1);
+  const order = ["lab","enc","refill","renew","pa","outreach","note"];
+  const tChips = [`<button class="chip" data-ft="all" aria-pressed="${filterType==='all'}">All ${inQ.length}</button>`]
     .concat(order.filter(ty=>counts[ty]).map(ty=>`<button class="chip" data-ft="${ty}" aria-pressed="${filterType===ty}">${TYPE_LABEL[ty][0]+TYPE_LABEL[ty].slice(1).toLowerCase()} ${counts[ty]}</button>`));
-  $("#filters").innerHTML = chips.join("");
-  $("#filters").querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{ filterType=c.dataset.ft; renderWorklist(); }));
+  $("#filters").innerHTML = aChips + `<span style="width:1px;background:var(--line-2);margin:2px 4px"></span>` + tChips.join("");
+  $("#filters").querySelectorAll("[data-asgn]").forEach(c=>c.addEventListener("click",()=>{ assigneeFilter=c.dataset.asgn; filterType="all"; renderWorklist(); }));
+  $("#filters").querySelectorAll("[data-ft]").forEach(c=>c.addEventListener("click",()=>{ filterType=c.dataset.ft; renderWorklist(); }));
 }
 function taskCard(t){
   const p = P(t.pid); const leadCls = t.leadsev==="crit" ? "t-out" : "";
@@ -595,6 +683,7 @@ function taskCard(t){
     <div class="body" tabindex="0" role="button" aria-label="Open ${esc(p.name)}">
       <div class="row1"><span class="pt">${esc(p.name)}</span>
         <span class="tag ${TYPE_TAG[t.type]}">${TYPE_LABEL[t.type]}</span>
+        ${t.assignee==="Field Outreach"?'<span class="asgn">◎ FIELD OUTREACH</span>':''}
         <span class="meta">${esc(p.mrn)} · MPR ${p.mpr.toFixed(2)}</span></div>
       <div class="action">${esc(t.title)}</div><div class="why">▸ ${esc(t.why)}</div></div>
     <div class="side"><div class="runway st-${t.sev}">${t.supply}d<br><small>supply left</small></div>
@@ -611,7 +700,7 @@ function taskCard(t){
 function renderWorklist(){
   renderFilters();
   const lanes = $("#lanes"); lanes.innerHTML = "";
-  let open = openTasks(); if(filterType!=="all") open = open.filter(t=>t.type===filterType);
+  let open = openTasks().filter(byAssignee); if(filterType!=="all") open = open.filter(t=>t.type===filterType);
   [ { dot:"sev-crit", title:"Gap imminent — act today", sev:"crit" },
     { dot:"sev-warn", title:"Get ahead — this week", sev:"warn" } ].forEach(g=>{
     const items = open.filter(t=>t.sev===g.sev).sort((a,b)=>a.supply-b.supply);
@@ -677,7 +766,7 @@ function renderP360(p){
   cp.innerHTML = `<div class="hd"><h3>Critical path to next refill</h3><span class="hint" style="margin-left:auto">act on behalf of patient →</span></div>
     <div class="bd"><div class="cp">${p.steps.map((s,i)=>`<div class="step ${s.s}"><div class="num">${s.s==="done"?"✓":i+1}</div>
       <div><div class="t">${s.t}</div><div class="d">${s.d}</div></div><div class="when"><b>${s.when.split("\n")[0]}</b>${s.when.includes("\n")?s.when.split("\n")[1]:""}</div></div>`).join("")}</div>
-    <div class="actions" style="margin-top:16px"><button class="btn">Order labs</button><button class="btn ghost">Approve refill</button><button class="btn ghost">Route renewal</button><button class="btn ghost">Schedule encounter</button></div></div>`;
+    <div class="actions" style="margin-top:16px"><button class="btn">Order labs</button><button class="btn ghost">Approve refill</button><button class="btn ghost">Route renewal</button><button class="btn ghost">Schedule encounter</button><button class="btn ghost" data-esc title="Create a field-outreach task if the patient can't be reached">Can't reach → field outreach</button></div></div>`;
   main.appendChild(cp);
   const clin = document.createElement("div"); clin.className="card";
   clin.innerHTML = `<div class="hd"><h3>Clinical requirements</h3></div><div class="bd">
@@ -689,6 +778,8 @@ function renderP360(p){
   const act = document.createElement("div"); act.className="card";
   act.innerHTML = `<div class="hd"><h3>Activity &amp; interactions</h3></div><div class="bd"><div class="feed">${p.feed.map(f=>`<div class="fitem"><div class="fdot sev-${f.sev}"></div><div><div class="ft">${f.t}</div><div class="fm">${f.m}</div></div></div>`).join("")}</div></div>`;
   main.appendChild(act);
+  const escBtn = main.querySelector("[data-esc]");
+  if(escBtn) escBtn.addEventListener("click", ()=>escalateToOutreach(p.id, `Unreachable — escalated from ${p.name}'s profile · supply ends ${p.supply}d`));
 }
 function renderTeam(p){
   $("#team").innerHTML = `<div class="roster">
@@ -711,7 +802,7 @@ function renderMsgCard(p){
     routebar = `<div class="routebar">Via: <select id="pchan"><option ${patientChan==='SMS'?'selected':''}>SMS</option><option ${patientChan==='Email'?'selected':''}>Email</option></select><span>text or email the patient</span></div>`;
   }
   const chanNote = th.kind==="team"
-    ? `<div class="chanhint"><i class="tag t-enc" style="padding:1px 6px">INTERNAL</i> Care-team thread — ${esc(th.with)}. Not visible to the patient.</div>`
+    ? `<div class="chanhint" style="justify-content:space-between"><span><i class="tag t-enc" style="padding:1px 6px">INTERNAL</i> Care-team thread — ${esc(th.with)}. Not visible to the patient.</span><button type="button" class="btn xs neutral" data-esc-team>Flag unreachable → field outreach</button></div>`
     : `<div class="chanhint">Reach ${esc(p.name)} by SMS or email · consented. Log calls &amp; in-person visits in Notes below.</div>`;
   $("#msgcard").innerHTML = `<div class="hd"><h3>Messages</h3><span class="hint" style="margin-left:auto">${p.threads.length} channels</span></div>
     <div class="bd"><div class="tabs" role="tablist">${tabs}</div>
@@ -726,6 +817,7 @@ function renderMsgCard(p){
   if(th.kind==="team"){ const sel=$("#routeto"); sel.addEventListener("change",()=>{ const r=teamRecipients(p)[+sel.value];
     if(r.mention){ const rest=inp.value.replace(/^@\w+\s*/,""); inp.value=r.mention+" "+rest; } inp.focus(); }); }
   if(th.kind==="patient"){ const s=$("#pchan"); s.addEventListener("change",()=>{ patientChan=s.value; }); }
+  const et=$("#msgcard [data-esc-team]"); if(et) et.addEventListener("click",()=>escalateToOutreach(p.id, `Pharmacy/care-team flagged ${p.name} unreachable · supply ends ${p.supply}d`));
   $("#composer").addEventListener("submit",e=>{
     e.preventDefault(); const v=inp.value.trim(); if(!v) return;
     const msg={role:"nav", from:"Rae Navarro", t:v, time:"just now"};
@@ -755,14 +847,18 @@ function renderNotesCard(p){
   $("#noteform").addEventListener("submit",e=>{
     e.preventDefault(); const ta=e.target.querySelector("textarea"); const v=ta.value.trim(); if(!v) return;
     p.notes.unshift({type:noteType, author:"Rae Navarro", t:v, time:"just now"});
-    let made=false;
+    let made=false, closed=false;
     if($("#mkTask").checked){
       STATE.tasks.unshift({ id:uid("t-note-"), pid:p.id, type:"note", title:"Follow-up: "+(v.length>60?v.slice(0,57)+"…":v),
-        why:"From "+noteType.toLowerCase()+" note · "+p.name, sev:"warn", supply:p.supply, lead:"from note", leadsev:"ok", status:"open", source:"note" });
+        why:"From "+noteType.toLowerCase()+" note · "+p.name, sev:"warn", supply:p.supply, lead:"from note", leadsev:"ok", status:"open", source:"note", assignee:"Navigator" });
       made=true;
     }
+    // Logging a Visit closes an open field-outreach task (field team's loop-closure).
+    if(noteType==="Visit"){ STATE.tasks.forEach(t=>{ if(t.pid===p.id && t.type==="outreach" && t.status==="open"){ t.status="done"; closed=true; } }); }
     ta.value=""; persist(); renderNotesCard(P(p.id));
-    if(made){ toast("Follow-up task added to worklist"); if($("#view-worklist").classList.contains("active")) renderWorklist(); updateKPIs(); }
+    if(made) toast("Follow-up task added to worklist");
+    if(closed) toast(`Visit logged — field-outreach task for ${p.name} resolved`);
+    if(made||closed){ if($("#view-worklist").classList.contains("active")) renderWorklist(); if($("#view-board").classList.contains("active")) renderBoard(); updateKPIs(); }
   });
 }
 function renderRoster(){
