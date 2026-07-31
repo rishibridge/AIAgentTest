@@ -59,7 +59,7 @@ export function createFirestoreStore({ projectId } = {}) {
     deriveTasks(PATIENTS).forEach((t, i) => {
       batch.set(col("tasks").doc(t.id), {
         patientId: t.patientId, type: t.type, title: t.title, why: t.why, sev: t.sev,
-        supply: t.supply, lead: t.lead, leadsev: t.leadsev, status: t.status, source: t.source, ts: null, seq: i,
+        supply: t.supply, lead: t.lead, leadsev: t.leadsev, status: t.status, source: t.source, assignee: t.assignee || "Navigator", ts: null, seq: i,
       });
     });
     await batch.commit();
@@ -110,7 +110,7 @@ export function createFirestoreStore({ projectId } = {}) {
       const tasks = kSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.ts || b.seq || 0) - (a.ts || a.seq || 0))
         .map((t) => ({ id: t.id, pid: t.patientId, type: t.type, title: t.title, why: t.why, sev: t.sev,
-          supply: t.supply, lead: t.lead, leadsev: t.leadsev, status: t.status, source: t.source }));
+          supply: t.supply, lead: t.lead, leadsev: t.leadsev, status: t.status, source: t.source, assignee: t.assignee || "Navigator" }));
       return { patients, tasks };
     },
     async addMessage({ threadId, from, body, to }) {
@@ -134,9 +134,28 @@ export function createFirestoreStore({ projectId } = {}) {
         await col("tasks").doc("t-note-" + Date.now()).set({
           patientId, type: "note", title: "Follow-up: " + (text.length > 60 ? text.slice(0, 57) + "…" : text),
           why: "From " + String(type || "note").toLowerCase() + " note · " + prof.name,
-          sev: "warn", supply: prof.supply, lead: "from note", leadsev: "ok", status: "open", source: "note", ts: Date.now(), seq: Date.now(),
+          sev: "warn", supply: prof.supply, lead: "from note", leadsev: "ok", status: "open", source: "note", assignee: "Navigator", ts: Date.now(), seq: Date.now(),
         });
       }
+      // Logging a Visit closes an open field-outreach task.
+      if (type === "Visit") {
+        const snap = await col("tasks").where("patientId", "==", patientId).get();
+        const batch = db.batch(); let n = 0;
+        snap.forEach((d) => { const t = d.data(); if (t.type === "outreach" && t.status === "open") { batch.update(d.ref, { status: "done" }); n++; } });
+        if (n) await batch.commit();
+      }
+    },
+    async escalate({ patientId, reason }) {
+      const snap = await col("tasks").where("patientId", "==", patientId).get();
+      if (snap.docs.some((d) => { const t = d.data(); return t.type === "outreach" && t.status === "open"; })) return;
+      const pd = await col("patients").doc(patientId).get();
+      const prof = pd.exists ? pd.data() : { supply: 0 };
+      const sev = (prof.supply || 0) <= 7 ? "crit" : "warn";
+      await col("tasks").doc("t-outreach-" + Date.now()).set({
+        patientId, type: "outreach", title: "Field outreach — home visit to re-engage",
+        why: String(reason || "Unreachable by SMS/email/call").slice(0, 500),
+        sev, supply: prof.supply || 0, lead: "dispatch", leadsev: "crit", status: "open", source: "escalation", assignee: "Field Outreach", ts: Date.now(), seq: Date.now(),
+      });
     },
     async setTaskStatus(id, status) {
       await col("tasks").doc(id).update({ status });

@@ -197,6 +197,75 @@ export const PATIENTS = [
       { type: "Note", author: "Rae Navarro", t: "Model adherence (MPR 0.99). Pre-scheduling labs to stay ahead of the refill.", time: "Today 11:05" },
     ],
   },
+
+  { id: "terrell", name: "Terrell J.", age: 29, mrn: "PN-41190", supply: 6, mpr: 0.79, sev: "crit", type: "outreach", action: "Home visit", actWithin: 0, assignee: "Field Outreach", provider: "Dr. Osei", pharmacy: "Mail order",
+    headline: "Unreachable 8 days — field visit to re-engage before supply lapses", why: "3 calls + 2 texts + 1 email, no reply · supply ends 6d · MPR 0.79",
+    lead: "dispatch today", leadsev: "crit",
+    track: [ { label: "Field visit", dd: "now", pos: 14, sev: "crit" }, { label: "Supply end", dd: "day 6", pos: 60, sev: "crit" } ], fill: 80, gapAt: 70,
+    steps: [ { s: "done", t: "Remote outreach exhausted", d: "3 calls · 2 SMS · 1 email over 8 days — no response", when: "18–26 Jul" },
+      { s: "active", t: "Field outreach home visit", d: "Assigned to community outreach team — last address on file", when: "dispatch\ntoday" },
+      { s: "wait", t: "Approve refill", d: "Ships once re-engaged and HIV result is current", when: "on\ncontact" } ],
+    labs: [ { k: "HIV Ag/Ab", v: "Neg", s: "12 May · 76d ago", sev: "warn" }, { k: "Creatinine", v: "1.0 mg/dL", s: "CrCl 96", sev: "ok" }, { k: "Adherence", v: "MPR 0.79", s: "↓ falling", sev: "crit" } ],
+    rx: { drug: "Emtricitabine/Tenofovir DF", refills: "1 of 6 left", exp: "expires 15 Sep 26" },
+    feed: [ { sev: "crit", t: "<b>Unreachable</b> — 8 days, all remote channels tried", m: "today · rules engine" }, { sev: "warn", t: "Escalated to field outreach", m: "today · Rae Navarro" } ],
+    threads: [
+      { id: "sms", kind: "patient", label: "Patient", with: "Terrell J.", msgs: [
+        { role: "nav", from: "Rae Navarro", t: "Hi Terrell, checking in on your PrEP — please call me back, I want to make sure you don't run out.", time: "Thu 14:02" },
+        { role: "nav", from: "Rae Navarro", t: "Following up — I can send a home test kit or have someone stop by. Reply anytime.", time: "Mon 09:10" } ] },
+      { id: "team", kind: "team", label: "Care team", with: "Field outreach · Dr. Osei", msgs: [
+        { role: "nav", from: "Rae Navarro", t: "@Field can you attempt a home visit? 8 days unreachable, supply ends in 6.", time: "today 08:30", unread: true } ] } ],
+    notes: [ { type: "Call", author: "Rae Navarro", t: "3rd call attempt, voicemail full. Escalating to field outreach for in-person.", time: "today 08:25" } ] },
+
+  { id: "priya", name: "Priya N.", age: 24, mrn: "PN-41205", supply: 2, mpr: 1.00, sev: "warn", type: "refill", action: "Approve first fill", actWithin: 1, provider: "Dr. Lin", pharmacy: "Mail order",
+    headline: "New start — approve first fill to begin protection", why: "Baseline labs complete · eligible · first fill ready to ship",
+    lead: "ships same day", leadsev: "ok",
+    track: [ { label: "First fill", dd: "now", pos: 16, sev: "warn" } ], fill: 12, gapAt: 80,
+    steps: [ { s: "done", t: "Intake & eligibility", d: "Risk assessment complete", when: "24 Jul" },
+      { s: "done", t: "Baseline labs", d: "HIV neg · renal normal · HBV neg", when: "25 Jul" },
+      { s: "active", t: "Approve first fill", d: "90-day supply ready — ships on approval", when: "approve\nnow" } ],
+    labs: [ { k: "HIV Ag/Ab", v: "Neg", s: "25 Jul · baseline", sev: "ok" }, { k: "Creatinine", v: "0.8 mg/dL", s: "CrCl 120", sev: "ok" }, { k: "HBV sAg", v: "Neg", s: "25 Jul", sev: "ok" } ],
+    rx: { drug: "Emtricitabine/Tenofovir DF", refills: "new Rx", exp: "expires 25 Jul 27" },
+    feed: [ { sev: "ok", t: "Baseline labs resulted — eligible", m: "25 Jul" }, { sev: "info", t: "First fill queued", m: "today" } ],
+    threads: [
+      { id: "sms", kind: "patient", label: "Patient", with: "Priya N.", msgs: [
+        { role: "patient", from: "Priya N.", t: "Excited to start! When does it arrive?", time: "Today 09:40", unread: true },
+        { role: "nav", from: "Rae Navarro", t: "Approving now — ships today, arrives in ~2 days 🎉", time: "Today 09:45" } ] },
+      { id: "team", kind: "team", label: "Care team", with: "Dr. Lin", msgs: [
+        { role: "provider", from: "Dr. Lin", t: "Cleared to start — first fill approved on my end.", time: "Today 08:00" } ] } ],
+    notes: [ { type: "Note", author: "Rae Navarro", t: "New start, highly motivated. Set 90-day cadence.", time: "Today 09:46" } ] },
+
+  { id: "devon", name: "Devon R.", age: 38, mrn: "PN-38900", supply: 68, mpr: 0.99, sev: "ok", type: "refill", action: "On track — refill auto-ships", actWithin: 40, provider: "Dr. Rao", pharmacy: "Mail order",
+    headline: "Continuous — next refill auto-ships, labs current", why: "90-day supply · MPR 0.99 · quarterly labs done",
+    lead: "none", leadsev: "ok",
+    track: [ { label: "Labs", dd: "day 40", pos: 60, sev: "ok" }, { label: "Refill", dd: "day 68", pos: 84, sev: "ok" } ], fill: 24, gapAt: 92,
+    steps: [ { s: "done", t: "90-day refill shipped", d: "Mail-order", when: "10 Jul" },
+      { s: "wait", t: "Quarterly labs", d: "HIV + renal", when: "~5 Sep" }, { s: "wait", t: "Next refill", d: "auto-ships on labs", when: "~9 Oct" } ],
+    labs: [ { k: "HIV Ag/Ab", v: "Neg", s: "08 Jul", sev: "ok" }, { k: "Creatinine", v: "0.9 mg/dL", s: "CrCl 108", sev: "ok" }, { k: "Adherence", v: "MPR 0.99", s: "excellent", sev: "ok" } ],
+    rx: { drug: "Emtricitabine/Tenofovir DF", refills: "3 of 6 left", exp: "expires 18 Apr 27" },
+    feed: [ { sev: "ok", t: "90-day refill shipped", m: "10 Jul" } ],
+    threads: [
+      { id: "sms", kind: "patient", label: "Patient", with: "Devon R.", msgs: [
+        { role: "nav", from: "Rae Navarro", t: "All set for the quarter, Devon — labs due early Sep, I'll book mobile phlebotomy closer to then.", time: "10 Jul" } ] },
+      { id: "team", kind: "team", label: "Care team", with: "Dr. Rao", msgs: [
+        { role: "provider", from: "Dr. Rao", t: "No changes — stable.", time: "09 Jul" } ] } ],
+    notes: [ { type: "Note", author: "Rae Navarro", t: "Model continuity. No action until labs window.", time: "10 Jul" } ] },
+
+  { id: "kwame", name: "Kwame B.", age: 33, mrn: "PN-40560", supply: 0, mpr: 0.61, sev: "crit", type: "outreach", action: "Re-engage (home visit)", actWithin: 0, assignee: "Field Outreach", provider: "Dr. Lin", pharmacy: "Mail order",
+    headline: "Lapsed — 0 days supply, lost to follow-up; field re-engagement", why: "Coverage gap now · unreachable 3 weeks · MPR 0.61",
+    lead: "dispatch now", leadsev: "crit",
+    track: [ { label: "Field visit", dd: "now", pos: 10, sev: "crit" } ], fill: 96, gapAt: 18,
+    steps: [ { s: "done", t: "Remote outreach exhausted", d: "5 attempts over 3 weeks", when: "Jul" },
+      { s: "active", t: "Field re-engagement visit", d: "Community outreach — confirm status & restart", when: "dispatch\nnow" },
+      { s: "wait", t: "Re-test + restart", d: "HIV test before any restart", when: "on\ncontact" } ],
+    labs: [ { k: "HIV Ag/Ab", v: "Neg", s: "02 Apr · 116d ago", sev: "crit" }, { k: "Adherence", v: "MPR 0.61", s: "lapsed", sev: "crit" } ],
+    rx: { drug: "Emtricitabine/Tenofovir DF", refills: "0 of 6 left", exp: "expired 01 Jul 26" },
+    feed: [ { sev: "crit", t: "<b>Coverage gap</b> — 0 days supply", m: "today" }, { sev: "warn", t: "Escalated to field outreach", m: "3 days ago" } ],
+    threads: [
+      { id: "sms", kind: "patient", label: "Patient", with: "Kwame B.", msgs: [
+        { role: "nav", from: "Rae Navarro", t: "Kwame, we've missed you — your PrEP lapsed. No judgment, let's get you covered again. Call anytime.", time: "last wk" } ] },
+      { id: "team", kind: "team", label: "Care team", with: "Field outreach", msgs: [
+        { role: "nav", from: "Rae Navarro", t: "@Field please attempt in-person — lapsed 3 wks, unreachable.", time: "3 days ago", unread: true } ] } ],
+    notes: [ { type: "Call", author: "Rae Navarro", t: "5th attempt failed. Field outreach assigned for door knock.", time: "3 days ago" } ] },
 ];
 
 // A worklist task is derived from each patient's current lifecycle blocker.
@@ -204,5 +273,6 @@ export function deriveTasks(patients) {
   return patients.map((p) => ({
     id: "t-" + p.id, patientId: p.id, type: p.type, title: p.headline, why: p.why,
     sev: p.sev, supply: p.supply, lead: p.lead, leadsev: p.leadsev, status: "open", source: "lifecycle",
+    assignee: p.assignee || "Navigator",
   }));
 }

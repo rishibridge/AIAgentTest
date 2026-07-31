@@ -72,6 +72,7 @@ const server = http.createServer(async (req, res) => {
       if (p === "/api/threads/read" && req.method === "POST") { const b = await readBody(req); await store.markThreadRead(b.threadId); return json(res, 200, { ok: true }); }
       if (p === "/api/notes" && req.method === "POST") { const b = await readBody(req); await store.addNote({ patientId: b.patientId, type: b.type, author: b.author, body: b.body, makeTask: b.makeTask }); return json(res, 201, { ok: true }); }
       if (p === "/api/tasks/status" && req.method === "POST") { const b = await readBody(req); if (!["open", "snoozed", "done"].includes(b.status)) return json(res, 400, { error: "bad status" }); await store.setTaskStatus(b.id, b.status); return json(res, 200, { ok: true }); }
+      if (p === "/api/tasks/escalate" && req.method === "POST") { const b = await readBody(req); await store.escalate({ patientId: b.patientId, reason: b.reason }); return json(res, 201, { ok: true }); }
       if (p === "/api/reset" && req.method === "POST") { await store.reset(); return json(res, 200, { ok: true }); }
       return json(res, 404, { error: "not found" });
     } catch (e) { return json(res, 500, { error: String((e && e.message) || e) }); }

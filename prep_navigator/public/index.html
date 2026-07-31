@@ -118,7 +118,8 @@
   .tag { font-size: 10.5px; font-family: var(--mono); padding: 2px 7px; border-radius: 5px; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
   .t-lab { background: var(--info); color: #fff; } .t-enc { background: var(--provider); color: #fff; }
   .t-refill { background: var(--accent); color: #fff; } .t-renew { background: var(--warn); color: #fff; }
-  .t-pa { background: var(--pharm); color: #fff; } .t-note { background: var(--ink-2); color: var(--surface); }
+  .t-pa { background: var(--pharm); color: #fff; } .t-note { background: var(--ink-2); color: var(--surface); } .t-outreach { background: #7a4510; color: #fff; }
+  .asgn { font-size: 9.5px; font-family: var(--mono); padding: 1px 7px; border-radius: 20px; letter-spacing: .03em; background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); }
   .t-out { background: var(--crit-wash); color: var(--crit); border: 1px solid var(--crit); }
   .sev-crit { background: var(--crit); } .sev-warn { background: var(--warn); } .sev-ok { background: var(--good); }
   .st-crit { color: var(--crit); } .st-warn { color: var(--warn); } .st-ok { color: var(--good); }
@@ -416,8 +417,8 @@ const initials = n => n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(
 const first = p => p.name.split(" ")[0].replace(/[^A-Za-z]/g,"");
 const ROLE_LABEL = { nav:"You", patient:"Patient", provider:"Provider", pharmacist:"Pharmacy" };
 
-const TYPE_TAG = { lab:"t-lab", enc:"t-enc", refill:"t-refill", renew:"t-renew", pa:"t-pa", note:"t-note" };
-const TYPE_LABEL = { lab:"LAB", enc:"ENCOUNTER", refill:"REFILL", renew:"RENEWAL", pa:"BENEFITS", note:"FOLLOW-UP" };
+const TYPE_TAG = { lab:"t-lab", enc:"t-enc", refill:"t-refill", renew:"t-renew", pa:"t-pa", note:"t-note", outreach:"t-outreach" };
+const TYPE_LABEL = { lab:"LAB", enc:"ENCOUNTER", refill:"REFILL", renew:"RENEWAL", pa:"BENEFITS", note:"FOLLOW-UP", outreach:"OUTREACH" };
 const TEMPLATES = {
   patient:[
     {k:"Lab due", f:p=>`Hi ${first(p)} — you're due for your quarterly PrEP labs (HIV + kidney). Want a clinic slot or a home test kit?`},
@@ -450,9 +451,11 @@ function setLive(on){ const el=$("#live"); el.classList.toggle("on",on); $("#liv
 let currentPatient = null;
 let currentChannel = {};
 let filterType = "all";
+let assigneeFilter = "all";
 let inboxFilter = "all";
 let openThread = null;
 let noteType = "Call";
+function byAssignee(t){ return assigneeFilter==="all" || t.assignee===assigneeFilter; }
 
 async function refreshAll(){
   STATE = await api.get("/api/state");
@@ -473,16 +476,27 @@ async function markReadServer(tid){
     try { await api.post("/api/threads/read", { threadId: tid }); } catch(e){}
   }
 }
+async function escalate(pid, reason){
+  const p = P(pid); if(!p) return;
+  if(STATE.tasks.some(t=>t.pid===pid && t.type==="outreach" && t.status==="open")){ toast(`${p.name} already has an open field-outreach task`); return; }
+  toast(`Escalating ${p.name} to field outreach…`);
+  await api.post("/api/tasks/escalate", { patientId: pid, reason }); refreshAll();
+}
 
 // ---------- worklist ----------
 function openTasks(){ return STATE.tasks.filter(t=>t.status==="open"); }
 function renderFilters(){
-  const open = openTasks(); const counts = {}; open.forEach(t=>counts[t.type]=(counts[t.type]||0)+1);
-  const order = ["lab","enc","refill","renew","pa","note"];
-  const chips = [`<button class="chip" data-ft="all" aria-pressed="${filterType==='all'}">All ${open.length}</button>`]
+  const open = openTasks();
+  const aCounts = { all:open.length, "Navigator":open.filter(t=>t.assignee!=="Field Outreach").length, "Field Outreach":open.filter(t=>t.assignee==="Field Outreach").length };
+  const aChips = [ ["all","All queues"], ["Navigator","My queue"], ["Field Outreach","Field outreach"] ]
+    .map(([v,l])=>`<button class="chip" data-asgn="${v}" aria-pressed="${assigneeFilter===v}">${l} ${aCounts[v]||0}</button>`).join("");
+  const inQ = open.filter(byAssignee); const counts = {}; inQ.forEach(t=>counts[t.type]=(counts[t.type]||0)+1);
+  const order = ["lab","enc","refill","renew","pa","outreach","note"];
+  const tChips = [`<button class="chip" data-ft="all" aria-pressed="${filterType==='all'}">All ${inQ.length}</button>`]
     .concat(order.filter(ty=>counts[ty]).map(ty=>`<button class="chip" data-ft="${ty}" aria-pressed="${filterType===ty}">${TYPE_LABEL[ty][0]+TYPE_LABEL[ty].slice(1).toLowerCase()} ${counts[ty]}</button>`));
-  $("#filters").innerHTML = chips.join("");
-  $("#filters").querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{ filterType=c.dataset.ft; renderWorklist(); }));
+  $("#filters").innerHTML = aChips + `<span style="width:1px;background:var(--line-2);margin:2px 4px"></span>` + tChips.join("");
+  $("#filters").querySelectorAll("[data-asgn]").forEach(c=>c.addEventListener("click",()=>{ assigneeFilter=c.dataset.asgn; filterType="all"; renderWorklist(); }));
+  $("#filters").querySelectorAll("[data-ft]").forEach(c=>c.addEventListener("click",()=>{ filterType=c.dataset.ft; renderWorklist(); }));
 }
 function taskCard(t){
   const p = P(t.pid); if(!p) return document.createComment("");
@@ -490,7 +504,7 @@ function taskCard(t){
   const wrap = document.createElement("div"); wrap.className="task";
   wrap.innerHTML = `<div class="stripe sev-${t.sev}"></div>
     <div class="body" tabindex="0" role="button" aria-label="Open ${esc(p.name)}">
-      <div class="row1"><span class="pt">${esc(p.name)}</span><span class="tag ${TYPE_TAG[t.type]}">${TYPE_LABEL[t.type]}</span>
+      <div class="row1"><span class="pt">${esc(p.name)}</span><span class="tag ${TYPE_TAG[t.type]}">${TYPE_LABEL[t.type]}</span>${t.assignee==="Field Outreach"?'<span class="asgn">◎ FIELD OUTREACH</span>':''}
         <span class="meta">${esc(p.mrn)} · MPR ${p.mpr.toFixed(2)}</span></div>
       <div class="action">${esc(t.title)}</div><div class="why">▸ ${esc(t.why)}</div></div>
     <div class="side"><div class="runway st-${t.sev}">${t.supply}d<br><small>supply left</small></div>
@@ -507,7 +521,7 @@ function taskCard(t){
 function renderWorklist(){
   renderFilters();
   const lanes = $("#lanes"); lanes.innerHTML = "";
-  let open = openTasks(); if(filterType!=="all") open = open.filter(t=>t.type===filterType);
+  let open = openTasks().filter(byAssignee); if(filterType!=="all") open = open.filter(t=>t.type===filterType);
   [ { dot:"sev-crit", title:"Gap imminent — act today", sev:"crit" }, { dot:"sev-warn", title:"Get ahead — this week", sev:"warn" } ].forEach(g=>{
     const items = open.filter(t=>t.sev===g.sev).sort((a,b)=>a.supply-b.supply);
     const lane = document.createElement("div"); lane.className="lane";
@@ -566,7 +580,7 @@ function renderP360(p){
   cp.innerHTML = `<div class="hd"><h3>Critical path to next refill</h3><span class="hint" style="margin-left:auto">act on behalf of patient →</span></div>
     <div class="bd"><div class="cp">${p.steps.map((s,i)=>`<div class="step ${s.s}"><div class="num">${s.s==="done"?"✓":i+1}</div>
       <div><div class="t">${s.t}</div><div class="d">${s.d}</div></div><div class="when"><b>${s.when.split("\n")[0]}</b>${s.when.includes("\n")?s.when.split("\n")[1]:""}</div></div>`).join("")}</div>
-    <div class="actions" style="margin-top:16px"><button class="btn">Order labs</button><button class="btn ghost">Approve refill</button><button class="btn ghost">Route renewal</button><button class="btn ghost">Schedule encounter</button></div></div>`;
+    <div class="actions" style="margin-top:16px"><button class="btn">Order labs</button><button class="btn ghost">Approve refill</button><button class="btn ghost">Route renewal</button><button class="btn ghost">Schedule encounter</button><button class="btn ghost" data-esc title="Create a field-outreach task if the patient can't be reached">Can't reach → field outreach</button></div></div>`;
   main.appendChild(cp);
   const clin = document.createElement("div"); clin.className="card";
   clin.innerHTML = `<div class="hd"><h3>Clinical requirements</h3></div><div class="bd">
@@ -578,6 +592,8 @@ function renderP360(p){
   const act = document.createElement("div"); act.className="card";
   act.innerHTML = `<div class="hd"><h3>Activity &amp; interactions</h3></div><div class="bd"><div class="feed">${p.feed.map(f=>`<div class="fitem"><div class="fdot sev-${f.sev}"></div><div><div class="ft">${f.t}</div><div class="fm">${f.m}</div></div></div>`).join("")}</div></div>`;
   main.appendChild(act);
+  const escBtn = main.querySelector("[data-esc]");
+  if(escBtn) escBtn.addEventListener("click", ()=>escalate(p.id, `Unreachable — escalated from ${p.name}'s profile · supply ends ${p.supply}d`));
 }
 function renderTeam(p){
   $("#team").innerHTML = `<div class="roster">
@@ -598,8 +614,8 @@ function renderMsgCard(p){
   if(th.kind==="team"){ const recips = teamRecipients(p);
     routebar = `<div class="routebar">To: <select id="routeto">${recips.map((r,i)=>`<option value="${i}">${esc(r.label)}</option>`).join("")}</select><span>@mention inserts automatically</span></div>`; }
   const chanNote = th.kind==="team"
-    ? `<div class="chanhint"><i class="tag t-enc" style="padding:1px 6px">INTERNAL</i> Care-team thread — ${esc(th.with)}. Not visible to the patient.</div>`
-    : `<div class="chanhint">Two-way SMS with ${esc(p.name)} · consented</div>`;
+    ? `<div class="chanhint" style="justify-content:space-between"><span><i class="tag t-enc" style="padding:1px 6px">INTERNAL</i> Care-team thread — ${esc(th.with)}. Not visible to the patient.</span><button type="button" class="btn xs neutral" data-esc-team>Flag unreachable → field outreach</button></div>`
+    : `<div class="chanhint">Reach ${esc(p.name)} by SMS or email · consented. Log calls &amp; in-person visits in Notes below.</div>`;
   $("#msgcard").innerHTML = `<div class="hd"><h3>Messages</h3><span class="hint" style="margin-left:auto">${p.threads.length} channels</span></div>
     <div class="bd"><div class="tabs" role="tablist">${tabs}</div>
       <div class="thread" id="thread">${th.msgs.map(msgHTML).join("")}</div>
@@ -612,6 +628,7 @@ function renderMsgCard(p){
   const th2 = $("#thread"); th2.scrollTop = th2.scrollHeight;
   if(th.kind==="team"){ const sel=$("#routeto"); sel.addEventListener("change",()=>{ const r=teamRecipients(p)[+sel.value];
     if(r.mention){ const rest=inp.value.replace(/^@\w+\s*/,""); inp.value=r.mention+" "+rest; } inp.focus(); }); }
+  const et=$("#msgcard [data-esc-team]"); if(et) et.addEventListener("click",()=>escalate(p.id, `Pharmacy/care-team flagged ${p.name} unreachable · supply ends ${p.supply}d`));
   $("#composer").addEventListener("submit", async e=>{
     e.preventDefault(); const v=inp.value.trim(); if(!v) return; let to=null;
     if(th.kind==="team"){ const r=teamRecipients(p)[+($("#routeto").value||0)]; if(r && r.label!=="Care team") to=r.label; }

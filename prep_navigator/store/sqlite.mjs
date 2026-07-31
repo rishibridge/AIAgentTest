@@ -16,7 +16,7 @@ export function createSqliteStore({ dbPath }) {
     CREATE TABLE IF NOT EXISTS threads (id TEXT PRIMARY KEY, patient_id TEXT, ord INTEGER, kind TEXT, label TEXT, with_label TEXT);
     CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, thread_id TEXT, ord INTEGER, role TEXT, from_name TEXT, body TEXT, to_recipient TEXT, label TEXT, ts INTEGER, unread INTEGER DEFAULT 0);
     CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id TEXT, type TEXT, author TEXT, body TEXT, label TEXT, ts INTEGER);
-    CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, patient_id TEXT, type TEXT, title TEXT, why TEXT, sev TEXT, supply INTEGER, lead TEXT, leadsev TEXT, status TEXT, source TEXT, ts INTEGER);
+    CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, patient_id TEXT, type TEXT, title TEXT, why TEXT, sev TEXT, supply INTEGER, lead TEXT, leadsev TEXT, status TEXT, source TEXT, assignee TEXT, ts INTEGER);
   `);
 
   const listeners = new Set();
@@ -28,7 +28,7 @@ export function createSqliteStore({ dbPath }) {
     const insT = db.prepare("INSERT INTO threads (id, patient_id, ord, kind, label, with_label) VALUES (?, ?, ?, ?, ?, ?)");
     const insM = db.prepare("INSERT INTO messages (thread_id, ord, role, from_name, body, to_recipient, label, ts, unread) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
     const insN = db.prepare("INSERT INTO notes (patient_id, type, author, body, label, ts) VALUES (?, ?, ?, ?, ?, ?)");
-    const insTask = db.prepare("INSERT INTO tasks (id, patient_id, type, title, why, sev, supply, lead, leadsev, status, source, ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    const insTask = db.prepare("INSERT INTO tasks (id, patient_id, type, title, why, sev, supply, lead, leadsev, status, source, assignee, ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     PATIENTS.forEach((p, pi) => {
       const { threads, notes, ...profile } = p;
       insP.run(p.id, pi, JSON.stringify(profile));
@@ -39,7 +39,7 @@ export function createSqliteStore({ dbPath }) {
       });
       (notes || []).forEach((nt) => insN.run(p.id, nt.type, nt.author, nt.t, nt.time || null, null));
     });
-    deriveTasks(PATIENTS).forEach((t) => insTask.run(t.id, t.patientId, t.type, t.title, t.why, t.sev, t.supply, t.lead, t.leadsev, t.status, t.source, null));
+    deriveTasks(PATIENTS).forEach((t) => insTask.run(t.id, t.patientId, t.type, t.title, t.why, t.sev, t.supply, t.lead, t.leadsev, t.status, t.source, t.assignee || "Navigator", null));
   }
 
   return {
@@ -65,7 +65,7 @@ export function createSqliteStore({ dbPath }) {
       });
       const tasks = db.prepare("SELECT * FROM tasks ORDER BY ts DESC, id").all().map((t) => ({
         id: t.id, pid: t.patient_id, type: t.type, title: t.title, why: t.why, sev: t.sev,
-        supply: t.supply, lead: t.lead, leadsev: t.leadsev, status: t.status, source: t.source,
+        supply: t.supply, lead: t.lead, leadsev: t.leadsev, status: t.status, source: t.source, assignee: t.assignee || "Navigator",
       }));
       return { patients, tasks };
     },
@@ -86,11 +86,23 @@ export function createSqliteStore({ dbPath }) {
       if (makeTask) {
         const pt = db.prepare("SELECT profile FROM patients WHERE id=?").get(patientId);
         const prof = pt ? JSON.parse(pt.profile) : { name: "", supply: 0 };
-        db.prepare("INSERT INTO tasks (id, patient_id, type, title, why, sev, supply, lead, leadsev, status, source, ts) VALUES (?, ?, 'note', ?, ?, 'warn', ?, 'from note', 'ok', 'open', 'note', ?)")
+        db.prepare("INSERT INTO tasks (id, patient_id, type, title, why, sev, supply, lead, leadsev, status, source, assignee, ts) VALUES (?, ?, 'note', ?, ?, 'warn', ?, 'from note', 'ok', 'open', 'note', 'Navigator', ?)")
           .run("t-note-" + Date.now(), patientId,
             "Follow-up: " + (text.length > 60 ? text.slice(0, 57) + "…" : text),
             "From " + String(type || "note").toLowerCase() + " note · " + prof.name, prof.supply, Date.now());
       }
+      // Logging a Visit closes an open field-outreach task (field team's loop-closure).
+      if (type === "Visit") db.prepare("UPDATE tasks SET status='done' WHERE patient_id=? AND type='outreach' AND status='open'").run(patientId);
+      notify();
+    },
+    async escalate({ patientId, reason }) {
+      const open = db.prepare("SELECT COUNT(*) AS c FROM tasks WHERE patient_id=? AND type='outreach' AND status='open'").get(patientId).c;
+      if (open > 0) return;
+      const pt = db.prepare("SELECT profile FROM patients WHERE id=?").get(patientId);
+      const prof = pt ? JSON.parse(pt.profile) : { supply: 0 };
+      const sev = (prof.supply || 0) <= 7 ? "crit" : "warn";
+      db.prepare("INSERT INTO tasks (id, patient_id, type, title, why, sev, supply, lead, leadsev, status, source, assignee, ts) VALUES (?, ?, 'outreach', 'Field outreach — home visit to re-engage', ?, ?, ?, 'dispatch', 'crit', 'open', 'escalation', 'Field Outreach', ?)")
+        .run("t-outreach-" + Date.now(), patientId, String(reason || "Unreachable by SMS/email/call").slice(0, 500), sev, prof.supply || 0, Date.now());
       notify();
     },
     async setTaskStatus(id, status) {
