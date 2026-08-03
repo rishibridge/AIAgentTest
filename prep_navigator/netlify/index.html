@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Continuity — a PrEP navigator console demo: continuity board, worklist with field-outreach escalation, patient lifecycle, multi-channel outreach, and inbox. Browser-only static build.">
+<meta name="description" content="Continuity — a PrEP navigator console demo: continuity board, worklist, field-outreach escalation, outreach team view, patient lifecycle, and inbox. Browser-only static build.">
 <title>Continuity — PrEP Navigator Console</title>
 <style>
   :root {
@@ -314,6 +314,27 @@
   .board .runsout { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
   .bstatus { font-size: 10.5px; font-family: var(--mono); padding: 2px 9px; border-radius: 20px; letter-spacing: .03em; white-space: nowrap; }
   .bstatus.crit { background: var(--crit-wash); color: var(--crit); } .bstatus.warn { background: var(--warn-wash); color: var(--warn); } .bstatus.ok { background: var(--good-wash); color: var(--good); }
+
+  /* outreach team view */
+  .okpis { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  .okpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 16px; box-shadow: var(--shadow); min-width: 118px; }
+  .okpi .n { font-family: var(--mono); font-size: 24px; font-weight: 650; letter-spacing: -.02em; }
+  .okpi .l { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; font-family: var(--mono); }
+  .ogroup { margin-bottom: 22px; }
+  .ogrouphd { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); font-family: var(--mono); }
+  .ocards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
+  .ocard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); padding: 14px 16px; display: flex; flex-direction: column; gap: 9px; }
+  .ocard .otop { display: flex; align-items: center; gap: 10px; }
+  .ocard .oav { width: 36px; height: 36px; border-radius: 10px; background: var(--accent-wash); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
+  .ocard .onm { font-weight: 650; font-size: 14px; } .ocard .omrn { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+  .ocard .orow { display: flex; align-items: center; justify-content: space-between; font-size: 12px; gap: 10px; }
+  .ocard .orow .k { color: var(--ink-3); font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+  .ocard .orow .v { font-family: var(--mono); font-weight: 600; }
+  .ostatus { font-size: 10px; font-family: var(--mono); padding: 2px 8px; border-radius: 20px; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; }
+  .ostatus.Unreachable { background: var(--crit-wash); color: var(--crit); } .ostatus.Attempting { background: var(--warn-wash); color: var(--warn); }
+  .ostatus.Enrolled, .ostatus.Reengaged, .ostatus.Reached { background: var(--good-wash); color: var(--good); } .ostatus.Assigned { background: var(--accent-wash); color: var(--accent-ink); }
+  .ocard .oreason { font-size: 11.5px; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+  .ocard .oact { display: flex; gap: 8px; margin-top: 2px; flex-wrap: wrap; }
 </style>
 </head>
 <body>
@@ -337,6 +358,9 @@
     </nav>
     <div class="navlabel">Collaborate</div>
     <nav class="nav">
+      <button class="navitem" data-view="outreach">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.35-7-10a7 7 0 1 1 14 0c0 5.65-7 10-7 10z"/><circle cx="12" cy="11" r="2.5"/></svg>
+        Outreach team <span class="badge" id="outreachBadge">0</span></button>
       <button class="navitem" data-view="inbox">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         Inbox <span class="badge" id="inboxBadge">0</span></button>
@@ -388,6 +412,12 @@
           <div class="card"><div class="hd"><h3>My panel</h3></div><div class="bd"><div class="roster" id="roster"></div></div></div>
         </div>
       </div>
+    </section>
+
+    <section class="view" id="view-outreach">
+      <div class="sechead"><h2>Outreach team</h2><p>Patients <b>Sam Rivera</b> enrolled or is assigned to engage — engagement status, coverage, and last contact. Log visits and attempts here.</p></div>
+      <div class="okpis" id="outreachKpis"></div>
+      <div id="outreachGroups"></div>
     </section>
 
     <section class="view" id="view-inbox">
@@ -540,7 +570,7 @@ function seedState(){ return { patients: [
         {role:"provider", from:"Dr. Lin", t:"All stable — fine to keep the 90-day cadence.", time:"Mon 16:20"} ] } ],
     notes:[ {type:"Note", author:"Rae Navarro", t:"Model adherence (MPR 0.99). Pre-scheduling labs to stay ahead of the refill.", time:"Today 11:05"} ] },
 
-  { id:"terrell", name:"Terrell J.", age:29, mrn:"PN-41190", supply:6, mpr:0.79, sev:"crit", type:"outreach", action:"Home visit", actWithin:0, assignee:"Field Outreach", provider:"Dr. Osei", pharmacy:"Mail order",
+  { id:"terrell", name:"Terrell J.", age:29, mrn:"PN-41190", supply:6, mpr:0.79, sev:"crit", type:"outreach", action:"Home visit", actWithin:0, assignee:"Field Outreach", outreach:{ status:"Unreachable", lastContact:"8 days ago", attempts:6, enrolledBy:"Sam Rivera" }, provider:"Dr. Osei", pharmacy:"Mail order",
     headline:"Unreachable 8 days — field visit to re-engage before supply lapses", why:"3 calls + 2 texts + 1 email, no reply · supply ends 6d · MPR 0.79",
     lead:"dispatch today", leadsev:"crit",
     track:[ {label:"Field visit", dd:"now", pos:14, sev:"crit"}, {label:"Supply end", dd:"day 6", pos:60, sev:"crit"} ], fill:80, gapAt:70,
@@ -558,7 +588,7 @@ function seedState(){ return { patients: [
         {role:"nav", from:"Rae Navarro", t:"@Field can you attempt a home visit? 8 days unreachable, supply ends in 6.", time:"today 08:30", unread:true} ] } ],
     notes:[ {type:"Call", author:"Rae Navarro", t:"3rd call attempt, voicemail full. Escalating to field outreach for in-person.", time:"today 08:25"} ] },
 
-  { id:"priya", name:"Priya N.", age:24, mrn:"PN-41205", supply:2, mpr:1.00, sev:"warn", type:"refill", action:"Approve first fill", actWithin:1, provider:"Dr. Lin", pharmacy:"Mail order",
+  { id:"priya", name:"Priya N.", age:24, mrn:"PN-41205", supply:2, mpr:1.00, sev:"warn", type:"refill", action:"Approve first fill", actWithin:1, outreach:{ status:"Enrolled", lastContact:"today", attempts:1, enrolledBy:"Sam Rivera" }, provider:"Dr. Lin", pharmacy:"Mail order",
     headline:"New start — approve first fill to begin protection", why:"Baseline labs complete · eligible · first fill ready to ship",
     lead:"ships same day", leadsev:"ok",
     track:[ {label:"First fill", dd:"now", pos:16, sev:"warn"} ], fill:12, gapAt:80,
@@ -592,7 +622,7 @@ function seedState(){ return { patients: [
         {role:"provider", from:"Dr. Rao", t:"No changes — stable.", time:"09 Jul"} ] } ],
     notes:[ {type:"Note", author:"Rae Navarro", t:"Model continuity. No action until labs window.", time:"10 Jul"} ] },
 
-  { id:"kwame", name:"Kwame B.", age:33, mrn:"PN-40560", supply:0, mpr:0.61, sev:"crit", type:"outreach", action:"Re-engage (home visit)", actWithin:0, assignee:"Field Outreach", provider:"Dr. Lin", pharmacy:"Mail order",
+  { id:"kwame", name:"Kwame B.", age:33, mrn:"PN-40560", supply:0, mpr:0.61, sev:"crit", type:"outreach", action:"Re-engage (home visit)", actWithin:0, assignee:"Field Outreach", outreach:{ status:"Unreachable", lastContact:"3 weeks ago", attempts:5, enrolledBy:"Sam Rivera" }, provider:"Dr. Lin", pharmacy:"Mail order",
     headline:"Lapsed — 0 days supply, lost to follow-up; field re-engagement", why:"Coverage gap now · unreachable 3 weeks · MPR 0.61",
     lead:"dispatch now", leadsev:"crit",
     track:[ {label:"Field visit", dd:"now", pos:10, sev:"crit"} ], fill:96, gapAt:18,
@@ -962,14 +992,73 @@ function renderBoard(){
 }
 
 // ---------- views + data controls ----------
+// ---------- outreach team view ----------
+function outreachRoster(){ return STATE.patients.filter(p => p.outreach || STATE.tasks.some(t=>t.pid===p.id && t.type==="outreach" && t.status==="open")); }
+function coverageLabel(p){
+  if(p.supply<=0) return { t:"Coverage gap · 0d", sev:"crit" };
+  if(p.supply<=7) return { t:`${p.supply}d left · at risk`, sev:"warn" };
+  return { t:`${p.supply}d supply`, sev:"ok" };
+}
+function updateOutreachBadge(){ const n=STATE.tasks.filter(t=>t.type==="outreach" && t.status==="open").length; const b=$("#outreachBadge"); b.textContent=n; b.style.display=n?"":"none"; b.className="badge"+(n?"":" soft"); }
+function outreachCard(p){
+  const o = p.outreach || { status:"Assigned", lastContact:"—", attempts:0, enrolledBy:"—" };
+  const cov = coverageLabel(p);
+  const openTask = STATE.tasks.find(t=>t.pid===p.id && t.type==="outreach" && t.status==="open");
+  const sc = String(o.status||"Assigned").replace(/[^A-Za-z]/g,"");
+  return `<div class="ocard">
+    <div class="otop"><div class="oav">${initials(p.name)}</div>
+      <div style="flex:1"><div class="onm">${esc(p.name)}</div><div class="omrn">${esc(p.mrn)} · enrolled by ${esc(o.enrolledBy||"—")}</div></div>
+      <span class="ostatus ${sc}">${esc(o.status||"Assigned")}</span></div>
+    <div class="orow"><span class="k">Coverage</span><span class="v st-${cov.sev}">${cov.t}</span></div>
+    <div class="orow"><span class="k">Last contact</span><span class="v">${esc(o.lastContact||"—")} · ${o.attempts||0} attempts</span></div>
+    ${openTask?`<div class="oreason">▸ ${esc(openTask.why)}</div>`:""}
+    <div class="oact"><button class="btn xs" data-visit="${p.id}">Log visit</button><button class="btn xs neutral" data-attempt="${p.id}">Log attempt</button><button class="btn xs neutral" data-open="${p.id}">Open profile</button></div>
+  </div>`;
+}
+function renderOutreach(){
+  const roster = outreachRoster();
+  const needs = roster.filter(p => STATE.tasks.some(t=>t.pid===p.id && t.type==="outreach" && t.status==="open"));
+  const engaged = roster.filter(p => !needs.includes(p));
+  $("#outreachKpis").innerHTML = [
+    ["Assigned to me", roster.length, ""], ["Needs a visit", needs.length, needs.length?"crit":""],
+    ["Coverage gaps", roster.filter(p=>p.supply<=0).length, "crit"], ["Enrolled / engaged", engaged.length, "ok"],
+  ].map(([l,n,c])=>`<div class="okpi"><div class="n ${c?"st-"+c:""}">${n}</div><div class="l">${l}</div></div>`).join("");
+  $("#outreachGroups").innerHTML = [
+    { title:"Needs a home visit", dot:"sev-crit", items:needs },
+    { title:"Enrolled / engaged — monitoring", dot:"sev-ok", items:engaged },
+  ].map(g=> g.items.length ? `<div class="ogroup"><div class="ogrouphd"><span class="dot ${g.dot}"></span>${g.title} <span style="color:var(--ink-3)">· ${g.items.length}</span></div><div class="ocards">${g.items.map(outreachCard).join("")}</div></div>` : "").join("")
+    || `<div class="laneempty">No patients assigned to outreach right now.</div>`;
+  $("#outreachGroups").querySelectorAll("[data-open]").forEach(el=>el.addEventListener("click",()=>{ selectPatient(el.dataset.open); switchView("patient"); }));
+  $("#outreachGroups").querySelectorAll("[data-visit]").forEach(el=>el.addEventListener("click",()=>logOutreach(el.dataset.visit,"Visit")));
+  $("#outreachGroups").querySelectorAll("[data-attempt]").forEach(el=>el.addEventListener("click",()=>logOutreach(el.dataset.attempt,"Call")));
+}
+function logOutreach(pid, kind){
+  const p = P(pid); if(!p) return;
+  if(!p.outreach) p.outreach = { status:"Assigned", attempts:0, enrolledBy:"Sam Rivera" };
+  if(kind==="Visit"){
+    p.notes.unshift({ type:"Visit", author:"Sam Rivera (outreach)", t:"Home visit — reached patient, re-engaged.", time:"just now" });
+    STATE.tasks.forEach(t=>{ if(t.pid===pid && t.type==="outreach" && t.status==="open") t.status="done"; });
+    p.outreach.status="Re-engaged"; p.outreach.lastContact="just now";
+    toast(`Visit logged for ${p.name} — outreach task resolved`);
+  } else {
+    p.notes.unshift({ type:"Call", author:"Sam Rivera (outreach)", t:"Outreach attempt — no contact.", time:"just now" });
+    p.outreach.attempts=(p.outreach.attempts||0)+1; p.outreach.status="Attempting"; p.outreach.lastContact="just now";
+    toast(`Attempt logged for ${p.name}`);
+  }
+  persist(); renderOutreach(); updateOutreachBadge();
+  if($("#view-worklist").classList.contains("active")) renderWorklist();
+  if($("#view-board").classList.contains("active")) renderBoard();
+}
+
 const TITLES = { board:["Continuity board","When each patient runs out · days to next best action"],
   worklist:["Worklist","Prioritized by time-to-gap · 27 Jul 2026"], patient:["Patient 360","Lifecycle, orders & collaboration"],
+  outreach:["Outreach team","Field engagement — your patients"],
   inbox:["Inbox","Patient & care-team messaging"], panel:["Panel Health","Cohort continuity metrics"] };
 function switchView(v){
   document.querySelectorAll(".view").forEach(s=>s.classList.toggle("active", s.id==="view-"+v));
   document.querySelectorAll(".navitem").forEach(n=>n.setAttribute("aria-current", n.dataset.view===v));
   $("#viewtitle").firstChild.textContent = TITLES[v][0]; $("#viewsub").textContent = TITLES[v][1];
-  if(v==="board") renderBoard(); if(v==="panel") renderPanel(); if(v==="inbox") renderInbox(); if(v==="worklist") renderWorklist();
+  if(v==="board") renderBoard(); if(v==="panel") renderPanel(); if(v==="inbox") renderInbox(); if(v==="worklist") renderWorklist(); if(v==="outreach") renderOutreach();
 }
 function renderAll(){ renderWorklist(); if(!P(currentPatient)) currentPatient=STATE.patients[0].id; selectPatient(currentPatient);
   if($("#view-inbox").classList.contains("active")) renderInbox(); updateBadges(); }
@@ -999,7 +1088,7 @@ $("#resetBtn").addEventListener("click",()=>{ try{ localStorage.removeItem(LS_KE
 // init
 if(!(window.claude && window.claude.downloads)) $("#exportBtn").style.display="none";
 hydrate();
-renderWorklist(); selectPatient("marcus"); updateBadges(); switchView("board");
+renderWorklist(); selectPatient("marcus"); updateBadges(); updateOutreachBadge(); switchView("board");
 </script>
 </body>
 </html>
