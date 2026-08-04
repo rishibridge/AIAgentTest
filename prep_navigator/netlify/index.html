@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Continuity — a PrEP navigator console demo in The Damien Center palette: continuity board, worklist, field outreach, Care plan schedule page, patient lifecycle, and inbox.">
+<meta name="description" content="Continuity — PrEP navigator console demo (The Damien Center palette): 30-patient panel, continuity board, worklist, Outreach team view with first-fill journey + coordination, Care plan schedule, and inbox.">
 <title>Continuity — PrEP Navigator Console</title>
 <style>
   /* Palette adopted from The Damien Center brand (damien.org): cyan #0fb3dc,
@@ -206,7 +206,7 @@
   .msg .mtime { font-size: 9.5px; font-family: var(--mono); color: var(--ink-3); margin-top: 4px; text-align: right; opacity: .8; }
   .msg.in { background: var(--surface-2); border: 1px solid var(--line); border-bottom-left-radius: 3px; align-self: flex-start; }
   .msg.out { background: var(--accent-wash); border: 1px solid var(--accent-wash); align-self: flex-end; border-bottom-right-radius: 3px; }
-  .r-nav { background: var(--accent); } .r-patient { background: var(--ink-3); } .r-provider { background: var(--provider); } .r-pharmacist { background: var(--pharm); }
+  .r-nav { background: var(--accent); } .r-patient { background: var(--ink-3); } .r-provider { background: var(--provider); } .r-pharmacist { background: var(--pharm); } .r-outreach { background: var(--gold); }
   .mention { color: var(--accent-ink); font-weight: 600; background: var(--accent-wash); padding: 0 3px; border-radius: 4px; }
   .toChip { font-size: 9px; font-family: var(--mono); background: color-mix(in srgb, var(--provider) 16%, transparent); color: var(--provider); padding: 1px 6px; border-radius: 20px; }
   .composer { display: flex; gap: 8px; margin-top: 12px; }
@@ -337,6 +337,16 @@
   .ostatus.Enrolled, .ostatus.Reengaged, .ostatus.Reached { background: var(--good-wash); color: var(--good); } .ostatus.Assigned { background: var(--accent-wash); color: var(--accent-ink); }
   .ocard .oreason { font-size: 11.5px; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
   .ocard .oact { display: flex; gap: 8px; margin-top: 2px; flex-wrap: wrap; }
+  .jtrack { display: grid; grid-template-columns: repeat(6, 1fr); margin: 2px 0 6px; }
+  .jstep { display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; }
+  .jstep::before { content: ""; position: absolute; top: 9px; left: -50%; width: 100%; height: 2px; background: var(--line-2); z-index: 0; }
+  .jstep:first-child::before { display: none; }
+  .jstep.done::before, .jstep.active::before { background: var(--accent); }
+  .jdot { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 700; background: var(--surface-2); border: 2px solid var(--line-2); color: var(--ink-3); z-index: 1; }
+  .jstep.done .jdot { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .jstep.active .jdot { background: var(--surface); border-color: var(--accent); color: var(--accent-ink); box-shadow: 0 0 0 3px var(--accent-wash); }
+  .jlbl { font-size: 8.5px; font-family: var(--mono); color: var(--ink-3); text-align: center; line-height: 1.1; }
+  .jstep.active .jlbl { color: var(--accent-ink); font-weight: 700; } .jstep.done .jlbl { color: var(--ink-2); }
 
   /* care plan / schedule page */
   .cpgrid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; align-items: start; }
@@ -512,179 +522,175 @@ const $ = (s, r=document) => r.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const initials = n => n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
 const first = p => p.name.split(" ")[0].replace(/[^A-Za-z]/g,"");
-const ROLE_LABEL = { nav:"You", patient:"Patient", provider:"Provider", pharmacist:"Pharmacy" };
+const ROLE_LABEL = { nav:"You", patient:"Patient", provider:"Provider", pharmacist:"Pharmacy", outreach:"Outreach" };
 let SEQ = 100; const uid = pfx => pfx + (SEQ++);
 
 // ---------- seed data (fictional) ----------
-function seedState(){ return { patients: [
-  { id:"marcus", name:"Marcus R.", age:31, mrn:"PN-40213", supply:4, mpr:0.91, sev:"crit", type:"lab", action:"Order HIV test", actWithin:0, provider:"Dr. Osei", pharmacy:"Mail order",
-    headline:"Order quarterly HIV Ag/Ab + rapid — result gates the refill", why:"Supply ends in 4d · lab needs 2d turnaround → order today or supply lapses",
-    lead:"needs 2d lead", leadsev:"crit",
-    track:[ {label:"HIV test", dd:"due now", pos:8, sev:"crit"}, {label:"Refill", dd:"day 4", pos:40, sev:"warn"} ], fill:70, gapAt:78,
-    steps:[ {s:"done", t:"Encounter complete", d:"Telehealth visit 12 Jun · quarterly", when:"12 Jun"},
-      {s:"active", t:"Quarterly HIV Ag/Ab test", d:"Required within 90d to authorize refill — last neg 18 Apr", when:"OVERDUE\nby 9d"},
-      {s:"wait", t:"Approve refill (30d)", d:"Rx can't be written until a current HIV result is in — then ships", when:"on\nresult"},
-      {s:"wait", t:"Next quarterly labs", d:"HIV + renal + STI panel", when:"~12 Sep"} ],
-    labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"18 Apr · 100d ago", sev:"crit"}, {k:"Creatinine", v:"0.9 mg/dL", s:"CrCl 104 · normal", sev:"ok"},
-      {k:"HBV sAg", v:"Neg", s:"baseline 4 Jan", sev:"ok"}, {k:"STI panel", v:"GC/CT neg", s:"18 Apr", sev:"ok"} ],
-    rx:{drug:"Emtricitabine/Tenofovir DF", refills:"2 of 6 left", exp:"expires 04 Jan 27"},
-    feed:[ {sev:"crit", t:"<b>Refill blocked</b> — HIV test > 90d; Rx needs a current result before it can ship", m:"today · 08:12 · Surescripts"},
-      {sev:"info", t:"Reminder SMS sent — 'time for your PrEP labs'", m:"yesterday · auto"}, {sev:"ok", t:"Telehealth encounter documented", m:"12 Jun · Dr. Osei"} ],
-    threads:[
-      { id:"sms", kind:"patient", label:"Patient · SMS", with:"Marcus R.", msgs:[
-        {role:"nav", from:"Rae Navarro", t:"Hi Marcus — you're due for a quick HIV test before your next refill. Home kit or clinic?", time:"Mon 09:12"},
-        {role:"patient", from:"Marcus R.", t:"A home kit would be easier, I'm slammed at work", time:"Mon 09:31"},
-        {role:"nav", from:"Rae Navarro", t:"Done — ordering it now, arrives in 2 days. Refill unlocks the moment results are in 👍", time:"Mon 09:34"} ] },
-      { id:"team", kind:"team", label:"Care team", with:"Dr. Osei · Mail-order pharmacy", msgs:[
-        {role:"provider", from:"Dr. Osei", t:"Marcus is overdue on quarterly HIV. I'll e-sign a home test order if you route the packet.", time:"Tue 08:05", unread:true},
-        {role:"pharmacist", from:"Mail-order Rx", t:"Can't write or ship the refill without a current HIV result on file — standing by.", time:"Tue 08:40", unread:true} ] } ],
-    notes:[ {type:"Call", author:"Rae Navarro", t:"Called Marcus 08:20 — confirmed prefers home test, day-shift work. Ordered OraQuick, ETA 2d.", time:"Tue 08:22"},
-      {type:"Need", author:"Rae Navarro", t:"Needs evening/weekend lab options going forward — day job limits clinic visits.", time:"Tue 08:25"} ] },
+// ---------- seed: 30-patient panel across the full PrEP lifecycle ----------
+const MILESTONES = ["Enrolled","First visit","Baseline labs","First Rx","First PA","First fill"];
+const D=(t,dd,wh)=>({s:"done",t,d:dd||"",when:wh||""});
+const A=(t,dd,wh)=>({s:"active",t,d:dd||"",when:wh||""});
+const W=(t,dd,wh)=>({s:"wait",t,d:dd||"",when:wh||""});
+const LABS = {
+  pending:[{k:"HIV Ag/Ab+RNA",v:"pending",s:"awaiting sample",sev:"warn"},{k:"Kidney (eGFR)",v:"pending",s:"baseline",sev:"warn"},{k:"HBV / STI",v:"pending",s:"baseline",sev:"warn"}],
+  partial:[{k:"HIV Ag/Ab+RNA",v:"at lab",s:"result pending",sev:"warn"},{k:"Kidney (eGFR)",v:"at lab",s:"pending",sev:"warn"}],
+  ok:[{k:"HIV Ag/Ab+RNA",v:"Neg",s:"current",sev:"ok"},{k:"Kidney (eGFR)",v:"normal",s:"in range",sev:"ok"},{k:"STI (3-site)",v:"Neg",s:"current",sev:"ok"}],
+  overdue:[{k:"HIV Ag/Ab+RNA",v:"Neg",s:">90d ago · overdue",sev:"crit"},{k:"Kidney (eGFR)",v:"normal",s:"",sev:"ok"},{k:"STI (3-site)",v:"Neg",s:"prior",sev:"ok"}],
+  abnormal:[{k:"HIV Ag/Ab+RNA",v:"Neg",s:"current",sev:"ok"},{k:"Kidney (eGFR)",v:"low · declining",s:"recheck",sev:"crit"},{k:"STI (3-site)",v:"CT positive",s:"treat",sev:"warn"}],
+};
+function rxFor(drug,j){ return j<3?{drug,refills:"—",exp:"pre-Rx"} : j<5?{drug,refills:"new Rx",exp:"awaiting PA"} : j<6?{drug,refills:"new Rx",exp:"PA cleared"} : {drug,refills:"refills active",exp:"12-mo Rx"}; }
+function threadsFor(s,g){
+  const first=s.name.split(" ")[0];
+  const pm=[{role:"nav",from:"Rae Navarro",t:(g.sms||`Hi ${first}, checking in on your PrEP — anything you need?`).replace("{n}",first),time:"today"}];
+  if(g.reply) pm.push({role:"patient",from:s.name,t:g.reply,time:"today",unread:true});
+  const tm=[];
+  if(s.by && g.j<6){
+    tm.push({role:"outreach",from:s.by,t:`Enrolled ${first} — please get them to first fill, they're motivated. Keeping an eye on it.`,time:"recent"});
+    tm.push({role:"nav",from:"Rae Navarro",t:`On it — ${first} is at "${MILESTONES[g.j]}". @Pharmacy will ship once we clear it. I'll update you.`,time:"today",unread:true});
+  } else if(s.assignee==="Field Outreach"){
+    tm.push({role:"nav",from:"Rae Navarro",t:`@Field please attempt in-person — ${first} unreachable, supply at risk.`,time:"today",unread:true});
+  } else {
+    tm.push({role:"provider",from:s.prov,t:"No changes — stable.",time:"recent"});
+  }
+  return [{id:"sms",kind:"patient",label:"Patient",with:s.name,msgs:pm},
+          {id:"team",kind:"team",label:"Care team",with:(s.by&&g.j<6)?`${s.by} · ${s.prov} · Mail-order Rx`:s.prov,msgs:tm}];
+}
+function notesFor(s,g){ return [{type:"Note",author:s.by?(s.by+" (outreach)"):"Rae Navarro",t:g.note||g.why,time:"today"}]; }
 
-  { id:"dana", name:"Dana W.", age:27, mrn:"PN-39880", supply:12, mpr:0.97, sev:"crit", type:"renew", action:"Renew Rx", actWithin:4, provider:"Dr. Lin", pharmacy:"Mail order",
-    headline:"Prescription out of refills — route renewal packet to prescriber", why:"0 refills left · renewal needs an encounter first → 8d critical path vs 12d supply",
-    lead:"needs 8d lead", leadsev:"crit",
-    track:[ {label:"Encounter", dd:"day 3", pos:24, sev:"warn"}, {label:"Renewal", dd:"day 6", pos:52, sev:"warn"}, {label:"Refill", dd:"day 8", pos:70, sev:"ok"} ], fill:82, gapAt:88,
-    steps:[ {s:"active", t:"Schedule renewal encounter", d:"Telehealth slot — prescriber Dr. Lin", when:"book\ntoday"},
-      {s:"wait", t:"Send renewal packet", d:"Auto-compiled: last HIV neg, renal, adherence 0.97", when:"on visit"},
-      {s:"wait", t:"New Rx to pharmacy", d:"90-day supply requested", when:"~+6d"}, {s:"wait", t:"Refill ships", d:"Mail-order · to patient's door", when:"~+8d"} ],
-    labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"02 Jul · 25d ago", sev:"ok"}, {k:"Creatinine", v:"0.8 mg/dL", s:"CrCl 118", sev:"ok"},
-      {k:"STI panel", v:"CT positive", s:"treated 02 Jul", sev:"warn"}, {k:"HCV Ab", v:"Neg", s:"02 Jul", sev:"ok"} ],
-    rx:{drug:"Emtricitabine/Tenofovir DF", refills:"0 of 6 left", exp:"expires 30 Jul 26"},
-    feed:[ {sev:"warn", t:"<b>Rx exhausted</b> — auto-task: renewal", m:"today · rules engine"}, {sev:"ok", t:"CT treatment confirmed by pharmacy", m:"05 Jul"} ],
-    threads:[
-      { id:"sms", kind:"patient", label:"Patient · SMS", with:"Dana W.", msgs:[
-        {role:"nav", from:"Rae Navarro", t:"Hey Dana, your prescription needs a renewal. 15-min video visit Thursday 4pm?", time:"Today 10:02"},
-        {role:"patient", from:"Dana W.", t:"Thursday works!", time:"Today 10:19", unread:true} ] },
-      { id:"team", kind:"team", label:"Care team", with:"Dr. Lin · Walgreens #221", msgs:[
-        {role:"provider", from:"Dr. Lin", t:"Happy to renew at the Thu visit — send me the adherence + last labs beforehand.", time:"Today 10:25", unread:true},
-        {role:"nav", from:"Rae Navarro", t:"Packet's queued, I'll attach it before the call.", time:"Today 10:40"} ] } ],
-    notes:[ {type:"Call", author:"Rae Navarro", t:"Reached Dana, booked Thu 4pm telehealth. Reminded re: CT follow-up (treated 2 Jul).", time:"Today 10:20"},
-      {type:"Need", author:"Rae Navarro", t:"Prefers video visits; transport is a barrier for in-person.", time:"Today 10:21"} ] },
+const STAGES = {
+  first_visit:{type:"enc",act:"Book first visit",sev:"warn",aw:1,lead:"schedule",leadsev:"warn",j:1,labs:"pending",
+    hl:"New enrollee — book first telehealth visit",why:"Questionnaire done · needs video visit before baseline labs",reply:"ready when you are!",
+    steps:[D("Enrolled + questionnaire","Eligibility complete"),A("Telehealth first visit","Book video visit","now"),W("Baseline labs","kit ships after visit","~3d"),W("Rx → PA → first fill","","~2wk")]},
+  baseline_ship:{type:"lab",act:"Ship baseline kit",sev:"warn",aw:0,lead:"same day",leadsev:"warn",j:2,labs:"pending",
+    hl:"Ship baseline test kit to begin labs",why:"Visit done · baseline kit needs to ship (HIV+RNA, kidney, HBV, STI)",
+    steps:[D("First visit","Telehealth complete"),A("Ship baseline kit","Order at-home kit","now"),W("Collect + return sample","patient","~5d"),W("Results → Rx → PA → fill","","~2wk")]},
+  baseline_collect:{type:"lab",act:"Nudge sample collection",sev:"warn",aw:0,lead:"nudge",leadsev:"warn",j:2,labs:"pending",
+    hl:"Baseline kit delivered 3d ago — no sample yet",why:"⚠️ Patient hasn't collected the sample · nudge, then field outreach if unreachable",reply:"oh sorry, will do it tonight",
+    steps:[D("First visit","complete"),D("Baseline kit delivered","3 days ago"),A("Collect + return sample","Nudge patient","now"),W("Lab → Rx → PA → fill","","~10d")]},
+  baseline_lab:{type:"lab",act:"Await results",sev:"warn",aw:2,lead:"lab 2-3d",leadsev:"ok",j:2,labs:"partial",
+    hl:"Baseline sample at lab — results pending",why:"Sample received · results in 2–3 business days, then first Rx",
+    steps:[D("Baseline kit","collected + returned"),A("Lab tests → results","awaiting release","~2d"),W("Provider writes first Rx","on results","~3d"),W("First PA → first fill","","~1wk")]},
+  first_rx:{type:"refill",act:"Write first Rx",sev:"warn",aw:1,lead:"provider",leadsev:"warn",j:3,labs:"ok",
+    hl:"Baseline results in — provider to write first Rx",why:"HIV neg, kidney OK, HBV/STI clear · ready for first prescription",
+    steps:[D("Baseline labs","all clear"),A("Provider writes first Rx","review results","now"),W("First PA","after Rx","~2d"),W("First fill ships","after PA","~4d")]},
+  first_pa:{type:"pa",act:"First PA pending",sev:"warn",aw:2,lead:"PA 2-3d",leadsev:"warn",j:4,labs:"ok",
+    hl:"First Rx written — prior auth pending (Descovy)",why:"PA #1 submitted · fill can't ship until approved",
+    steps:[D("First Rx written","Descovy"),A("First PA","submitted → awaiting payer","now"),W("Confirm address + consent","after PA","~1d"),W("First fill ships","","~4d")]},
+  first_pa_denied:{type:"pa",act:"Appeal PA denial",sev:"crit",aw:0,lead:"appeal",leadsev:"crit",j:4,labs:"ok",
+    hl:"First PA denied — appeal or switch to generic F/TDF",why:"⚠️ Payer denied Descovy · appeal, switch to generic, or bridge with PAP now",
+    steps:[D("First Rx written","Descovy"),A("PA denied → appeal / switch","Peer-to-peer or generic","now"),W("Confirm + first fill","after resolve","~1wk")]},
+  first_fill_confirm:{type:"refill",act:"Confirm address + consent",sev:"warn",aw:0,lead:"confirm",leadsev:"warn",j:5,labs:"ok",
+    hl:"PA cleared — confirm address before first fill ships",why:"⚠️ Awaiting patient's address + shipping consent (text/call) before first fill",reply:"yes ship it! same address",
+    steps:[D("First Rx + PA","approved"),A("Confirm address + consent","text/call patient","now"),W("First fill ships","on confirm","~1d"),W("Therapy begins","on delivery","~3d")]},
+  first_fill_ship:{type:"refill",act:"First fill shipping",sev:"ok",aw:2,lead:"in transit",leadsev:"ok",j:5,labs:"ok",
+    hl:"First fill confirmed — shipping to patient",why:"Address confirmed · first 90-day supply ships today, arrives ~2 days",
+    steps:[D("PA + confirm","done"),A("First fill ships → arrives","mail-order","~2d"),W("Therapy begins","on delivery","~2d"),W("Next quarterly kit","~day 68","~10wk")]},
+  refill_due:{type:"lab",act:"Ship quarterly kit",sev:"warn",aw:3,lead:"schedule",leadsev:"ok",j:6,labs:"ok",
+    hl:"Quarterly test kit due to ship (keeps refill unblocked)",why:"On track · next at-home kit ships ~3 weeks before run-out",
+    steps:[D("Last refill","received"),A("Quarterly kit ships","auto-order","now"),W("Test → re-authorize","","~1wk"),W("Next refill ships","before run-out","~2wk")]},
+  refill_collect:{type:"lab",act:"Nudge sample collection",sev:"warn",aw:0,lead:"nudge",leadsev:"warn",j:6,labs:"partial",
+    hl:"Quarterly kit delivered — no sample returned yet",why:"⚠️ Kit delivered, awaiting collection · nudge before it delays the refill",reply:"will send it back tomorrow",
+    steps:[D("Quarterly kit","delivered"),A("Collect + return sample","Nudge patient","now"),W("Lab → re-authorize refill","","~1wk"),W("Refill ships","","~2wk")]},
+  refill_lab:{type:"lab",act:"Await results",sev:"ok",aw:2,lead:"lab 2-3d",leadsev:"ok",j:6,labs:"partial",
+    hl:"Quarterly sample at lab — results pending",why:"Sample received · results then refill re-authorized",
+    steps:[D("Sample","collected + returned"),A("Lab tests → results","","~2d"),W("Re-authorize refill","on results","~3d"),W("Confirm + ship","","~5d")]},
+  refill_authorize:{type:"refill",act:"Approve refill",sev:"warn",aw:1,lead:"ships same day",leadsev:"ok",j:6,labs:"ok",
+    hl:"Results in — approve refill to ship",why:"HIV neg current · re-authorize the ≤90-day refill, then confirm address",reply:"thanks!",
+    steps:[D("Quarterly labs","HIV neg current"),A("Approve refill","provider re-auth","now"),W("Confirm address + consent","","~1d"),W("Refill ships → arrives","","~3d")]},
+  refill_confirm:{type:"refill",act:"Confirm address + consent",sev:"warn",aw:0,lead:"confirm",leadsev:"warn",j:6,labs:"ok",
+    hl:"Refill approved — confirm address before it ships",why:"⚠️ Awaiting patient's address + shipping consent before the refill ships",reply:"yep, same address",
+    steps:[D("Refill approved","re-authorized"),A("Confirm address + consent","text/call","now"),W("Refill ships → arrives","","~3d")]},
+  refill_ship:{type:"refill",act:"Refill shipping",sev:"ok",aw:2,lead:"in transit",leadsev:"ok",j:6,labs:"ok",
+    hl:"Refill confirmed — shipping to patient",why:"On track · 90-day refill in transit, arrives before run-out",
+    steps:[D("Approve + confirm","done"),A("Refill ships → arrives","mail-order","~2d"),W("Next quarterly kit","~day 68","~10wk")]},
+  six_month:{type:"lab",act:"6-month labs",sev:"warn",aw:2,lead:"expanded panel",leadsev:"ok",j:6,labs:"ok",
+    hl:"6-month cycle — expanded labs due",why:"Adds syphilis + kidney (if indicated) to the quarterly HIV/GC-CT",
+    steps:[D("Quarterly kit","returned"),A("Expanded labs → results","HIV+RNA, GC/CT, syphilis, eCrCl","~2d"),W("Re-authorize refill","","~4d"),W("Confirm + ship","","~6d")]},
+  annual:{type:"renew",act:"Annual review + renew",sev:"crit",aw:4,lead:"needs visit",leadsev:"crit",j:6,labs:"ok",
+    hl:"12-month annual — full panel, renew Rx (+ PA if plan changed)",why:"Live visit, full panel (HIV+RNA, STI, kidney-all, lipids), new Rx → PA → refill",
+    steps:[D("Annual kit","returned"),A("Live annual visit → new Rx","full panel","now"),W("Annual PA renewal","new Rx","~3d"),W("Confirm + refill ships","","~6d")]},
+  stable:{type:"refill",act:"On track — auto-ships",sev:"ok",aw:35,lead:"none",leadsev:"ok",j:6,labs:"ok",
+    hl:"Continuous — next refill auto-ships, labs current",why:"Excellent adherence · no action until the next quarterly window",
+    steps:[D("Last 90-day refill","shipped"),W("Quarterly labs","","~5wk"),W("Next refill","auto on labs","~10wk")]},
+  pa_expiring:{type:"pa",act:"Renew PA",sev:"warn",aw:6,lead:"PA 2-3d",leadsev:"warn",j:6,labs:"ok",
+    hl:"Prior auth expiring — renew before next fill",why:"PA valid to next month · renew now so the refill isn't blocked",
+    steps:[D("Refill","current"),A("Renew prior auth","submit for existing Rx","now"),W("PA active","","~3d"),W("Next refill unblocked","","~2wk")]},
+  insurance_change:{type:"pa",act:"New PA (plan change)",sev:"crit",aw:0,lead:"reprocess",leadsev:"crit",j:6,labs:"ok",
+    hl:"Insurance changed — new PA needed under new plan",why:"⚠️ Plan flipped · new PA + benefits re-verify before the next fill can ship",
+    steps:[D("New plan active","Jan 1"),A("New PA under new plan","submit + re-verify benefits","now"),W("Confirm + refill ships","on PA","~1wk")]},
+  assistance_lapse:{type:"pa",act:"Re-enroll assistance",sev:"warn",aw:8,lead:"PAP",leadsev:"warn",j:6,labs:"ok",
+    hl:"Copay assistance expiring — re-enroll before next fill",why:"$0 copay program up for renewal · re-attest income to keep it free",reply:"YES please handle it",
+    steps:[D("Refill","current"),A("Re-enroll copay/PAP","income re-attestation","now"),W("Assistance active","","~5d"),W("Next fill $0","","~2wk")]},
+  lab_overdue:{type:"lab",act:"Order HIV test",sev:"crit",aw:0,lead:"needs 2d lead",leadsev:"crit",j:6,labs:"overdue",
+    hl:"HIV test > 90d — refill blocked until a current result",why:"Supply ends in 4d · Rx can't be re-authorized without a current HIV test",
+    steps:[D("Encounter","complete"),A("Order HIV test (home kit)","result gates the refill","now"),W("Re-authorize refill","on result","~4d"),W("Confirm + ship","","~6d")]},
+  abnormal_lab:{type:"enc",act:"Clinical review (live)",sev:"crit",aw:1,lead:"needs visit",leadsev:"crit",j:6,labs:"abnormal",
+    hl:"Abnormal result — kidney declining, needs live review",why:"eGFR falling · live visit to assess (switch regimen? hold?) before next fill",
+    steps:[D("Quarterly labs","eGFR low"),A("Live clinical review","provider visit","now"),W("Regimen decision","","~2d"),W("Refill or change","","~5d")]},
+  address_unconfirmed:{type:"refill",act:"Confirm address",sev:"crit",aw:0,lead:"confirm",leadsev:"crit",j:6,labs:"ok",
+    hl:"Refill ready but address unconfirmed — ship blocked",why:"⚠️ Supply ends in 8d · can't ship until patient confirms address + consent",
+    steps:[D("Refill approved","ready"),A("Confirm address + consent","unreachable — nudge / field","now"),W("Refill ships","on confirm","+3d")]},
+  unreachable:{type:"outreach",act:"Home visit",sev:"crit",aw:0,lead:"dispatch",leadsev:"crit",j:6,labs:"overdue",
+    hl:"Unreachable 8 days — field visit to re-engage",why:"3 calls + 2 texts + 1 email, no reply · supply ends 6d",
+    steps:[D("Remote outreach exhausted","3 calls · 2 SMS · 1 email"),A("Field outreach home visit","community team","now"),W("Re-engage → refill","on contact","")]},
+  lapsed:{type:"outreach",act:"Re-engage (home visit)",sev:"crit",aw:0,lead:"dispatch",leadsev:"crit",j:6,labs:"overdue",
+    hl:"Lapsed — 0 days supply, lost to follow-up",why:"Coverage gap now · unreachable 3 weeks · field re-engagement",
+    steps:[D("Remote outreach exhausted","5 attempts / 3 weeks"),A("Field re-engagement visit","community team","now"),W("Re-test + restart","on contact","")]},
+  sample_not_returned:{type:"lab",act:"Nudge return / field",sev:"warn",aw:0,lead:"nudge",leadsev:"warn",j:6,labs:"partial",
+    hl:"Sample collected but not mailed back",why:"⚠️ Kit collected, never returned · nudge; field outreach if unreachable",
+    steps:[D("Kit collected","patient has sample"),A("Nudge sample return","text/call","now"),W("Lab → refill","on return","~1wk")]},
+};
 
-  { id:"sam", name:"Sam T.", age:44, mrn:"PN-41002", supply:18, mpr:0.94, sev:"warn", type:"pa", action:"Re-enroll copay", actWithin:13, provider:"Dr. Osei", pharmacy:"Mail order",
-    headline:"Copay assistance expiring — re-enroll before next fill", why:"Coverage ends in 15d · PA reprocessing ~5d → start before fill #4",
-    lead:"needs 5d lead", leadsev:"warn",
-    track:[ {label:"PA renew", dd:"day 5", pos:30, sev:"warn"}, {label:"Refill", dd:"day 18", pos:82, sev:"ok"} ], fill:60, gapAt:78,
-    steps:[ {s:"active", t:"Re-enroll copay assistance", d:"Manufacturer PAP — income re-attestation on file", when:"submit\ntoday"},
-      {s:"wait", t:"Confirm PA active", d:"Payer BIN/PCN verification", when:"~+5d"}, {s:"wait", t:"Refill ships", d:"$0 copay restored", when:"~+18d"} ],
-    labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"20 May · 68d ago", sev:"ok"}, {k:"Creatinine", v:"1.1 mg/dL", s:"CrCl 82 · monitor", sev:"warn"},
-      {k:"STI panel", v:"Neg", s:"20 May", sev:"ok"}, {k:"HBV sAg", v:"Neg", s:"baseline", sev:"ok"} ],
-    rx:{drug:"Emtricitabine/Tenofovir AF", refills:"3 of 6 left", exp:"expires 12 Nov 26"},
-    feed:[ {sev:"warn", t:"<b>Assistance expiring</b> in 15 days", m:"today · benefits sync"}, {sev:"ok", t:"Refill #3 shipped", m:"09 Jul"} ],
-    threads:[
-      { id:"sms", kind:"patient", label:"Patient · SMS", with:"Sam T.", msgs:[
-        {role:"nav", from:"Rae Navarro", t:"Sam, your $0 copay program is up for renewal — reply YES and I'll handle it.", time:"Yst 15:10"},
-        {role:"patient", from:"Sam T.", t:"YES, thanks Rae", time:"Yst 15:22"} ] },
-      { id:"team", kind:"team", label:"Care team", with:"Costco Rx · Dr. Osei", msgs:[
-        {role:"pharmacist", from:"Costco Rx", t:"Heads up — current PA expires in 15 days.", time:"Yst 14:30"} ] } ],
-    notes:[ {type:"Call", author:"Rae Navarro", t:"Left VM re: renal recheck (CrCl 82, monitor). Copay re-enrollment submitted.", time:"Yst 15:25"} ] },
+function buildPatient(s){
+  const g=STAGES[s.stage], sev=s.sev||g.sev, supply=s.supply;
+  const aw=(s.aw!=null?s.aw:g.aw);
+  const fill=Math.max(8,Math.min(92,Math.round(100-(supply/90)*88)));
+  const gapAt=Math.max(55,Math.min(96,fill+(supply<=7?4:10)));
+  const p={ id:s.id,name:s.name,age:s.age,mrn:s.mrn,supply,mpr:s.mpr,sev,type:g.type,action:g.act,actWithin:aw,
+    provider:s.prov,pharmacy:"Mail order",headline:g.hl,why:g.why,lead:g.lead,leadsev:g.leadsev,
+    journeyStep:g.j,firstFillDone:g.j>=6,
+    track:[{label:g.act.split(" ")[0],dd:aw===0?"now":aw+"d",pos:Math.min(fill+8,90),sev}],
+    fill,gapAt,steps:g.steps,labs:LABS[g.labs]||LABS.ok,rx:rxFor(s.drug,g.j),
+    feed:[{sev,t:"<b>"+g.act+"</b> — "+g.hl,m:"today · rules engine"}],threads:threadsFor(s,g),notes:notesFor(s,g) };
+  if(s.by) p.outreach={ status:s.ost||(g.j<6?"In progress":"On PrEP"),lastContact:s.lc||"today",attempts:s.att||0,enrolledBy:s.by };
+  if(s.assignee) p.assignee=s.assignee;
+  return p;
+}
 
-  { id:"jordan", name:"Jordan P.", age:23, mrn:"PN-40771", supply:9, mpr:0.88, sev:"warn", type:"refill", action:"Approve refill", actWithin:1, provider:"Dr. Rao", pharmacy:"Mail order",
-    headline:"Refill ready for approval — approve to ship before supply runs out", why:"Awaiting your approval · supply ends 9d · adherence trending down (0.88)",
-    lead:"ships same day", leadsev:"ok",
-    track:[ {label:"Approve", dd:"now", pos:20, sev:"warn"}, {label:"Supply end", dd:"day 9", pos:66, sev:"warn"} ], fill:74, gapAt:83,
-    steps:[ {s:"done", t:"Refill request received", d:"Mail-order pharmacy · 30-day, labs current", when:"21 Jul"},
-      {s:"active", t:"Approve refill", d:"Ships same day once you approve — arrives in ~2 days", when:"approve\nnow"}, {s:"wait", t:"Quarterly labs", d:"HIV + renal due next cycle", when:"~15 Aug"} ],
-    labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"01 Jun · 56d ago", sev:"ok"}, {k:"Creatinine", v:"0.9 mg/dL", s:"CrCl 110", sev:"ok"},
-      {k:"STI panel", v:"Neg", s:"01 Jun", sev:"ok"}, {k:"Adherence", v:"MPR 0.88", s:"↓ from 0.95", sev:"warn"} ],
-    rx:{drug:"Emtricitabine/Tenofovir DF", refills:"4 of 6 left", exp:"expires 20 Feb 27"},
-    feed:[ {sev:"warn", t:"<b>Refill awaiting approval</b> — ready to ship", m:"today · pharmacy sync"}, {sev:"info", t:"Adherence dip flagged by rules engine", m:"2 days ago"} ],
-    threads:[
-      { id:"sms", kind:"patient", label:"Patient", with:"Jordan P.", msgs:[
-        {role:"nav", from:"Rae Navarro", t:"Hi Jordan — approving your refill now, it ships today and should arrive in ~2 days 📦 All good?", time:"Today 08:15"},
-        {role:"patient", from:"Jordan P.", t:"awesome, thank you!", time:"Today 08:44", unread:true} ] },
-      { id:"team", kind:"team", label:"Care team", with:"Mail-order pharmacy", msgs:[
-        {role:"pharmacist", from:"Mail-order Rx", t:"Refill is queued and ready to ship — awaiting navigator approval.", time:"Today 07:50", unread:true} ] } ],
-    notes:[ {type:"Note", author:"Rae Navarro", t:"Adherence dipped 0.95 → 0.88. Moving to 90-day fills to reduce touchpoints.", time:"Today 08:46"} ] },
-
-  { id:"aisha", name:"Aisha K.", age:35, mrn:"PN-39510", supply:26, mpr:0.99, sev:"warn", type:"lab", action:"Schedule labs", actWithin:6, provider:"Dr. Lin", pharmacy:"Mail order",
-    headline:"Quarterly labs due in 20 days — schedule now to stay ahead", why:"On track · pre-scheduling labs keeps the next refill unblocked",
-    lead:"schedule ahead", leadsev:"ok",
-    track:[ {label:"Labs", dd:"day 20", pos:52, sev:"ok"}, {label:"Refill", dd:"day 26", pos:74, sev:"ok"} ], fill:56, gapAt:82,
-    steps:[ {s:"done", t:"Refill #4 dispensed", d:"90-day supply", when:"01 Jul"},
-      {s:"active", t:"Schedule quarterly labs", d:"HIV + renal + STI · mobile phlebotomy option", when:"~16 Aug"}, {s:"wait", t:"Refill authorization", d:"unblocks on lab result", when:"~22 Aug"} ],
-    labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"18 May", sev:"ok"}, {k:"Creatinine", v:"0.7 mg/dL", s:"CrCl 121", sev:"ok"},
-      {k:"STI panel", v:"Neg", s:"18 May", sev:"ok"}, {k:"Adherence", v:"MPR 0.99", s:"excellent", sev:"ok"} ],
-    rx:{drug:"Emtricitabine/Tenofovir DF", refills:"3 of 6 left", exp:"expires 10 Mar 27"},
-    feed:[ {sev:"ok", t:"90-day refill shipped", m:"01 Jul"}, {sev:"info", t:"Labs pre-scheduling window opened", m:"today"} ],
-    threads:[
-      { id:"sms", kind:"patient", label:"Patient · SMS", with:"Aisha K.", msgs:[
-        {role:"nav", from:"Rae Navarro", t:"Hi Aisha — time to book your quarterly labs. Mobile phlebotomy can come to you; pick a morning?", time:"Today 11:00"},
-        {role:"patient", from:"Aisha K.", t:"Tuesday AM would be perfect", time:"Today 11:12", unread:true} ] },
-      { id:"team", kind:"team", label:"Care team", with:"Dr. Lin", msgs:[
-        {role:"provider", from:"Dr. Lin", t:"All stable — fine to keep the 90-day cadence.", time:"Mon 16:20"} ] } ],
-    notes:[ {type:"Note", author:"Rae Navarro", t:"Model adherence (MPR 0.99). Pre-scheduling labs to stay ahead of the refill.", time:"Today 11:05"} ] },
-
-  { id:"terrell", name:"Terrell J.", age:29, mrn:"PN-41190", supply:6, mpr:0.79, sev:"crit", type:"outreach", action:"Home visit", actWithin:0, assignee:"Field Outreach", outreach:{ status:"Unreachable", lastContact:"8 days ago", attempts:6, enrolledBy:"Sam Rivera" }, provider:"Dr. Osei", pharmacy:"Mail order",
-    headline:"Unreachable 8 days — field visit to re-engage before supply lapses", why:"3 calls + 2 texts + 1 email, no reply · supply ends 6d · MPR 0.79",
-    lead:"dispatch today", leadsev:"crit",
-    track:[ {label:"Field visit", dd:"now", pos:14, sev:"crit"}, {label:"Supply end", dd:"day 6", pos:60, sev:"crit"} ], fill:80, gapAt:70,
-    steps:[ {s:"done", t:"Remote outreach exhausted", d:"3 calls · 2 SMS · 1 email over 8 days — no response", when:"18–26 Jul"},
-      {s:"active", t:"Field outreach home visit", d:"Assigned to community outreach team — last address on file", when:"dispatch\ntoday"},
-      {s:"wait", t:"Approve refill", d:"Ships once re-engaged and HIV result is current", when:"on\ncontact"} ],
-    labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"12 May · 76d ago", sev:"warn"}, {k:"Creatinine", v:"1.0 mg/dL", s:"CrCl 96", sev:"ok"}, {k:"Adherence", v:"MPR 0.79", s:"↓ falling", sev:"crit"} ],
-    rx:{drug:"Emtricitabine/Tenofovir DF", refills:"1 of 6 left", exp:"expires 15 Sep 26"},
-    feed:[ {sev:"crit", t:"<b>Unreachable</b> — 8 days, all remote channels tried", m:"today · rules engine"}, {sev:"warn", t:"Escalated to field outreach", m:"today · Rae Navarro"} ],
-    threads:[
-      { id:"sms", kind:"patient", label:"Patient", with:"Terrell J.", msgs:[
-        {role:"nav", from:"Rae Navarro", t:"Hi Terrell, checking in on your PrEP — please call me back, I want to make sure you don't run out.", time:"Thu 14:02"},
-        {role:"nav", from:"Rae Navarro", t:"Following up — I can send a home test kit or have someone stop by. Reply anytime.", time:"Mon 09:10"} ] },
-      { id:"team", kind:"team", label:"Care team", with:"Field outreach · Dr. Osei", msgs:[
-        {role:"nav", from:"Rae Navarro", t:"@Field can you attempt a home visit? 8 days unreachable, supply ends in 6.", time:"today 08:30", unread:true} ] } ],
-    notes:[ {type:"Call", author:"Rae Navarro", t:"3rd call attempt, voicemail full. Escalating to field outreach for in-person.", time:"today 08:25"} ] },
-
-  { id:"priya", name:"Priya N.", age:24, mrn:"PN-41205", supply:2, mpr:1.00, sev:"warn", type:"refill", action:"Approve first fill", actWithin:1, outreach:{ status:"Enrolled", lastContact:"today", attempts:1, enrolledBy:"Sam Rivera" }, provider:"Dr. Lin", pharmacy:"Mail order",
-    headline:"New start — approve first fill to begin protection", why:"Baseline labs complete · eligible · first fill ready to ship",
-    lead:"ships same day", leadsev:"ok",
-    track:[ {label:"First fill", dd:"now", pos:16, sev:"warn"} ], fill:12, gapAt:80,
-    steps:[ {s:"done", t:"Intake & eligibility", d:"Risk assessment complete", when:"24 Jul"},
-      {s:"done", t:"Baseline labs", d:"HIV neg · renal normal · HBV neg", when:"25 Jul"},
-      {s:"active", t:"Approve first fill", d:"90-day supply ready — ships on approval", when:"approve\nnow"} ],
-    labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"25 Jul · baseline", sev:"ok"}, {k:"Creatinine", v:"0.8 mg/dL", s:"CrCl 120", sev:"ok"}, {k:"HBV sAg", v:"Neg", s:"25 Jul", sev:"ok"} ],
-    rx:{drug:"Emtricitabine/Tenofovir DF", refills:"new Rx", exp:"expires 25 Jul 27"},
-    feed:[ {sev:"ok", t:"Baseline labs resulted — eligible", m:"25 Jul"}, {sev:"info", t:"First fill queued", m:"today"} ],
-    threads:[
-      { id:"sms", kind:"patient", label:"Patient", with:"Priya N.", msgs:[
-        {role:"patient", from:"Priya N.", t:"Excited to start! When does it arrive?", time:"Today 09:40", unread:true},
-        {role:"nav", from:"Rae Navarro", t:"Approving now — ships today, arrives in ~2 days 🎉", time:"Today 09:45"} ] },
-      { id:"team", kind:"team", label:"Care team", with:"Dr. Lin", msgs:[
-        {role:"provider", from:"Dr. Lin", t:"Cleared to start — first fill approved on my end.", time:"Today 08:00"} ] } ],
-    notes:[ {type:"Note", author:"Rae Navarro", t:"New start, highly motivated. Set 90-day cadence.", time:"Today 09:46"} ] },
-
-  { id:"devon", name:"Devon R.", age:38, mrn:"PN-38900", supply:68, mpr:0.99, sev:"ok", type:"refill", action:"On track — refill auto-ships", actWithin:40, provider:"Dr. Rao", pharmacy:"Mail order",
-    headline:"Continuous — next refill auto-ships, labs current", why:"90-day supply · MPR 0.99 · quarterly labs done",
-    lead:"none", leadsev:"ok",
-    track:[ {label:"Labs", dd:"day 40", pos:60, sev:"ok"}, {label:"Refill", dd:"day 68", pos:84, sev:"ok"} ], fill:24, gapAt:92,
-    steps:[ {s:"done", t:"90-day refill shipped", d:"Mail-order", when:"10 Jul"},
-      {s:"wait", t:"Quarterly labs", d:"HIV + renal", when:"~5 Sep"}, {s:"wait", t:"Next refill", d:"auto-ships on labs", when:"~9 Oct"} ],
-    labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"08 Jul", sev:"ok"}, {k:"Creatinine", v:"0.9 mg/dL", s:"CrCl 108", sev:"ok"}, {k:"Adherence", v:"MPR 0.99", s:"excellent", sev:"ok"} ],
-    rx:{drug:"Emtricitabine/Tenofovir DF", refills:"3 of 6 left", exp:"expires 18 Apr 27"},
-    feed:[ {sev:"ok", t:"90-day refill shipped", m:"10 Jul"} ],
-    threads:[
-      { id:"sms", kind:"patient", label:"Patient", with:"Devon R.", msgs:[
-        {role:"nav", from:"Rae Navarro", t:"All set for the quarter, Devon — labs due early Sep, I'll book mobile phlebotomy closer to then.", time:"10 Jul"} ] },
-      { id:"team", kind:"team", label:"Care team", with:"Dr. Rao", msgs:[
-        {role:"provider", from:"Dr. Rao", t:"No changes — stable.", time:"09 Jul"} ] } ],
-    notes:[ {type:"Note", author:"Rae Navarro", t:"Model continuity. No action until labs window.", time:"10 Jul"} ] },
-
-  { id:"kwame", name:"Kwame B.", age:33, mrn:"PN-40560", supply:0, mpr:0.61, sev:"crit", type:"outreach", action:"Re-engage (home visit)", actWithin:0, assignee:"Field Outreach", outreach:{ status:"Unreachable", lastContact:"3 weeks ago", attempts:5, enrolledBy:"Sam Rivera" }, provider:"Dr. Lin", pharmacy:"Mail order",
-    headline:"Lapsed — 0 days supply, lost to follow-up; field re-engagement", why:"Coverage gap now · unreachable 3 weeks · MPR 0.61",
-    lead:"dispatch now", leadsev:"crit",
-    track:[ {label:"Field visit", dd:"now", pos:10, sev:"crit"} ], fill:96, gapAt:18,
-    steps:[ {s:"done", t:"Remote outreach exhausted", d:"5 attempts over 3 weeks", when:"Jul"},
-      {s:"active", t:"Field re-engagement visit", d:"Community outreach — confirm status & restart", when:"dispatch\nnow"},
-      {s:"wait", t:"Re-test + restart", d:"HIV test before any restart", when:"on\ncontact"} ],
-    labs:[ {k:"HIV Ag/Ab", v:"Neg", s:"02 Apr · 116d ago", sev:"crit"}, {k:"Adherence", v:"MPR 0.61", s:"lapsed", sev:"crit"} ],
-    rx:{drug:"Emtricitabine/Tenofovir DF", refills:"0 of 6 left", exp:"expired 01 Jul 26"},
-    feed:[ {sev:"crit", t:"<b>Coverage gap</b> — 0 days supply", m:"today"}, {sev:"warn", t:"Escalated to field outreach", m:"3 days ago"} ],
-    threads:[
-      { id:"sms", kind:"patient", label:"Patient", with:"Kwame B.", msgs:[
-        {role:"nav", from:"Rae Navarro", t:"Kwame, we've missed you — your PrEP lapsed. No judgment, let's get you covered again. Call anytime.", time:"last wk"} ] },
-      { id:"team", kind:"team", label:"Care team", with:"Field outreach", msgs:[
-        {role:"nav", from:"Rae Navarro", t:"@Field please attempt in-person — lapsed 3 wks, unreachable.", time:"3 days ago", unread:true} ] } ],
-    notes:[ {type:"Call", author:"Rae Navarro", t:"5th attempt failed. Field outreach assigned for door knock.", time:"3 days ago"} ] },
-], tasks: [] }; }
+const OW="Sam Rivera";
+const SEED30=[
+  {id:"priya",name:"Priya N.",age:24,mrn:"PN-41205",drug:"Descovy (F/TAF)",prov:"Dr. Lin",supply:0,mpr:1.00,stage:"first_visit",by:OW},
+  {id:"andre",name:"Andre W.",age:31,mrn:"PN-41210",drug:"F/TDF (generic)",prov:"Dr. Osei",supply:0,mpr:1.00,stage:"baseline_ship",by:OW},
+  {id:"chen",name:"Chen L.",age:27,mrn:"PN-41214",drug:"F/TDF (generic)",prov:"Dr. Rao",supply:0,mpr:1.00,stage:"baseline_collect",by:OW,ost:"Awaiting sample",lc:"3 days ago",att:2},
+  {id:"marco",name:"Marco S.",age:29,mrn:"PN-41219",drug:"Descovy (F/TAF)",prov:"Dr. Lin",supply:0,mpr:1.00,stage:"baseline_lab",by:OW},
+  {id:"devonp",name:"Devon P.",age:35,mrn:"PN-41222",drug:"F/TDF (generic)",prov:"Dr. Vance",supply:0,mpr:1.00,stage:"first_rx",by:OW},
+  {id:"tariq",name:"Tariq H.",age:42,mrn:"PN-41225",drug:"Descovy (F/TAF)",prov:"Dr. Osei",supply:0,mpr:1.00,stage:"first_pa",by:OW},
+  {id:"luis",name:"Luis G.",age:38,mrn:"PN-41229",drug:"Descovy (F/TAF)",prov:"Dr. Lin",supply:0,mpr:1.00,stage:"first_pa_denied",by:OW},
+  {id:"noah",name:"Noah K.",age:23,mrn:"PN-41233",drug:"F/TDF (generic)",prov:"Dr. Rao",supply:0,mpr:1.00,stage:"first_fill_confirm",by:OW},
+  {id:"ravi",name:"Ravi P.",age:30,mrn:"PN-41238",drug:"Descovy (F/TAF)",prov:"Dr. Vance",supply:0,mpr:1.00,stage:"first_fill_ship",by:OW},
+  {id:"marcus",name:"Marcus R.",age:31,mrn:"PN-40213",drug:"F/TDF (generic)",prov:"Dr. Osei",supply:4,mpr:0.91,stage:"lab_overdue"},
+  {id:"jordan",name:"Jordan P.",age:23,mrn:"PN-40771",drug:"F/TDF (generic)",prov:"Dr. Rao",supply:9,mpr:0.88,stage:"refill_authorize"},
+  {id:"sam",name:"Sam T.",age:44,mrn:"PN-41002",drug:"Descovy (F/TAF)",prov:"Dr. Osei",supply:18,mpr:0.94,stage:"assistance_lapse"},
+  {id:"aisha",name:"Aisha K.",age:35,mrn:"PN-39510",drug:"F/TDF (generic)",prov:"Dr. Lin",supply:26,mpr:0.99,stage:"refill_ship"},
+  {id:"dana",name:"Dana W.",age:27,mrn:"PN-39880",drug:"F/TDF (generic)",prov:"Dr. Lin",supply:12,mpr:0.97,stage:"annual"},
+  {id:"terrell",name:"Terrell J.",age:29,mrn:"PN-41190",drug:"F/TDF (generic)",prov:"Dr. Osei",supply:6,mpr:0.79,stage:"unreachable",by:OW,assignee:"Field Outreach",ost:"Unreachable",lc:"8 days ago",att:6},
+  {id:"kwame",name:"Kwame B.",age:33,mrn:"PN-40560",drug:"F/TDF (generic)",prov:"Dr. Lin",supply:0,mpr:0.61,stage:"lapsed",by:OW,assignee:"Field Outreach",ost:"Unreachable",lc:"3 weeks ago",att:5},
+  {id:"rosa",name:"Rosa M.",age:36,mrn:"PN-39120",drug:"F/TDF (generic)",prov:"Dr. Rao",supply:74,mpr:0.99,stage:"stable"},
+  {id:"ben",name:"Ben O.",age:41,mrn:"PN-38990",drug:"F/TDF (generic)",prov:"Dr. Vance",supply:61,mpr:0.98,stage:"stable"},
+  {id:"ivy",name:"Ivy C.",age:28,mrn:"PN-40450",drug:"Descovy (F/TAF)",prov:"Dr. Lin",supply:22,mpr:0.96,stage:"refill_due"},
+  {id:"omar",name:"Omar F.",age:34,mrn:"PN-40600",drug:"F/TDF (generic)",prov:"Dr. Osei",supply:14,mpr:0.90,stage:"refill_collect",by:OW,ost:"Awaiting sample",lc:"2 days ago",att:1},
+  {id:"grace",name:"Grace N.",age:25,mrn:"PN-40720",drug:"F/TDF (generic)",prov:"Dr. Rao",supply:11,mpr:0.87,stage:"sample_not_returned",by:OW,ost:"Sample not returned",lc:"5 days ago",att:2},
+  {id:"hassan",name:"Hassan D.",age:39,mrn:"PN-40810",drug:"Descovy (F/TAF)",prov:"Dr. Vance",supply:16,mpr:0.95,stage:"refill_lab"},
+  {id:"lena",name:"Lena V.",age:33,mrn:"PN-40890",drug:"F/TDF (generic)",prov:"Dr. Lin",supply:20,mpr:0.97,stage:"six_month"},
+  {id:"theo",name:"Theo B.",age:47,mrn:"PN-40940",drug:"Descovy (F/TAF)",prov:"Dr. Osei",supply:30,mpr:0.98,stage:"refill_due"},
+  {id:"nadia",name:"Nadia S.",age:29,mrn:"PN-41010",drug:"Descovy (F/TAF)",prov:"Dr. Rao",supply:24,mpr:0.96,stage:"pa_expiring"},
+  {id:"collin",name:"Collin R.",age:37,mrn:"PN-41055",drug:"Descovy (F/TAF)",prov:"Dr. Vance",supply:19,mpr:0.93,stage:"insurance_change"},
+  {id:"malik",name:"Malik J.",age:45,mrn:"PN-41080",drug:"F/TDF (generic)",prov:"Dr. Lin",supply:21,mpr:0.94,stage:"abnormal_lab"},
+  {id:"sofia",name:"Sofia L.",age:26,mrn:"PN-41120",drug:"F/TDF (generic)",prov:"Dr. Osei",supply:8,mpr:0.90,stage:"address_unconfirmed",by:OW,ost:"Unreachable",lc:"4 days ago",att:3},
+  {id:"wen",name:"Wen Z.",age:31,mrn:"PN-41145",drug:"F/TDF (generic)",prov:"Dr. Rao",supply:5,mpr:0.85,stage:"refill_authorize",sev:"crit"},
+  {id:"bea",name:"Bea T.",age:40,mrn:"PN-41160",drug:"Descovy (F/TAF)",prov:"Dr. Vance",supply:48,mpr:0.99,stage:"stable"},
+];
+function seedState(){ return { patients: SEED30.map(buildPatient), tasks: [] }; }
 
 const TYPE_TAG = { lab:"t-lab", enc:"t-enc", refill:"t-refill", renew:"t-renew", pa:"t-pa", note:"t-note", outreach:"t-outreach" };
 const TYPE_LABEL = { lab:"LAB", enc:"ENCOUNTER", refill:"REFILL", renew:"RENEWAL", pa:"BENEFITS", note:"FOLLOW-UP", outreach:"OUTREACH" };
@@ -1046,37 +1052,57 @@ function coverageLabel(p){
   return { t:`${p.supply}d supply`, sev:"ok" };
 }
 function updateOutreachBadge(){ const n=STATE.tasks.filter(t=>t.type==="outreach" && t.status==="open").length; const b=$("#outreachBadge"); b.textContent=n; b.style.display=n?"":"none"; b.className="badge"+(n?"":" soft"); }
-function outreachCard(p){
+function journeyTrack(j){
+  return `<div class="jtrack">${MILESTONES.map((m,i)=>`<div class="jstep ${i<j?'done':i===j?'active':'todo'}"><span class="jdot">${i<j?'✓':''}</span><span class="jlbl">${m}</span></div>`).join("")}</div>`;
+}
+function outreachCard(p, mode){
   const o = p.outreach || { status:"Assigned", lastContact:"—", attempts:0, enrolledBy:"—" };
   const cov = coverageLabel(p);
   const openTask = STATE.tasks.find(t=>t.pid===p.id && t.type==="outreach" && t.status==="open");
   const sc = String(o.status||"Assigned").replace(/[^A-Za-z]/g,"");
+  const stall = /confirm|nudge|collect|appeal|denied/i.test(p.action||"") || (p.leadsev==="crit");
+  let body = "";
+  if(mode==="journey"){
+    body = `${journeyTrack(p.journeyStep)}
+      <div class="orow"><span class="k">Now at</span><span class="v st-${stall?'warn':'ok'}">${esc(MILESTONES[p.journeyStep])} → ${esc(p.action)}${stall?' ⚠️':''}</span></div>
+      <div class="orow"><span class="k">On it</span><span class="v" style="font-weight:500">Navigator (Rae) · ${esc(p.provider)} · Mail-order Rx</span></div>`;
+  } else if(mode==="visit"){
+    body = `<div class="orow"><span class="k">Coverage</span><span class="v st-${cov.sev}">${cov.t}</span></div>
+      <div class="orow"><span class="k">Last contact</span><span class="v">${esc(o.lastContact)} · ${o.attempts||0} attempts</span></div>
+      ${openTask?`<div class="oreason">▸ ${esc(openTask.why)}</div>`:""}`;
+  } else {
+    body = `<div class="orow"><span class="k">Status</span><span class="v st-ok">✓ First fill reached · on PrEP</span></div>
+      <div class="orow"><span class="k">Coverage</span><span class="v st-${cov.sev}">${cov.t}</span></div>`;
+  }
+  const actions = mode==="visit"
+    ? `<button class="btn xs" data-visit="${p.id}">Log visit</button><button class="btn xs neutral" data-attempt="${p.id}">Log attempt</button><button class="btn xs neutral" data-coord="${p.id}">Coordinate ↗</button>`
+    : `<button class="btn xs" data-coord="${p.id}">Coordinate ↗</button><button class="btn xs neutral" data-open="${p.id}">Open profile</button>`;
   return `<div class="ocard">
     <div class="otop"><div class="oav">${initials(p.name)}</div>
-      <div style="flex:1"><div class="onm">${esc(p.name)}</div><div class="omrn">${esc(p.mrn)} · enrolled by ${esc(o.enrolledBy||"—")}</div></div>
-      <span class="ostatus ${sc}">${esc(o.status||"Assigned")}</span></div>
-    <div class="orow"><span class="k">Coverage</span><span class="v st-${cov.sev}">${cov.t}</span></div>
-    <div class="orow"><span class="k">Last contact</span><span class="v">${esc(o.lastContact||"—")} · ${o.attempts||0} attempts</span></div>
-    ${openTask?`<div class="oreason">▸ ${esc(openTask.why)}</div>`:""}
-    <div class="oact"><button class="btn xs" data-visit="${p.id}">Log visit</button><button class="btn xs neutral" data-attempt="${p.id}">Log attempt</button><button class="btn xs neutral" data-open="${p.id}">Open profile</button></div>
-  </div>`;
+      <div style="flex:1"><div class="onm">${esc(p.name)}</div><div class="omrn">${esc(p.mrn)} · enrolled by ${esc(o.enrolledBy)}</div></div>
+      <span class="ostatus ${sc}">${esc(o.status)}</span></div>
+    ${body}
+    <div class="oact">${actions}</div></div>`;
 }
 function renderOutreach(){
   const roster = outreachRoster();
   const needs = roster.filter(p => STATE.tasks.some(t=>t.pid===p.id && t.type==="outreach" && t.status==="open"));
-  const engaged = roster.filter(p => !needs.includes(p));
+  const journey = roster.filter(p => !needs.includes(p) && !p.firstFillDone);
+  const est = roster.filter(p => !needs.includes(p) && p.firstFillDone);
   $("#outreachKpis").innerHTML = [
-    ["Assigned to me", roster.length, ""], ["Needs a visit", needs.length, needs.length?"crit":""],
-    ["Coverage gaps", roster.filter(p=>p.supply<=0).length, "crit"], ["Enrolled / engaged", engaged.length, "ok"],
+    ["My enrollees", roster.length, ""], ["Getting to 1st fill", journey.length, journey.length?"warn":""],
+    ["Needs a visit", needs.length, needs.length?"crit":""], ["On PrEP", est.length, "ok"],
   ].map(([l,n,c])=>`<div class="okpi"><div class="n ${c?"st-"+c:""}">${n}</div><div class="l">${l}</div></div>`).join("");
   $("#outreachGroups").innerHTML = [
-    { title:"Needs a home visit", dot:"sev-crit", items:needs },
-    { title:"Enrolled / engaged — monitoring", dot:"sev-ok", items:engaged },
-  ].map(g=> g.items.length ? `<div class="ogroup"><div class="ogrouphd"><span class="dot ${g.dot}"></span>${g.title} <span style="color:var(--ink-3)">· ${g.items.length}</span></div><div class="ocards">${g.items.map(outreachCard).join("")}</div></div>` : "").join("")
+    { title:"Needs a home visit", dot:"sev-crit", items:needs, mode:"visit" },
+    { title:"Getting to first fill", dot:"sev-warn", items:journey, mode:"journey" },
+    { title:"On PrEP — established", dot:"sev-ok", items:est, mode:"est" },
+  ].map(g=> g.items.length ? `<div class="ogroup"><div class="ogrouphd"><span class="dot ${g.dot}"></span>${g.title} <span style="color:var(--ink-3)">· ${g.items.length}</span></div><div class="ocards">${g.items.map(p=>outreachCard(p,g.mode)).join("")}</div></div>` : "").join("")
     || `<div class="laneempty">No patients assigned to outreach right now.</div>`;
   $("#outreachGroups").querySelectorAll("[data-open]").forEach(el=>el.addEventListener("click",()=>{ selectPatient(el.dataset.open); switchView("patient"); }));
   $("#outreachGroups").querySelectorAll("[data-visit]").forEach(el=>el.addEventListener("click",()=>logOutreach(el.dataset.visit,"Visit")));
   $("#outreachGroups").querySelectorAll("[data-attempt]").forEach(el=>el.addEventListener("click",()=>logOutreach(el.dataset.attempt,"Call")));
+  $("#outreachGroups").querySelectorAll("[data-coord]").forEach(el=>el.addEventListener("click",()=>{ currentChannel[el.dataset.coord]="team"; selectPatient(el.dataset.coord); switchView("patient"); }));
 }
 function logOutreach(pid, kind){
   const p = P(pid); if(!p) return;
