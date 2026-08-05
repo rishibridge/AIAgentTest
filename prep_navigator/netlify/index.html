@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Continuity — a PrEP navigator console demo (The Damien Center palette): 30+ patient panel, continuity board, worklist, Outreach and Financial-assistance team views, Care plan schedule, and inbox.">
+<meta name="description" content="Continuity — a PrEP navigator console demo (The Damien Center palette): 30+ patient panel, continuity board, worklist, per-patient lifecycle timeline, Outreach and Financial-assistance team views, Care plan schedule, and inbox.">
 <title>Continuity — PrEP Navigator Console</title>
 <style>
   /* Palette adopted from The Damien Center brand (damien.org): cyan #0fb3dc,
@@ -364,6 +364,27 @@
   .fcstep::after { content: "→"; position: absolute; right: -14px; top: 50%; transform: translateY(-50%); color: var(--ink-3); font-size: 13px; z-index: 1; }
   .fcstep:last-child::after { display: none; }
   @media (max-width: 900px) { .fcstep::after { display: none; } }
+
+  /* profile task bar (complete a task from the patient page) */
+  .taskbar { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .taskbar-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--surface-2); border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: 9px; padding: 9px 12px; }
+  .taskbar-row.crit { border-left-color: var(--crit); }
+  .taskbar-row .tb-title { font-size: 12.5px; font-weight: 600; }
+  .taskbar-row .tb-team { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+  .taskbar-row .tb-btns { margin-left: auto; display: flex; gap: 6px; }
+  .tb-clear { font-size: 12px; color: var(--good); font-family: var(--mono); background: var(--good-wash); border: 1px solid var(--good); border-radius: 9px; padding: 8px 12px; margin-bottom: 14px; }
+
+  /* patient lifecycle timeline */
+  .life { display: flex; flex-direction: column; margin-top: 6px; }
+  .lifephase { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin: 12px 0 4px; }
+  .liferow { display: grid; grid-template-columns: 16px 1fr auto; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); align-items: start; }
+  .liferow:last-child { border-bottom: none; }
+  .lifedot { width: 12px; height: 12px; border-radius: 50%; margin-top: 3px; border: 2px solid var(--surface); }
+  .lifedot.done { background: var(--good); } .lifedot.now { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
+  .lifedot.todo { background: var(--surface-2); border: 2px solid var(--line-2); } .lifedot.loop { background: var(--warn); }
+  .liferow .lt { font-size: 13px; font-weight: 600; } .liferow.todo .lt { color: var(--ink-3); font-weight: 500; } .liferow.done .lt { color: var(--ink-2); }
+  .liferow .ld { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+  .liferow .lw { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); white-space: nowrap; }
 
   /* care plan / schedule page */
   .cpgrid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; align-items: start; }
@@ -881,6 +902,29 @@ let currentPatient = "marcus";
 let currentChannel = {};
 function selectPatient(id){ currentPatient=id; if(!currentChannel[id]) currentChannel[id]="sms";
   const p=P(id); renderP360(p); renderTeam(p); renderMsgCard(p); renderNotesCard(p); renderRoster(); }
+// The continuous-supply phase that follows the onboarding milestone band (real cadence, no invented dates).
+function lifecycleRows(p){
+  const ff = p.firstFillDone;
+  return [
+    { phase:"Continuous supply", label:"Therapy — 90-day mail-order refills", detail: ff ? (p.supply>0 ? `${p.supply} days of supply on hand` : "coverage gap — re-engagement in progress") : "begins once the first fill ships", when:"", state: ff ? (p.supply>0?"now":"todo") : "todo" },
+    { phase:"Continuous supply", label:"Quarterly HIV + renal labs", detail:"a current result gates each ≤90-day refill", when:"every ~90d", state: ff ? "loop" : "todo" },
+    { phase:"Continuous supply", label:"6-month expanded labs", detail:"+ syphilis, kidney if indicated", when:"~6 mo", state:"todo" },
+    { phase:"Continuous supply", label:"Annual review + PA renewal", detail:"full panel · new Rx → PA → refill", when:"~12 mo", state:"todo" },
+  ];
+}
+// Complete or snooze a patient's task straight from the profile; refresh everything that shows it.
+function completeTaskFromProfile(tid, action){
+  const t = STATE.tasks.find(x=>x.id===tid); if(!t) return;
+  t.status = action; persist();
+  const p = P(t.pid);
+  selectPatient(t.pid);
+  if($("#view-worklist").classList.contains("active")) renderWorklist();
+  if($("#view-board").classList.contains("active")) renderBoard();
+  if($("#view-outreach").classList.contains("active")) renderOutreach();
+  if($("#view-finance").classList.contains("active")) renderFinance();
+  updateOutreachBadge(); updateFinanceBadge(); updateKPIs();
+  toast(action==="done" ? `Cleared: ${p.name} — ${TYPE_LABEL[t.type].toLowerCase()}` : `Snoozed ${p.name} · will resurface tomorrow`);
+}
 function renderP360(p){
   const main = $("#p360main"); main.innerHTML = "";
   const markers = p.track.map(m=>`<div class="mk" style="left:${m.pos}%"><div class="pin sev-${m.sev}"></div><div class="dd st-${m.sev}">${m.dd}</div><div class="lb">${m.label}</div></div>`).join("");
@@ -893,12 +937,33 @@ function renderP360(p){
     <div class="track"><div class="rail2"></div><div class="fill" style="width:${p.fill}%"></div><div class="gapzone" style="left:${p.gapAt}%;right:0"></div><div class="now" style="left:${p.fill}%"></div>${markers}</div>
     <div class="legend"><span><i style="background:var(--accent)"></i>supply runway</span><span><i style="background:var(--crit);opacity:.5"></i>gap zone</span><span>● pins = blocking steps</span></div></div>`;
   main.appendChild(clock);
+  const life = document.createElement("div"); life.className="card";
+  const rows = lifecycleRows(p); let lastPhase="";
+  const rowsHTML = rows.map(r=>{ const ph = r.phase!==lastPhase ? `<div class="lifephase">${esc(r.phase)}</div>` : ""; lastPhase=r.phase;
+    return ph+`<div class="liferow ${r.state}"><div class="lifedot ${r.state}"></div>
+      <div><div class="lt">${esc(r.label)}</div>${r.detail?`<div class="ld">${esc(r.detail)}</div>`:""}</div>
+      <div class="lw">${r.when?esc(r.when):(r.state==="done"?"✓":r.state==="loop"?"↻":"")}</div></div>`; }).join("");
+  life.innerHTML = `<div class="hd"><h3>Patient lifecycle</h3><span class="hint" style="margin-left:auto">enrollment → continuous supply</span></div>
+    <div class="bd"><div class="lifephase" style="margin-top:0">Onboarding journey</div>${journeyTrack(p.journeyStep)}
+      <div class="life">${rowsHTML}</div></div>`;
+  main.appendChild(life);
+  const openT = STATE.tasks.filter(t=>t.pid===p.id && t.status==="open");
+  const taskBar = openT.length
+    ? `<div class="taskbar">${openT.map(t=>`<div class="taskbar-row ${t.sev==='crit'?'crit':''}">
+        <span class="tag ${TYPE_TAG[t.type]}">${TYPE_LABEL[t.type]}</span>
+        <span class="tb-title">${esc(t.title)}</span>
+        <span class="tb-team">${esc(teamOf(t))}</span>
+        <span class="tb-btns"><button class="btn xs" data-tdone="${t.id}">Mark done</button><button class="btn xs neutral" data-tsnooze="${t.id}">Snooze</button></span>
+      </div>`).join("")}</div>`
+    : `<div class="tb-clear">✓ No open task — this patient is on track.</div>`;
   const cp = document.createElement("div"); cp.className="card";
   cp.innerHTML = `<div class="hd"><h3>Critical path to next refill</h3><span class="hint" style="margin-left:auto">act on behalf of patient →</span></div>
-    <div class="bd"><div class="cp">${p.steps.map((s,i)=>`<div class="step ${s.s}"><div class="num">${s.s==="done"?"✓":i+1}</div>
+    <div class="bd">${taskBar}<div class="cp">${p.steps.map((s,i)=>`<div class="step ${s.s}"><div class="num">${s.s==="done"?"✓":i+1}</div>
       <div><div class="t">${s.t}</div><div class="d">${s.d}</div></div><div class="when"><b>${s.when.split("\n")[0]}</b>${s.when.includes("\n")?s.when.split("\n")[1]:""}</div></div>`).join("")}</div>
     <div class="actions" style="margin-top:16px"><button class="btn">Order labs</button><button class="btn ghost">Approve refill</button><button class="btn ghost">Route renewal</button><button class="btn ghost">Schedule encounter</button><button class="btn ghost" data-esc title="Create a field-outreach task if the patient can't be reached">Can't reach → field outreach</button></div></div>`;
   main.appendChild(cp);
+  cp.querySelectorAll("[data-tdone]").forEach(b=>b.addEventListener("click",()=>completeTaskFromProfile(b.dataset.tdone,"done")));
+  cp.querySelectorAll("[data-tsnooze]").forEach(b=>b.addEventListener("click",()=>completeTaskFromProfile(b.dataset.tsnooze,"snoozed")));
   const clin = document.createElement("div"); clin.className="card";
   clin.innerHTML = `<div class="hd"><h3>Clinical requirements</h3></div><div class="bd">
     <div class="lgrid">${p.labs.map(l=>`<div class="lcell"><div class="k">${l.k}</div><div class="v st-${l.sev}">${l.v}</div><div class="s st-${l.sev}">${l.s}</div></div>`).join("")}</div>
