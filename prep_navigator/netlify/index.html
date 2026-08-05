@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Continuity — a PrEP navigator console demo (The Damien Center palette): 30-patient panel, continuity board, worklist, Outreach team view with first-fill journey + coordination, Care plan schedule, and inbox.">
+<meta name="description" content="Continuity — a PrEP navigator console demo (The Damien Center palette): 30+ patient panel, continuity board, worklist, Outreach and Financial-assistance team views, Care plan schedule, and inbox.">
 <title>Continuity — PrEP Navigator Console</title>
 <style>
   /* Palette adopted from The Damien Center brand (damien.org): cyan #0fb3dc,
@@ -121,7 +121,13 @@
   .t-lab { background: var(--info); color: #fff; } .t-enc { background: var(--provider); color: #fff; }
   .t-refill { background: var(--accent); color: #fff; } .t-renew { background: var(--warn); color: #fff; }
   .t-pa { background: var(--pharm); color: #fff; } .t-note { background: var(--ink-2); color: var(--surface); } .t-outreach { background: var(--crit); color: #fff; }
+  .t-fin { background: var(--gold); color: #4a3305; }
   .asgn { font-size: 9.5px; font-family: var(--mono); padding: 1px 7px; border-radius: 20px; letter-spacing: .03em; background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); }
+  .asgn.fin { background: color-mix(in srgb, var(--gold) 20%, transparent); color: var(--warn); border-color: color-mix(in srgb, var(--gold) 55%, transparent); }
+  .hbadge { font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 20px; white-space: nowrap; }
+  .h-short { background: var(--warn-wash); color: var(--warn); }
+  .h-premium { background: var(--accent-wash); color: var(--accent-ink); }
+  .h-long { background: var(--good-wash); color: var(--good); }
   .t-out { background: var(--crit-wash); color: var(--crit); border: 1px solid var(--crit); }
   .sev-crit { background: var(--crit); } .sev-warn { background: var(--warn); } .sev-ok { background: var(--good); }
   .st-crit { color: var(--crit); } .st-warn { color: var(--warn); } .st-ok { color: var(--good); }
@@ -374,8 +380,7 @@
   .cpnote { margin-top: 16px; font-size: 12.5px; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; padding: 12px 14px; }
   @media (max-width: 900px) { .cpgrid { grid-template-columns: 1fr; } .cpitem { grid-template-columns: 96px 14px 1fr; } }
 </style>
-</head>
-<body>
+
 <div class="app">
   <aside class="rail">
     <div class="brand"><div class="mark" aria-hidden="true"></div><div><b>Continuity</b><span>PrEP Navigator</span></div></div>
@@ -402,6 +407,9 @@
       <button class="navitem" data-view="outreach">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.35-7-10a7 7 0 1 1 14 0c0 5.65-7 10-7 10z"/><circle cx="12" cy="11" r="2.5"/></svg>
         Outreach team <span class="badge" id="outreachBadge">0</span></button>
+      <button class="navitem" data-view="finance">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
+        Financial assistance <span class="badge" id="financeBadge">0</span></button>
       <button class="navitem" data-view="inbox">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         Inbox <span class="badge" id="inboxBadge">0</span></button>
@@ -459,6 +467,12 @@
       <div class="sechead"><h2>Outreach team</h2><p>Patients <b>Sam Rivera</b> enrolled or is assigned to engage — engagement status, coverage, and last contact. Log visits and attempts here.</p></div>
       <div class="okpis" id="outreachKpis"></div>
       <div id="outreachGroups"></div>
+    </section>
+
+    <section class="view" id="view-finance">
+      <div class="sechead"><h2>Financial assistance team</h2><p>Patients who can't afford PrEP or coverage. <b>Short-term:</b> stand up $0 copay cards / PAP so fills never stall on cost. <b>Long-term:</b> premium assistance and help <b>buying insurance</b> for durable coverage. Cost is never a reason for a gap.</p></div>
+      <div class="okpis" id="financeKpis"></div>
+      <div id="financeGroups"></div>
     </section>
 
     <section class="view" id="view-careplan">
@@ -618,9 +632,25 @@ const STAGES = {
   insurance_change:{type:"pa",act:"New PA (plan change)",sev:"crit",aw:0,lead:"reprocess",leadsev:"crit",j:6,labs:"ok",
     hl:"Insurance changed — new PA needed under new plan",why:"⚠️ Plan flipped · new PA + benefits re-verify before the next fill can ship",
     steps:[D("New plan active","Jan 1"),A("New PA under new plan","submit + re-verify benefits","now"),W("Confirm + refill ships","on PA","~1wk")]},
-  assistance_lapse:{type:"pa",act:"Re-enroll assistance",sev:"warn",aw:8,lead:"PAP",leadsev:"warn",j:6,labs:"ok",
-    hl:"Copay assistance expiring — re-enroll before next fill",why:"$0 copay program up for renewal · re-attest income to keep it free",reply:"YES please handle it",
+  assistance_lapse:{type:"finasst",asgn:"Financial",act:"Re-enroll copay assistance",sev:"warn",aw:8,lead:"PAP",leadsev:"warn",j:6,labs:"ok",
+    fin:{horizon:"short",prog:"Copay card / PAP renewal",cov:"Insured + copay assistance"},
+    hl:"Copay assistance expiring — re-enroll before next fill",why:"$0 copay program up for renewal · re-attest income to keep fills free",reply:"YES please handle it",
     steps:[D("Refill","current"),A("Re-enroll copay/PAP","income re-attestation","now"),W("Assistance active","","~5d"),W("Next fill $0","","~2wk")]},
+  fin_uninsured:{type:"finasst",asgn:"Financial",act:"Set up $0 copay + PAP",sev:"crit",aw:0,lead:"same day",leadsev:"warn",j:4,labs:"ok",
+    fin:{horizon:"short",prog:"Copay card + manufacturer PAP",cov:"Uninsured"},
+    hl:"Uninsured — stand up $0 copay + PAP so cost never blocks the first fill",
+    why:"⚠️ No coverage · enroll copay card + patient-assistance program now so meds ship free, then start a real insurance application",reply:"thank you, I can't afford it otherwise",
+    steps:[D("Screened — uninsured","~180% FPL"),A("Enroll copay card + PAP","Financial team","now"),W("$0 fills active","bridge coverage","~3d"),W("Start Marketplace/Medicaid app","long-term","~2wk")]},
+  fin_premium:{type:"finasst",asgn:"Financial",act:"Enroll premium assistance",sev:"warn",aw:5,lead:"Ryan White/ADAP",leadsev:"warn",j:6,labs:"ok",
+    fin:{horizon:"premium",prog:"ADAP / Ryan White premium assistance",cov:"Marketplace — premium at risk"},
+    hl:"Has a plan but can't afford the premium — enroll ADAP/Ryan White to pay it",
+    why:"Premium assistance pays the monthly premium so the plan doesn't lapse and coverage stays continuous",reply:"yes please, the premium went up",
+    steps:[D("Marketplace plan active","subsidized"),A("Enroll ADAP premium assistance","re-attest income","now"),W("Premiums paid by program","","~1wk"),W("Coverage locked for the year","","")]},
+  fin_buy_insurance:{type:"finasst",asgn:"Financial",act:"Buy insurance (open enrollment)",sev:"warn",aw:12,lead:"enroll",leadsev:"warn",j:6,labs:"ok",
+    fin:{horizon:"long",prog:"Marketplace/Medicaid enrollment + subsidy",cov:"Uninsured → enrolling"},
+    hl:"Long-term: financial assistance to buy a subsidized plan for durable coverage",
+    why:"Move off short-term PAP onto real insurance · subsidy + financial help to buy a Marketplace/Medicaid plan so coverage outlasts the assistance window",reply:"that would be a huge relief",
+    steps:[D("On $0 PAP now","bridge coverage"),A("Enroll in Marketplace/Medicaid","subsidy + financial assistance","open enrollment"),W("Plan effective Jan 1","",""),W("Transition PAP → insurance","seamless","")]},
   lab_overdue:{type:"lab",act:"Order HIV test",sev:"crit",aw:0,lead:"needs 2d lead",leadsev:"crit",j:6,labs:"overdue",
     hl:"HIV test > 90d — refill blocked until a current result",why:"Supply ends in 4d · Rx can't be re-authorized without a current HIV test",
     steps:[D("Encounter","complete"),A("Order HIV test (home kit)","result gates the refill","now"),W("Re-authorize refill","on result","~4d"),W("Confirm + ship","","~6d")]},
@@ -653,7 +683,8 @@ function buildPatient(s){
     fill,gapAt,steps:g.steps,labs:LABS[g.labs]||LABS.ok,rx:rxFor(s.drug,g.j),
     feed:[{sev,t:"<b>"+g.act+"</b> — "+g.hl,m:"today · rules engine"}],threads:threadsFor(s,g),notes:notesFor(s,g) };
   if(s.by) p.outreach={ status:s.ost||(g.j<6?"In progress":"On PrEP"),lastContact:s.lc||"today",attempts:s.att||0,enrolledBy:s.by };
-  if(s.assignee) p.assignee=s.assignee;
+  if(g.fin) p.fin=g.fin;
+  p.assignee = s.assignee || g.asgn || null;
   return p;
 }
 
@@ -671,6 +702,9 @@ const SEED30=[
   {id:"marcus",name:"Marcus R.",age:31,mrn:"PN-40213",drug:"F/TDF (generic)",prov:"Dr. Osei",supply:4,mpr:0.91,stage:"lab_overdue"},
   {id:"jordan",name:"Jordan P.",age:23,mrn:"PN-40771",drug:"F/TDF (generic)",prov:"Dr. Rao",supply:9,mpr:0.88,stage:"refill_authorize"},
   {id:"sam",name:"Sam T.",age:44,mrn:"PN-41002",drug:"Descovy (F/TAF)",prov:"Dr. Osei",supply:18,mpr:0.94,stage:"assistance_lapse"},
+  {id:"deshawn",name:"DeShawn K.",age:26,mrn:"PN-41240",drug:"F/TDF (generic)",prov:"Dr. Rao",supply:5,mpr:0.86,stage:"fin_uninsured",by:OW},
+  {id:"mateo",name:"Mateo R.",age:34,mrn:"PN-41244",drug:"Descovy (F/TAF)",prov:"Dr. Lin",supply:22,mpr:0.95,stage:"fin_premium"},
+  {id:"tanya",name:"Tanya B.",age:39,mrn:"PN-41248",drug:"F/TDF (generic)",prov:"Dr. Vance",supply:33,mpr:0.97,stage:"fin_buy_insurance"},
   {id:"aisha",name:"Aisha K.",age:35,mrn:"PN-39510",drug:"F/TDF (generic)",prov:"Dr. Lin",supply:26,mpr:0.99,stage:"refill_ship"},
   {id:"dana",name:"Dana W.",age:27,mrn:"PN-39880",drug:"F/TDF (generic)",prov:"Dr. Lin",supply:12,mpr:0.97,stage:"annual"},
   {id:"terrell",name:"Terrell J.",age:29,mrn:"PN-41190",drug:"F/TDF (generic)",prov:"Dr. Osei",supply:6,mpr:0.79,stage:"unreachable",by:OW,assignee:"Field Outreach",ost:"Unreachable",lc:"8 days ago",att:6},
@@ -692,8 +726,8 @@ const SEED30=[
 ];
 function seedState(){ return { patients: SEED30.map(buildPatient), tasks: [] }; }
 
-const TYPE_TAG = { lab:"t-lab", enc:"t-enc", refill:"t-refill", renew:"t-renew", pa:"t-pa", note:"t-note", outreach:"t-outreach" };
-const TYPE_LABEL = { lab:"LAB", enc:"ENCOUNTER", refill:"REFILL", renew:"RENEWAL", pa:"BENEFITS", note:"FOLLOW-UP", outreach:"OUTREACH" };
+const TYPE_TAG = { lab:"t-lab", enc:"t-enc", refill:"t-refill", renew:"t-renew", pa:"t-pa", finasst:"t-fin", note:"t-note", outreach:"t-outreach" };
+const TYPE_LABEL = { lab:"LAB", enc:"ENCOUNTER", refill:"REFILL", renew:"RENEWAL", pa:"BENEFITS", finasst:"FIN. ASSIST", note:"FOLLOW-UP", outreach:"OUTREACH" };
 const TEMPLATES = {
   patient:[
     {k:"Lab due", f:p=>`Hi ${first(p)} — you're due for your quarterly PrEP labs (HIV + kidney). Want a clinic slot or a home test kit?`},
@@ -734,7 +768,7 @@ const totalUnread = () => STATE.patients.reduce((a,p)=>a+p.threads.reduce((b,t)=
 const markRead = th => th.msgs.forEach(m=>{ if(m.role!=="nav") m.unread=false; });
 
 // ---------- persistence ----------
-const LS_KEY = "continuity.v3";
+const LS_KEY = "continuity.v4";
 function persist(){ try { localStorage.setItem(LS_KEY, JSON.stringify(STATE)); } catch(e){} }
 function hydrate(){ try { const s = localStorage.getItem(LS_KEY); if(s){ const d = JSON.parse(s); if(d && d.patients){ STATE = d; if(!STATE.tasks) STATE.tasks=[]; return true; } } } catch(e){} return false; }
 
@@ -742,16 +776,18 @@ function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("sh
 
 // ---------- worklist + tasks ----------
 let filterType = "all";
-let assigneeFilter = "all";   // all | Navigator | Field Outreach
-function byAssignee(t){ return assigneeFilter==="all" || t.assignee===assigneeFilter; }
+let assigneeFilter = "all";   // all | Navigator | Field Outreach | Financial
+const teamOf = t => t.assignee || "Navigator";
+function byAssignee(t){ return assigneeFilter==="all" || teamOf(t)===assigneeFilter; }
 function openTasks(){ return STATE.tasks.filter(t=>t.status==="open"); }
 function renderFilters(){
   const open = openTasks();
-  const aCounts = { all:open.length, "Navigator":open.filter(t=>t.assignee!=="Field Outreach").length, "Field Outreach":open.filter(t=>t.assignee==="Field Outreach").length };
-  const aChips = [ ["all","All queues"], ["Navigator","My queue"], ["Field Outreach","Field outreach"] ]
+  const q = a => open.filter(t=>teamOf(t)===a).length;
+  const aCounts = { all:open.length, "Navigator":q("Navigator"), "Field Outreach":q("Field Outreach"), "Financial":q("Financial") };
+  const aChips = [ ["all","All queues"], ["Navigator","My queue"], ["Field Outreach","Field outreach"], ["Financial","Financial aid"] ]
     .map(([v,l])=>`<button class="chip" data-asgn="${v}" aria-pressed="${assigneeFilter===v}">${l} ${aCounts[v]||0}</button>`).join("");
   const inQ = open.filter(byAssignee); const counts = {}; inQ.forEach(t=>counts[t.type]=(counts[t.type]||0)+1);
-  const order = ["lab","enc","refill","renew","pa","outreach","note"];
+  const order = ["lab","enc","refill","renew","pa","finasst","outreach","note"];
   const tChips = [`<button class="chip" data-ft="all" aria-pressed="${filterType==='all'}">All ${inQ.length}</button>`]
     .concat(order.filter(ty=>counts[ty]).map(ty=>`<button class="chip" data-ft="${ty}" aria-pressed="${filterType===ty}">${TYPE_LABEL[ty][0]+TYPE_LABEL[ty].slice(1).toLowerCase()} ${counts[ty]}</button>`));
   $("#filters").innerHTML = aChips + `<span style="width:1px;background:var(--line-2);margin:2px 4px"></span>` + tChips.join("");
@@ -766,6 +802,7 @@ function taskCard(t){
       <div class="row1"><span class="pt">${esc(p.name)}</span>
         <span class="tag ${TYPE_TAG[t.type]}">${TYPE_LABEL[t.type]}</span>
         ${t.assignee==="Field Outreach"?'<span class="asgn">◎ FIELD OUTREACH</span>':''}
+        ${t.assignee==="Financial"?'<span class="asgn fin">◈ FINANCIAL TEAM</span>':''}
         <span class="meta">${esc(p.mrn)} · MPR ${p.mpr.toFixed(2)}</span></div>
       <div class="action">${esc(t.title)}</div><div class="why">▸ ${esc(t.why)}</div></div>
     <div class="side"><div class="runway st-${t.sev}">${t.supply}d<br><small>supply left</small></div>
@@ -1122,6 +1159,57 @@ function logOutreach(pid, kind){
   if($("#view-board").classList.contains("active")) renderBoard();
 }
 
+// ---------- financial assistance team view ----------
+const HORIZON = { short:{lbl:"Short-term · $0 now",cls:"h-short"}, premium:{lbl:"Premium assistance",cls:"h-premium"}, long:{lbl:"Long-term · buy insurance",cls:"h-long"} };
+function financeRoster(){ return STATE.patients.filter(p => p.assignee==="Financial" || p.type==="finasst" || STATE.tasks.some(t=>t.pid===p.id && t.type==="finasst" && t.status==="open")); }
+function updateFinanceBadge(){ const n=STATE.tasks.filter(t=>t.type==="finasst" && t.status==="open").length; const b=$("#financeBadge"); if(!b) return; b.textContent=n; b.style.display=n?"":"none"; b.className="badge"+(n?"":" soft"); }
+function financeCard(p){
+  const f = p.fin || { horizon:"short", prog:"Assistance", cov:"—" };
+  const h = HORIZON[f.horizon] || HORIZON.short;
+  const cov = coverageLabel(p);
+  const openTask = STATE.tasks.find(t=>t.pid===p.id && t.type==="finasst" && t.status==="open");
+  const enroller = p.outreach ? ` · enrolled by ${esc(p.outreach.enrolledBy)}` : "";
+  return `<div class="ocard">
+    <div class="otop"><div class="oav">${initials(p.name)}</div>
+      <div style="flex:1"><div class="onm">${esc(p.name)}</div><div class="omrn">${esc(p.mrn)} · ${esc(p.provider)}${enroller}</div></div>
+      <span class="hbadge ${h.cls}">${h.lbl}</span></div>
+    <div class="orow"><span class="k">Coverage</span><span class="v">${esc(f.cov)}</span></div>
+    <div class="orow"><span class="k">Program</span><span class="v" style="font-weight:500">${esc(f.prog)}</span></div>
+    <div class="orow"><span class="k">Supply</span><span class="v st-${cov.sev}">${cov.t}</span></div>
+    ${openTask?`<div class="oreason">▸ ${esc(openTask.why)}</div>`:""}
+    <div class="oact"><button class="btn xs" data-fin="${p.id}">Log enrollment</button><button class="btn xs neutral" data-fcoord="${p.id}">Coordinate ↗</button><button class="btn xs neutral" data-fopen="${p.id}">Open profile</button></div></div>`;
+}
+function renderFinance(){
+  const roster = financeRoster();
+  const short = roster.filter(p=>(p.fin&&p.fin.horizon)==="short");
+  const premium = roster.filter(p=>(p.fin&&p.fin.horizon)==="premium");
+  const long = roster.filter(p=>(p.fin&&p.fin.horizon)==="long");
+  const zeroActive = roster.filter(p=>p.fin && p.fin.horizon!=="long" && !STATE.tasks.some(t=>t.pid===p.id&&t.type==="finasst"&&t.status==="open")).length;
+  $("#financeKpis").innerHTML = [
+    ["On financial aid", roster.length, ""], ["Short-term $0 setup", short.length, short.length?"warn":""],
+    ["Premium assistance", premium.length, ""], ["Buying insurance", long.length, long.length?"ok":""],
+  ].map(([l,n,c])=>`<div class="okpi"><div class="n ${c?"st-"+c:""}">${n}</div><div class="l">${l}</div></div>`).join("");
+  $("#financeGroups").innerHTML = [
+    { title:"Short-term — get fills to $0 now", dot:"sev-warn", items:short },
+    { title:"Premium assistance — keep the plan from lapsing", dot:"sev-warn", items:premium },
+    { title:"Long-term — help buying insurance", dot:"sev-ok", items:long },
+  ].map(g=> g.items.length ? `<div class="ogroup"><div class="ogrouphd"><span class="dot ${g.dot}"></span>${g.title} <span style="color:var(--ink-3)">· ${g.items.length}</span></div><div class="ocards">${g.items.map(financeCard).join("")}</div></div>` : "").join("")
+    || `<div class="laneempty">No patients need financial assistance right now.</div>`;
+  $("#financeGroups").querySelectorAll("[data-fopen]").forEach(el=>el.addEventListener("click",()=>{ selectPatient(el.dataset.fopen); switchView("patient"); }));
+  $("#financeGroups").querySelectorAll("[data-fin]").forEach(el=>el.addEventListener("click",()=>logFinance(el.dataset.fin)));
+  $("#financeGroups").querySelectorAll("[data-fcoord]").forEach(el=>el.addEventListener("click",()=>{ currentChannel[el.dataset.fcoord]="team"; selectPatient(el.dataset.fcoord); switchView("patient"); }));
+}
+function logFinance(pid){
+  const p = P(pid); if(!p) return;
+  const f = p.fin || {}; const prog = f.prog || "financial assistance";
+  p.notes.unshift({ type:"Note", author:"Jordan Ellis (financial)", t:`Enrolled in ${prog}. `+(f.horizon==="long"?"Insurance application submitted — bridging with PAP until the plan is effective.":"Fills are $0 while coverage is worked out."), time:"just now" });
+  STATE.tasks.forEach(t=>{ if(t.pid===pid && t.type==="finasst" && t.status==="open") t.status="done"; });
+  persist(); renderFinance(); updateFinanceBadge();
+  if($("#view-worklist").classList.contains("active")) renderWorklist();
+  if($("#view-board").classList.contains("active")) renderBoard();
+  toast(`Financial assistance logged for ${p.name}`);
+}
+
 // ---------- care plan page ----------
 const CYCLE_STEPS = [
   { n:1, t:"Kit ships", who:"Lab", k:"" }, { n:2, t:"Kit delivered", who:"Carrier", k:"" },
@@ -1167,12 +1255,13 @@ function renderCareplan(){
 const TITLES = { board:["Continuity board","When each patient runs out · days to next best action"],
   worklist:["Worklist","Prioritized by time-to-gap · 27 Jul 2026"], patient:["Patient 360","Lifecycle, orders & collaboration"],
   outreach:["Outreach team","Field engagement — your patients"], careplan:["Care plan","Continuous-supply schedule & example"],
+  finance:["Financial assistance","Affordability — short-term $0 to long-term coverage"],
   inbox:["Inbox","Patient & care-team messaging"], panel:["Panel Health","Cohort continuity metrics"] };
 function switchView(v){
   document.querySelectorAll(".view").forEach(s=>s.classList.toggle("active", s.id==="view-"+v));
   document.querySelectorAll(".navitem").forEach(n=>n.setAttribute("aria-current", n.dataset.view===v));
   $("#viewtitle").firstChild.textContent = TITLES[v][0]; $("#viewsub").textContent = TITLES[v][1];
-  if(v==="board") renderBoard(); if(v==="panel") renderPanel(); if(v==="inbox") renderInbox(); if(v==="worklist") renderWorklist(); if(v==="outreach") renderOutreach(); if(v==="careplan") renderCareplan();
+  if(v==="board") renderBoard(); if(v==="panel") renderPanel(); if(v==="inbox") renderInbox(); if(v==="worklist") renderWorklist(); if(v==="outreach") renderOutreach(); if(v==="finance") renderFinance(); if(v==="careplan") renderCareplan();
 }
 function renderAll(){ renderWorklist(); if(!P(currentPatient)) currentPatient=STATE.patients[0].id; selectPatient(currentPatient);
   if($("#view-inbox").classList.contains("active")) renderInbox(); updateBadges(); }
@@ -1202,7 +1291,8 @@ $("#resetBtn").addEventListener("click",()=>{ try{ localStorage.removeItem(LS_KE
 // init
 if(!(window.claude && window.claude.downloads)) $("#exportBtn").style.display="none";
 hydrate();
-renderWorklist(); selectPatient("marcus"); updateBadges(); updateOutreachBadge(); switchView("board");
+renderWorklist(); selectPatient("marcus"); updateBadges(); updateOutreachBadge(); updateFinanceBadge(); switchView("board");
 </script>
+
 </body>
 </html>
