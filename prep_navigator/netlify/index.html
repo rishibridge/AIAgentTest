@@ -354,6 +354,17 @@
   .jlbl { font-size: 8.5px; font-family: var(--mono); color: var(--ink-3); text-align: center; line-height: 1.1; }
   .jstep.active .jlbl { color: var(--accent-ink); font-weight: 700; } .jstep.done .jlbl { color: var(--ink-2); }
 
+  /* financial enrollment cycle strip */
+  .fincycle { display: flex; gap: 8px; flex-wrap: wrap; margin: 2px 0 20px; }
+  .fcstep { flex: 1; min-width: 158px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); position: relative; }
+  .fcstep .fcn { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--accent-ink); letter-spacing: .04em; }
+  .fcstep.warn .fcn { color: var(--warn); } .fcstep.ok .fcn { color: var(--good); }
+  .fcstep .fct { font-size: 12.5px; font-weight: 650; margin-top: 3px; line-height: 1.25; }
+  .fcstep .fcd { font-size: 10.5px; color: var(--ink-3); margin-top: 3px; font-family: var(--mono); line-height: 1.3; }
+  .fcstep::after { content: "→"; position: absolute; right: -14px; top: 50%; transform: translateY(-50%); color: var(--ink-3); font-size: 13px; z-index: 1; }
+  .fcstep:last-child::after { display: none; }
+  @media (max-width: 900px) { .fcstep::after { display: none; } }
+
   /* care plan / schedule page */
   .cpgrid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; align-items: start; }
   .cpintro { font-size: 13px; color: var(--ink-2); margin: 0 0 14px; }
@@ -471,6 +482,7 @@
 
     <section class="view" id="view-finance">
       <div class="sechead"><h2>Financial assistance team</h2><p>Patients who can't afford PrEP or coverage. <b>Short-term:</b> stand up $0 copay cards / PAP so fills never stall on cost. <b>Long-term:</b> Damien provides <b>premium assistance</b> and <b>insurance enrollment support</b> so coverage is durable. Cost is never a reason for a gap.</p></div>
+      <div class="fincycle" id="financeCycle"></div>
       <div class="okpis" id="financeKpis"></div>
       <div id="financeGroups"></div>
     </section>
@@ -636,21 +648,21 @@ const STAGES = {
     fin:{horizon:"short",prog:"Copay card / PAP renewal",cov:"Insured + copay assistance"},
     hl:"Copay assistance expiring — re-enroll before next fill",why:"$0 copay program up for renewal · re-attest income to keep fills free",reply:"YES please handle it",
     steps:[D("Refill","current"),A("Re-enroll copay/PAP","income re-attestation","now"),W("Assistance active","","~5d"),W("Next fill $0","","~2wk")]},
-  fin_uninsured:{type:"finasst",asgn:"Financial",act:"Set up $0 copay + PAP",sev:"crit",aw:0,lead:"same day",leadsev:"warn",j:4,labs:"ok",
-    fin:{horizon:"short",prog:"Copay card + manufacturer PAP",cov:"Uninsured"},
-    hl:"Uninsured — stand up $0 copay + PAP so cost never blocks the first fill",
-    why:"⚠️ No coverage · enroll copay card + patient-assistance program now so meds ship free, then start a real insurance application",reply:"thank you, I can't afford it otherwise",
-    steps:[D("Screened — uninsured","~180% FPL"),A("Enroll copay card + PAP","Financial team","now"),W("$0 fills active","bridge coverage","~3d"),W("Start Marketplace/Medicaid app","long-term","~2wk")]},
+  fin_uninsured:{type:"finasst",asgn:"Financial",act:"Try event-based enrollment; bridge on Advancing Access",sev:"crit",aw:0,lead:"same day",leadsev:"warn",j:4,labs:"ok",
+    fin:{horizon:"short",prog:"SEP attempt + Gilead Advancing Access (free meds)",cov:"Uninsured"},
+    hl:"Uninsured — try event-based enrollment now, else bridge on Advancing Access so cost never blocks the first fill",
+    why:"⚠️ No coverage · try event-based (SEP) enrollment with Damien premium assistance; if no qualifying event, enroll in Gilead Advancing Access ($0 meds) and hold for open enrollment",reply:"thank you, I can't afford it otherwise",
+    steps:[D("Screened — uninsured","~180% FPL"),A("Try event-based (SEP) enrollment + Damien premium assistance","qualifying life event?","now"),W("Else: Gilead Advancing Access — $0 fills","bridge coverage","~3d"),W("Hold for open enrollment → Marketplace","long-term","")]},
   fin_premium:{type:"finasst",asgn:"Financial",act:"Damien premium assistance",sev:"warn",aw:5,lead:"Damien pays premium",leadsev:"warn",j:6,labs:"ok",
     fin:{horizon:"premium",prog:"Damien premium assistance (ADAP / Ryan White funded)",cov:"Marketplace — premium at risk"},
     hl:"Has a plan but can't afford the premium — Damien premium assistance covers it",
     why:"Damien pays the monthly premium (ADAP / Ryan White funded) so the plan doesn't lapse and coverage stays continuous",reply:"thank you, the premium went up and I couldn't keep it",
     steps:[D("Marketplace plan active","subsidized"),A("Damien enrolls premium assistance","re-attest income","now"),W("Damien pays the premium","","~1wk"),W("Coverage locked for the year","","")]},
-  fin_buy_insurance:{type:"finasst",asgn:"Financial",act:"Damien enrollment support",sev:"warn",aw:12,lead:"Damien navigator",leadsev:"warn",j:6,labs:"ok",
-    fin:{horizon:"long",prog:"Damien enrollment support — Marketplace/Medicaid + subsidy",cov:"Uninsured → enrolling"},
-    hl:"Long-term: Damien enrollment support to buy a subsidized plan for durable coverage",
-    why:"Damien's certified navigators enroll them in a Marketplace/Medicaid plan (with premium assistance) so coverage outlasts the short-term PAP window",reply:"that would be a huge relief",
-    steps:[D("On $0 PAP now","bridge coverage"),A("Damien navigator enrolls in Marketplace/Medicaid","subsidy + premium assistance","open enrollment"),W("Plan effective Jan 1","",""),W("Damien keeps premium assistance active","seamless","")]},
+  fin_buy_insurance:{type:"finasst",asgn:"Financial",act:"Open enrollment → enroll → switch to Damien pharmacy",sev:"warn",aw:12,lead:"Damien navigator",leadsev:"warn",j:6,labs:"ok",
+    fin:{horizon:"long",prog:"Marketplace enroll + Damien premium assistance → Damien pharmacy",cov:"Advancing Access → enrolling"},
+    hl:"Long-term: enroll at open enrollment, then switch fills back to Damien pharmacy",
+    why:"On Advancing Access now · at open enrollment Damien's navigators enroll them in a Marketplace plan (premium assistance + subsidy); once the plan is effective, fills switch back to Damien pharmacy (340B)",reply:"that would be a huge relief",
+    steps:[D("On Gilead Advancing Access","bridge · $0 meds"),A("Damien enrolls in Marketplace at open enrollment","subsidy + premium assistance","open enrollment"),W("Plan effective Jan 1","",""),W("Switch fills back to Damien pharmacy","340B · seamless","")]},
   lab_overdue:{type:"lab",act:"Order HIV test",sev:"crit",aw:0,lead:"needs 2d lead",leadsev:"crit",j:6,labs:"overdue",
     hl:"HIV test > 90d — refill blocked until a current result",why:"Supply ends in 4d · Rx can't be re-authorized without a current HIV test",
     steps:[D("Encounter","complete"),A("Order HIV test (home kit)","result gates the refill","now"),W("Re-authorize refill","on result","~4d"),W("Confirm + ship","","~6d")]},
@@ -1179,8 +1191,16 @@ function financeCard(p){
     ${openTask?`<div class="oreason">▸ ${esc(openTask.why)}</div>`:""}
     <div class="oact"><button class="btn xs" data-fin="${p.id}">Log enrollment</button><button class="btn xs neutral" data-fcoord="${p.id}">Coordinate ↗</button><button class="btn xs neutral" data-fopen="${p.id}">Open profile</button></div></div>`;
 }
+const FIN_CYCLE = [
+  { n:"STEP 1", t:"Try event-based enrollment", d:"SEP + Damien premium assistance", k:"" },
+  { n:"STEP 2", t:"Bridge on Advancing Access", d:"Gilead PAP · free meds, $0 fills", k:"warn" },
+  { n:"STEP 3", t:"Wait for open enrollment", d:"Nov 1 – Dec 15", k:"" },
+  { n:"STEP 4", t:"Enroll in Marketplace", d:"Damien premium assistance + subsidy", k:"" },
+  { n:"STEP 5", t:"Switch back to Damien pharmacy", d:"340B · plan effective Jan 1", k:"ok" },
+];
 function renderFinance(){
   const roster = financeRoster();
+  $("#financeCycle").innerHTML = FIN_CYCLE.map(s=>`<div class="fcstep ${s.k}"><div class="fcn">${s.n}</div><div class="fct">${esc(s.t)}</div><div class="fcd">${esc(s.d)}</div></div>`).join("");
   const short = roster.filter(p=>(p.fin&&p.fin.horizon)==="short");
   const premium = roster.filter(p=>(p.fin&&p.fin.horizon)==="premium");
   const long = roster.filter(p=>(p.fin&&p.fin.horizon)==="long");
