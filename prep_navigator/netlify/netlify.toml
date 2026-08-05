@@ -1,0 +1,14 @@
+# Netlify config for the static, browser-only demo.
+# No build step — a single self-contained index.html. Data is stored in each
+# visitor's browser (localStorage), so every viewer gets their own copy; this
+# is the shareable *demo*, not the live multi-user server version (see
+# ../DEPLOY.md / ../DEPLOY_GIT.md for the Cloud Run + Firestore deployment).
+
+[build]
+  publish = "."
+
+# Long-cache nothing aggressively; it's a single evolving file.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

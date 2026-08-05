@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Continuity — PrEP Navigator Console</title>
+<style>
+  :root {
+    --ground: #f2f6f5; --surface: #ffffff; --surface-2: #f7faf9;
+    --ink: #0f2321; --ink-2: #3d5350; --ink-3: #6a807c;
+    --line: #dde6e4; --line-2: #cfdbd9;
+    --accent: #0e7c7b; --accent-ink: #0a5c5b; --accent-wash: #e2f0ef;
+    --crit: #c8412f; --crit-wash: #fbe6e2; --warn: #b26a06; --warn-wash: #fbeed6;
+    --good: #2f7d55; --good-wash: #dcefe2; --info: #2b6cb0;
+    --provider: #6b46c1; --pharm: #9b3f8f;
+    --shadow: 0 1px 2px rgba(15,35,33,.04), 0 4px 16px rgba(15,35,33,.06);
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --r: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0c1514; --surface: #131f1e; --surface-2: #182625;
+      --ink: #e8f0ef; --ink-2: #a9bebb; --ink-3: #7c928f; --line: #24322f; --line-2: #2f403d;
+      --accent: #38b2ac; --accent-ink: #7fd6d1; --accent-wash: #16302e;
+      --crit: #f27a68; --crit-wash: #35201c; --warn: #e0a24a; --warn-wash: #33261140;
+      --good: #6cc38f; --good-wash: #14291d; --info: #63a4dd; --provider: #a78bde; --pharm: #d17fc4;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --ground: #f2f6f5; --surface: #ffffff; --surface-2: #f7faf9;
+    --ink: #0f2321; --ink-2: #3d5350; --ink-3: #6a807c; --line: #dde6e4; --line-2: #cfdbd9;
+    --accent: #0e7c7b; --accent-ink: #0a5c5b; --accent-wash: #e2f0ef;
+    --crit: #c8412f; --crit-wash: #fbe6e2; --warn: #b26a06; --warn-wash: #fbeed6;
+    --good: #2f7d55; --good-wash: #dcefe2; --info: #2b6cb0; --provider: #6b46c1; --pharm: #9b3f8f;
+    --shadow: 0 1px 2px rgba(15,35,33,.04), 0 4px 16px rgba(15,35,33,.06);
+  }
+  :root[data-theme="dark"] {
+    --ground: #0c1514; --surface: #131f1e; --surface-2: #182625;
+    --ink: #e8f0ef; --ink-2: #a9bebb; --ink-3: #7c928f; --line: #24322f; --line-2: #2f403d;
+    --accent: #38b2ac; --accent-ink: #7fd6d1; --accent-wash: #16302e;
+    --crit: #f27a68; --crit-wash: #35201c; --warn: #e0a24a; --warn-wash: #33261140;
+    --good: #6cc38f; --good-wash: #14291d; --info: #63a4dd; --provider: #a78bde; --pharm: #d17fc4;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--sans); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .app { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+
+  .rail { background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 18px 14px; gap: 4px; position: sticky; top: 0; height: 100vh; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px; }
+  .mark { width: 30px; height: 30px; border-radius: 8px; flex: none; background: var(--accent); position: relative; display: grid; place-items: center; }
+  .mark::before { content: ""; width: 13px; height: 13px; border: 2.5px solid #fff; border-radius: 50%; border-right-color: transparent; transform: rotate(-45deg); }
+  .brand b { font-size: 15px; letter-spacing: -.01em; }
+  .brand span { display: block; font-size: 10.5px; color: var(--ink-3); letter-spacing: .08em; text-transform: uppercase; font-family: var(--mono); }
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .navlabel { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); padding: 14px 8px 6px; font-family: var(--mono); }
+  .navitem { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: var(--ink-2); font-size: 13.5px; cursor: pointer; border: none; background: none; width: 100%; text-align: left; font-family: inherit; }
+  .navitem:hover { background: var(--surface-2); color: var(--ink); }
+  .navitem[aria-current="true"] { background: var(--accent-wash); color: var(--accent-ink); font-weight: 600; }
+  .navitem .ic { width: 16px; height: 16px; flex: none; opacity: .85; }
+  .navitem .badge { margin-left: auto; font-family: var(--mono); font-size: 11px; background: var(--crit); color: #fff; border-radius: 20px; padding: 1px 7px; }
+  .navitem .badge.soft { background: var(--accent); }
+  .me { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 8px 2px; border-top: 1px solid var(--line); }
+  .av { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 700; flex: none; }
+  .me small { color: var(--ink-3); font-size: 11px; }
+
+  .main { min-width: 0; display: flex; flex-direction: column; }
+  .topbar { display: flex; align-items: center; gap: 16px; padding: 12px 26px; border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 0; z-index: 5; flex-wrap: wrap; }
+  .topbar h1 { font-size: 17px; margin: 0; letter-spacing: -.01em; }
+  .topbar h1 small { display: block; font-size: 12px; color: var(--ink-3); font-weight: 400; }
+  .databar { display: flex; gap: 8px; align-items: center; }
+  .live { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-family: var(--mono); color: var(--ink-3); border: 1px solid var(--line-2); border-radius: 20px; padding: 3px 10px; }
+  .live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+  .live.on .dot { background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 25%, transparent); }
+  .live.on { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, var(--line-2)); }
+  .kpis { margin-left: auto; display: flex; gap: 10px; flex-wrap: wrap; }
+  .kpi { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r); padding: 7px 14px; min-width: 88px; }
+  .kpi .n { font-family: var(--mono); font-size: 19px; font-weight: 600; letter-spacing: -.02em; }
+  .kpi .l { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; }
+  .kpi.good .n { color: var(--good); } .kpi.crit .n { color: var(--crit); } .kpi.warn .n { color: var(--warn); }
+
+  .view { padding: 22px 26px 40px; display: none; }
+  .view.active { display: block; animation: fade .25s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .view.active { animation: none !important; } * { transition: none !important; } }
+
+  .sechead { display: flex; align-items: baseline; gap: 12px; margin: 4px 0 14px; flex-wrap: wrap; }
+  .sechead h2 { font-size: 14px; margin: 0; letter-spacing: .01em; }
+  .sechead p { margin: 0; font-size: 12.5px; color: var(--ink-3); }
+
+  .filters { display: flex; gap: 6px; margin: 0 0 14px; flex-wrap: wrap; }
+  .chip { font-size: 12px; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-2); cursor: pointer; font-family: inherit; }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+  .lane { margin-bottom: 22px; }
+  .lanehd { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); font-family: var(--mono); }
+  .lanehd .dot { width: 8px; height: 8px; border-radius: 50%; } .lanehd .ct { color: var(--ink-3); }
+  .laneempty { font-size: 12.5px; color: var(--ink-3); font-family: var(--mono); padding: 4px 2px 8px; }
+
+  .task { display: grid; grid-template-columns: 4px 1fr auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); margin-bottom: 8px; box-shadow: var(--shadow); overflow: hidden; transition: transform .12s, border-color .12s; }
+  .task:hover { transform: translateY(-1px); border-color: var(--line-2); }
+  .task .stripe { width: 4px; }
+  .task .body { padding: 12px 14px; min-width: 0; cursor: pointer; }
+  .task .body:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .task .row1 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .task .pt { font-weight: 650; font-size: 14px; }
+  .task .meta { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); }
+  .task .action { font-size: 13px; color: var(--ink-2); margin-top: 4px; }
+  .task .why { font-size: 11.5px; color: var(--ink-3); margin-top: 5px; display: flex; align-items: center; gap: 5px; }
+  .task .side { padding: 10px 14px; border-left: 1px solid var(--line); display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 4px; text-align: right; min-width: 132px; }
+  .runway { font-family: var(--mono); font-size: 20px; font-weight: 650; letter-spacing: -.02em; }
+  .runway small { font-size: 10.5px; font-weight: 400; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; }
+  .leadwarn { font-size: 10.5px; font-family: var(--mono); padding: 1px 6px; border-radius: 5px; }
+  .taskbtns { display: flex; gap: 6px; margin-top: 4px; }
+
+  .tag { font-size: 10.5px; font-family: var(--mono); padding: 2px 7px; border-radius: 5px; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .t-lab { background: var(--info); color: #fff; } .t-enc { background: var(--provider); color: #fff; }
+  .t-refill { background: var(--accent); color: #fff; } .t-renew { background: var(--warn); color: #fff; }
+  .t-pa { background: var(--pharm); color: #fff; } .t-note { background: var(--ink-2); color: var(--surface); } .t-outreach { background: #7a4510; color: #fff; }
+  .asgn { font-size: 9.5px; font-family: var(--mono); padding: 1px 7px; border-radius: 20px; letter-spacing: .03em; background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); }
+  .t-out { background: var(--crit-wash); color: var(--crit); border: 1px solid var(--crit); }
+  .sev-crit { background: var(--crit); } .sev-warn { background: var(--warn); } .sev-ok { background: var(--good); }
+  .st-crit { color: var(--crit); } .st-warn { color: var(--warn); } .st-ok { color: var(--good); }
+
+  .p360 { display: grid; grid-template-columns: 1fr 340px; gap: 18px; align-items: start; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+  .card .hd { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .card .hd h3 { margin: 0; font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); font-family: var(--mono); }
+  .card .bd { padding: 16px; }
+  .stack { display: flex; flex-direction: column; gap: 18px; }
+
+  .phead { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; flex-wrap: wrap; }
+  .phead .pav { width: 46px; height: 46px; border-radius: 12px; background: var(--accent-wash); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; font-size: 17px; }
+  .phead h2 { margin: 0; font-size: 20px; letter-spacing: -.01em; }
+  .phead .sub { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+
+  .clockrow { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+  .clockrow .big { font-family: var(--mono); font-size: 30px; font-weight: 650; letter-spacing: -.03em; }
+  .clockrow .big small { font-size: 13px; font-weight: 400; color: var(--ink-3); }
+  .track { position: relative; height: 40px; margin: 22px 0 30px; }
+  .track .rail2 { position: absolute; top: 16px; left: 0; right: 0; height: 8px; border-radius: 5px; background: linear-gradient(90deg, var(--good) 0%, var(--good) 45%, var(--warn) 68%, var(--crit) 100%); opacity: .28; }
+  .track .fill { position: absolute; top: 16px; left: 0; height: 8px; border-radius: 5px; background: var(--accent); }
+  .track .now { position: absolute; top: 8px; width: 2px; height: 24px; background: var(--ink); }
+  .track .now::after { content: "TODAY"; position: absolute; top: -14px; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 9px; letter-spacing: .1em; color: var(--ink-2); }
+  .mk { position: absolute; top: 6px; transform: translateX(-50%); text-align: center; }
+  .mk .pin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--surface); margin: 0 auto; }
+  .mk .lb { font-family: var(--mono); font-size: 9px; color: var(--ink-3); margin-top: 3px; white-space: nowrap; }
+  .mk .dd { font-family: var(--mono); font-size: 10px; font-weight: 600; }
+  .gapzone { position: absolute; top: 14px; height: 12px; background: repeating-linear-gradient(45deg, var(--crit-wash), var(--crit-wash) 4px, transparent 4px, transparent 8px); border: 1px dashed var(--crit); border-radius: 4px; }
+
+  .cp { display: flex; flex-direction: column; }
+  .step { display: grid; grid-template-columns: 26px 1fr auto; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .step:last-child { border-bottom: none; }
+  .step .num { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-family: var(--mono); font-size: 11px; font-weight: 700; }
+  .step.done .num { background: var(--good-wash); color: var(--good); }
+  .step.active .num { background: var(--accent); color: #fff; }
+  .step.wait .num { background: var(--surface-2); color: var(--ink-3); border: 1px solid var(--line-2); }
+  .step .t { font-size: 13.5px; font-weight: 600; } .step .d { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+  .step .when { font-family: var(--mono); font-size: 11px; color: var(--ink-3); text-align: right; white-space: nowrap; }
+  .step .when b { display: block; color: var(--ink); font-size: 12px; }
+
+  .btn { font-family: inherit; font-size: 12.5px; font-weight: 600; border-radius: 8px; padding: 7px 13px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; white-space: nowrap; }
+  .btn:hover { background: var(--accent-ink); border-color: var(--accent-ink); }
+  .btn.ghost { background: transparent; color: var(--accent-ink); } .btn.ghost:hover { background: var(--accent-wash); }
+  .btn.sm { padding: 5px 10px; font-size: 11.5px; } .btn.xs { padding: 3px 9px; font-size: 11px; border-radius: 7px; }
+  .btn.neutral { border-color: var(--line-2); color: var(--ink-2); background: var(--surface); } .btn.neutral:hover { background: var(--surface-2); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .lgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .lcell { background: var(--surface); padding: 10px 12px; }
+  .lcell .k { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; font-family: var(--mono); }
+  .lcell .v { font-family: var(--mono); font-size: 14px; font-weight: 600; margin-top: 2px; }
+  .lcell .s { font-size: 11px; margin-top: 1px; }
+
+  .feed { display: flex; flex-direction: column; }
+  .fitem { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .fitem:last-child { border-bottom: none; }
+  .fdot { width: 9px; height: 9px; border-radius: 50%; margin: 5px auto 0; }
+  .fitem .ft { font-size: 12.5px; } .fitem .ft b { font-weight: 600; }
+  .fitem .fm { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); margin-top: 2px; }
+
+  .tabs { display: flex; gap: 2px; margin: -4px 0 12px; border-bottom: 1px solid var(--line); }
+  .tab { position: relative; border: none; background: none; font-family: inherit; font-size: 12px; font-weight: 600; color: var(--ink-3); padding: 8px 12px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: 6px; }
+  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+  .tab .u { font-family: var(--mono); font-size: 10px; background: var(--crit); color: #fff; border-radius: 20px; padding: 0 5px; min-width: 15px; text-align: center; }
+
+  .templates { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tmpl { font-size: 11px; font-family: var(--sans); padding: 4px 10px; border-radius: 20px; border: 1px dashed var(--line-2); background: var(--surface-2); color: var(--accent-ink); cursor: pointer; }
+  .tmpl:hover { border-style: solid; border-color: var(--accent); } .tmpl::before { content: "\002B  "; opacity: .6; }
+  .routebar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 11.5px; color: var(--ink-3); font-family: var(--mono); flex-wrap: wrap; }
+  .routebar select { font-family: var(--sans); font-size: 12px; padding: 4px 8px; border-radius: 7px; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink); }
+
+  .thread { display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto; padding: 2px; }
+  .msg { max-width: 88%; padding: 8px 12px; border-radius: 12px; font-size: 12.5px; }
+  .msg .who { font-size: 10px; font-family: var(--mono); color: var(--ink-3); margin-bottom: 3px; letter-spacing: .03em; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .msg .who i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .msg .mtime { font-size: 9.5px; font-family: var(--mono); color: var(--ink-3); margin-top: 4px; text-align: right; opacity: .8; }
+  .msg.in { background: var(--surface-2); border: 1px solid var(--line); border-bottom-left-radius: 3px; align-self: flex-start; }
+  .msg.out { background: var(--accent-wash); border: 1px solid var(--accent-wash); align-self: flex-end; border-bottom-right-radius: 3px; }
+  .r-nav { background: var(--accent); } .r-patient { background: var(--ink-3); } .r-provider { background: var(--provider); } .r-pharmacist { background: var(--pharm); }
+  .mention { color: var(--accent-ink); font-weight: 600; background: var(--accent-wash); padding: 0 3px; border-radius: 4px; }
+  .toChip { font-size: 9px; font-family: var(--mono); background: color-mix(in srgb, var(--provider) 16%, transparent); color: var(--provider); padding: 1px 6px; border-radius: 20px; }
+  .composer { display: flex; gap: 8px; margin-top: 12px; }
+  .composer input { flex: 1; min-width: 0; border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 11px; font-family: inherit; font-size: 12.5px; background: var(--surface-2); color: var(--ink); }
+  .composer input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .chanhint { font-size: 10.5px; font-family: var(--mono); color: var(--ink-3); margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+
+  .notes { display: flex; flex-direction: column; gap: 0; max-height: 240px; overflow-y: auto; }
+  .note { padding: 10px 0; border-bottom: 1px solid var(--line); } .note:last-child { border-bottom: none; }
+  .note .nh { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+  .note .nt { font-size: 12.5px; } .note .nm { font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-left: auto; }
+  .ntype { font-size: 9.5px; font-family: var(--mono); padding: 1px 7px; border-radius: 20px; letter-spacing: .03em; text-transform: uppercase; }
+  .ntype.Call { background: var(--info); color: #fff; } .ntype.Need { background: var(--warn); color: #fff; } .ntype.Note { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line-2); } .ntype.Visit { background: var(--provider); color: #fff; } .ntype.Email { background: var(--pharm); color: #fff; }
+  .noteform { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 7px; overflow: hidden; margin-bottom: 8px; }
+  .seg button { border: none; background: var(--surface); font-family: inherit; font-size: 11px; font-weight: 600; color: var(--ink-3); padding: 5px 12px; cursor: pointer; border-right: 1px solid var(--line-2); }
+  .seg button:last-child { border-right: none; } .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .noteform textarea { width: 100%; border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 11px; font-family: inherit; font-size: 12.5px; background: var(--surface-2); color: var(--ink); resize: vertical; min-height: 46px; }
+  .noteform textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .noteform .r { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .noteform .r label { font-size: 11px; color: var(--ink-3); display: flex; align-items: center; gap: 5px; cursor: pointer; } .noteform .r .grow { margin-left: auto; }
+
+  .roster { display: flex; flex-direction: column; gap: 2px; }
+  .rosteritem { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+  .rosteritem:hover { background: var(--surface-2); } .rosteritem[aria-current="true"] { background: var(--accent-wash); border-color: var(--accent-wash); }
+  .rosteritem .rav { width: 30px; height: 30px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--line-2); display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--ink-2); }
+  .rosteritem .rn { font-size: 13px; font-weight: 600; } .rosteritem .rs { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+
+  .inbox { display: grid; grid-template-columns: 320px 1fr; min-height: 560px; }
+  .ilist { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; }
+  .ifilters { display: flex; gap: 5px; padding: 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .ithreads { overflow-y: auto; flex: 1; }
+  .ithread { display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); cursor: pointer; border-left: 3px solid transparent; }
+  .ithread:hover { background: var(--surface-2); } .ithread[aria-current="true"] { background: var(--accent-wash); border-left-color: var(--accent); }
+  .ithread .iav { width: 34px; height: 34px; border-radius: 50%; background: var(--accent-wash); color: var(--accent-ink); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+  .ithread .itop { display: flex; align-items: center; gap: 8px; }
+  .ithread .inm { font-size: 13px; font-weight: 650; }
+  .ithread .itime { font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-left: auto; white-space: nowrap; }
+  .ithread .iprev { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ithread .udot { width: 8px; height: 8px; border-radius: 50%; background: var(--crit); flex: none; }
+  .chtag { font-size: 9px; font-family: var(--mono); padding: 1px 6px; border-radius: 20px; letter-spacing: .03em; text-transform: uppercase; }
+  .ch-patient { background: var(--accent-wash); color: var(--accent-ink); }
+  .ch-team { background: color-mix(in srgb, var(--provider) 16%, transparent); color: var(--provider); }
+  .convo { display: flex; flex-direction: column; min-width: 0; }
+  .convohd { padding: 13px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .convohd .cav { width: 36px; height: 36px; border-radius: 10px; background: var(--accent-wash); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+  .convohd h3 { margin: 0; font-size: 15px; text-transform: none; letter-spacing: -.01em; color: var(--ink); font-family: var(--sans); }
+  .convohd .csub { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+  .convobody { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+  .convofoot { padding: 12px 18px; border-top: 1px solid var(--line); }
+  .empty { display: grid; place-items: center; height: 100%; color: var(--ink-3); font-size: 13px; text-align: center; padding: 40px; }
+
+  .panelgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; box-shadow: var(--shadow); }
+  .stat .l { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; font-family: var(--mono); }
+  .stat .n { font-family: var(--mono); font-size: 30px; font-weight: 650; letter-spacing: -.03em; margin: 6px 0 2px; }
+  .stat .sub { font-size: 11.5px; color: var(--ink-3); } .stat .spark { margin-top: 10px; }
+  .funnel { display: flex; flex-direction: column; gap: 3px; }
+  .frow { display: grid; grid-template-columns: 150px 1fr 54px; align-items: center; gap: 12px; }
+  .frow .fl { font-size: 12.5px; }
+  .frow .bar { height: 26px; border-radius: 6px; background: var(--accent); display: flex; align-items: center; padding-left: 10px; color: #fff; font-family: var(--mono); font-size: 11px; }
+  .frow .fv { font-family: var(--mono); font-size: 12.5px; text-align: right; color: var(--ink-2); }
+  .two { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; align-items: start; }
+
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(10px); background: var(--ink); color: var(--ground); padding: 10px 16px; border-radius: 9px; font-size: 12.5px; box-shadow: 0 8px 30px rgba(0,0,0,.25); z-index: 60; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: 90vw; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 1080px) { .p360, .two { grid-template-columns: 1fr; } .panelgrid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; }
+    .rail { position: sticky; top: 0; z-index: 6; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; }
+    .brand { padding: 0 6px 0 0; } .rail .nav { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+    .navlabel, .me { display: none; } .navitem { width: auto; padding: 7px 11px; } .navitem .badge { margin-left: 6px; }
+    .task { grid-template-columns: 4px 1fr; }
+    .task .side { border-left: none; border-top: 1px solid var(--line); align-items: flex-start; text-align: left; grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; gap: 10px; }
+    .panelgrid { grid-template-columns: 1fr 1fr; }
+    .inbox { grid-template-columns: 1fr; } .ilist { border-right: none; border-bottom: 1px solid var(--line); } .ithreads { max-height: 260px; }
+  }
+  .hint { font-size: 11.5px; color: var(--ink-3); font-family: var(--mono); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--ink-2); font-family: var(--mono); margin-top: 4px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; } .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .boardwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); background: var(--surface); }
+  .board { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
+  .board th { text-align: left; font-size: 10.5px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); font-weight: 600; padding: 11px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); position: sticky; top: 0; z-index: 1; }
+  .board th.num, .board td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .board td { padding: 11px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .board tbody tr:last-child td { border-bottom: none; }
+  .board tbody tr { cursor: pointer; } .board tbody tr:hover { background: var(--surface-2); }
+  .board tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .board .bpt { font-weight: 650; font-size: 13.5px; } .board .bmrn { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+  .board .supplybar { display: flex; align-items: center; gap: 9px; justify-content: flex-end; }
+  .board .supplybar .bar { width: 66px; height: 7px; border-radius: 5px; background: var(--line); overflow: hidden; flex: none; }
+  .board .supplybar .bar i { display: block; height: 100%; border-radius: 5px; }
+  .board .bignum { font-family: var(--mono); font-weight: 650; font-size: 15px; letter-spacing: -.01em; } .board .bignum small { font-weight: 400; font-size: 10px; color: var(--ink-3); }
+  .board .actwithin { font-family: var(--mono); font-weight: 650; font-size: 14px; } .board .runsout { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+  .bstatus { font-size: 10.5px; font-family: var(--mono); padding: 2px 9px; border-radius: 20px; letter-spacing: .03em; white-space: nowrap; }
+  .bstatus.crit { background: var(--crit-wash); color: var(--crit); } .bstatus.warn { background: var(--warn-wash); color: var(--warn); } .bstatus.ok { background: var(--good-wash); color: var(--good); }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="brand"><div class="mark" aria-hidden="true"></div><div><b>Continuity</b><span>PrEP Navigator</span></div></div>
+    <div class="navlabel">Care</div>
+    <nav class="nav">
+      <button class="navitem" data-view="board" aria-current="true">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M4 12h16M4 19h16M8 5v14"/></svg>
+        Continuity board</button>
+      <button class="navitem" data-view="worklist">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8M4 5h11M4 12h5M4 19h9"/></svg>
+        Worklist <span class="badge" id="worklistBadge">0</span></button>
+      <button class="navitem" data-view="patient">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+        Patient 360</button>
+      <button class="navitem" data-view="panel">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+        Panel Health</button>
+    </nav>
+    <div class="navlabel">Collaborate</div>
+    <nav class="nav">
+      <button class="navitem" data-view="inbox">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Inbox <span class="badge" id="inboxBadge">0</span></button>
+    </nav>
+    <div class="me"><div class="av">RN</div><div><div style="font-size:12.5px;font-weight:600">Rae Navarro</div><small>Navigator · Panel 142</small></div></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <h1 id="viewtitle">Worklist<small id="viewsub">Prioritized by time-to-gap</small></h1>
+      <div class="databar">
+        <span class="live" id="live"><span class="dot"></span><span id="liveLabel">connecting…</span></span>
+        <button class="btn xs neutral" id="resetBtn" title="Restore the sample data on the server">Reset</button>
+      </div>
+      <div class="kpis">
+        <div class="kpi good"><div class="n">96.2%</div><div class="l">Panel MPR</div></div>
+        <div class="kpi crit"><div class="n" id="kpiUrgent">0</div><div class="l">Urgent open</div></div>
+        <div class="kpi warn"><div class="n" id="kpiOpen">0</div><div class="l">Open tasks</div></div>
+        <div class="kpi good"><div class="n" id="kpiCleared">0</div><div class="l">Cleared</div></div>
+      </div>
+    </header>
+
+    <section class="view active" id="view-board">
+      <div class="sechead"><h2>Continuity board</h2><p>Every patient — <b>when they run out of meds</b> and <b>days to the next best action</b> to keep supply continuous. Sorted by soonest action.</p></div>
+      <div class="boardwrap"><table class="board" id="boardTable"><thead><tr>
+        <th>Patient</th><th class="num">Days of supply</th><th>Runs out</th><th>Next best action</th><th class="num">Act within</th><th>Status</th>
+      </tr></thead><tbody id="boardBody"></tbody></table></div>
+    </section>
+
+    <section class="view" id="view-worklist">
+      <div class="sechead"><h2>Today's queue</h2><p>Ranked by <b>days until a supply gap</b>, net of the lead time each blocking step needs to clear.</p></div>
+      <div class="filters" id="filters" role="group" aria-label="Filter tasks"></div>
+      <div id="lanes"></div>
+      <div id="snoozedBar"></div>
+    </section>
+
+    <section class="view" id="view-patient">
+      <div class="p360">
+        <div class="stack" id="p360main"></div>
+        <div class="stack">
+          <div class="card"><div class="hd"><h3>Care team</h3></div><div class="bd" id="team"></div></div>
+          <div class="card" id="msgcard"></div>
+          <div class="card" id="notescard"></div>
+          <div class="card"><div class="hd"><h3>My panel</h3></div><div class="bd"><div class="roster" id="roster"></div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-inbox">
+      <div class="sechead"><h2>Inbox</h2><p>Every conversation across your panel — patient SMS and internal care-team threads in one place.</p></div>
+      <div class="card" style="overflow:hidden"><div class="inbox">
+        <div class="ilist">
+          <div class="ifilters" id="ifilters" role="group" aria-label="Filter threads">
+            <button class="chip" data-f="all" aria-pressed="true">All</button>
+            <button class="chip" data-f="patient" aria-pressed="false">Patient</button>
+            <button class="chip" data-f="team" aria-pressed="false">Care team</button>
+            <button class="chip" data-f="unread" aria-pressed="false">Unread</button>
+          </div>
+          <div class="ithreads" id="ithreads"></div>
+        </div>
+        <div class="convo" id="convo"></div>
+      </div></div>
+    </section>
+
+    <section class="view" id="view-panel">
+      <div class="sechead"><h2>Panel health</h2><p>Cohort of 142 active PrEP patients · trailing 90 days</p></div>
+      <div class="panelgrid">
+        <div class="stat"><div class="l">Continuous supply</div><div class="n st-ok">96.2%</div><div class="sub">+2.1 pts vs. last quarter</div><div class="spark" id="sp1"></div></div>
+        <div class="stat"><div class="l">Median MPR</div><div class="n">0.98</div><div class="sub">12 patients below 0.80 threshold</div><div class="spark" id="sp2"></div></div>
+        <div class="stat"><div class="l">On-time HIV testing</div><div class="n st-warn">88%</div><div class="sub">17 quarterly tests overdue</div><div class="spark" id="sp3"></div></div>
+        <div class="stat"><div class="l">Lost to follow-up</div><div class="n st-ok">4</div><div class="sub">re-engagement outreach active</div><div class="spark" id="sp4"></div></div>
+      </div>
+      <div class="two">
+        <div class="card"><div class="hd"><h3>Continuity funnel — where gaps originate</h3></div>
+          <div class="bd"><div class="funnel" id="funnel"></div><p class="hint" style="margin:14px 0 0">Renewals and lab dependencies drive most drop-off — the reason the queue schedules them earliest.</p></div></div>
+        <div class="card"><div class="hd"><h3>Gap risk this month</h3></div>
+          <div class="bd"><div class="lgrid" style="grid-template-columns:1fr">
+            <div class="lcell"><div class="k">Refill lapse</div><div class="v st-crit">3 patients</div><div class="s st-crit">supply ends &lt; 7 days</div></div>
+            <div class="lcell"><div class="k">Rx renewal needed</div><div class="v st-warn">5 patients</div><div class="s st-warn">0 refills remaining</div></div>
+            <div class="lcell"><div class="k">Lab blocking refill</div><div class="v st-warn">6 patients</div><div class="s">HIV test &gt; 90 days</div></div>
+            <div class="lcell"><div class="k">Benefits / PA lapse</div><div class="v st-warn">2 patients</div><div class="s">coverage expiring</div></div>
+          </div></div></div>
+      </div>
+    </section>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const initials = n => n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+const first = p => p.name.split(" ")[0].replace(/[^A-Za-z]/g,"");
+const ROLE_LABEL = { nav:"You", patient:"Patient", provider:"Provider", pharmacist:"Pharmacy" };
+
+const TYPE_TAG = { lab:"t-lab", enc:"t-enc", refill:"t-refill", renew:"t-renew", pa:"t-pa", note:"t-note", outreach:"t-outreach" };
+const TYPE_LABEL = { lab:"LAB", enc:"ENCOUNTER", refill:"REFILL", renew:"RENEWAL", pa:"BENEFITS", note:"FOLLOW-UP", outreach:"OUTREACH" };
+const TEMPLATES = {
+  patient:[
+    {k:"Lab due", f:p=>`Hi ${first(p)} — you're due for your quarterly PrEP labs (HIV + kidney). Want a clinic slot or a home test kit?`},
+    {k:"Refill nudge", f:p=>`Hi ${first(p)}! Your PrEP refill is ready at ${p.pharmacy}. Want me to switch you to mail-order so it just arrives?`},
+    {k:"Renewal", f:p=>`Hi ${first(p)} — your PrEP prescription is up for renewal. I can book a quick 15-min video visit. What day works?`},
+    {k:"Check-in", f:p=>`Hi ${first(p)}, checking in — how's everything going on PrEP? Any refills or questions I can help with?`},
+  ],
+  team:[
+    {k:"Renewal packet", f:p=>`Routing renewal packet for ${p.name}: last HIV neg, renal current, adherence ${p.mpr.toFixed(2)}. Please e-sign when you can.`},
+    {k:"Lab order", f:p=>`Requesting quarterly lab order for ${p.name} (HIV Ag/Ab + renal + STI). Refill is gated on the result.`},
+    {k:"Refill hold", f:p=>`Refill for ${p.name} on hold pending a current HIV result — will update once labs are in.`},
+  ]
+};
+
+// ---------- API + live state ----------
+const api = {
+  get: (u) => fetch(u).then(r=>r.json()),
+  post: (u,b) => fetch(u,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(b||{})}).then(r=>r.json()),
+};
+let STATE = { patients:[], tasks:[] };
+const P = id => STATE.patients.find(p=>p.id===id);
+const unreadIn = th => th.msgs.filter(m=>m.role!=="nav" && m.unread).length;
+const totalUnread = () => STATE.patients.reduce((a,p)=>a+p.threads.reduce((b,t)=>b+unreadIn(t),0),0);
+function findThread(tid){ for(const p of STATE.patients){ const t=p.threads.find(x=>x.id===tid); if(t) return {p,t}; } return null; }
+
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),2600); }
+function setLive(on){ const el=$("#live"); el.classList.toggle("on",on); $("#liveLabel").textContent = on ? "Live" : "offline"; }
+
+// UI state (client-only)
+let currentPatient = null;
+let currentChannel = {};
+let filterType = "all";
+let assigneeFilter = "all";
+let inboxFilter = "all";
+let openThread = null;
+let noteType = "Call";
+function byAssignee(t){ return assigneeFilter==="all" || t.assignee===assigneeFilter; }
+
+async function refreshAll(){
+  STATE = await api.get("/api/state");
+  if(!P(currentPatient)) currentPatient = STATE.patients[0] ? STATE.patients[0].id : null;
+  if(currentPatient && !currentChannel[currentPatient]) currentChannel[currentPatient] = "sms";
+  renderWorklist();
+  if($("#view-board").classList.contains("active")) renderBoard();
+  if(currentPatient) renderPatientView();
+  if($("#view-inbox").classList.contains("active")) renderInbox();
+  if($("#view-panel").classList.contains("active")) renderPanel();
+  updateBadges();
+}
+async function markReadServer(tid){
+  const f = findThread(tid); if(!f) return;
+  if(f.t.msgs.some(m=>m.role!=="nav" && m.unread)){
+    f.t.msgs.forEach(m=>{ if(m.role!=="nav") m.unread=false; });  // optimistic
+    updateBadges();
+    try { await api.post("/api/threads/read", { threadId: tid }); } catch(e){}
+  }
+}
+async function escalate(pid, reason){
+  const p = P(pid); if(!p) return;
+  if(STATE.tasks.some(t=>t.pid===pid && t.type==="outreach" && t.status==="open")){ toast(`${p.name} already has an open field-outreach task`); return; }
+  toast(`Escalating ${p.name} to field outreach…`);
+  await api.post("/api/tasks/escalate", { patientId: pid, reason }); refreshAll();
+}
+
+// ---------- worklist ----------
+function openTasks(){ return STATE.tasks.filter(t=>t.status==="open"); }
+function renderFilters(){
+  const open = openTasks();
+  const aCounts = { all:open.length, "Navigator":open.filter(t=>t.assignee!=="Field Outreach").length, "Field Outreach":open.filter(t=>t.assignee==="Field Outreach").length };
+  const aChips = [ ["all","All queues"], ["Navigator","My queue"], ["Field Outreach","Field outreach"] ]
+    .map(([v,l])=>`<button class="chip" data-asgn="${v}" aria-pressed="${assigneeFilter===v}">${l} ${aCounts[v]||0}</button>`).join("");
+  const inQ = open.filter(byAssignee); const counts = {}; inQ.forEach(t=>counts[t.type]=(counts[t.type]||0)+1);
+  const order = ["lab","enc","refill","renew","pa","outreach","note"];
+  const tChips = [`<button class="chip" data-ft="all" aria-pressed="${filterType==='all'}">All ${inQ.length}</button>`]
+    .concat(order.filter(ty=>counts[ty]).map(ty=>`<button class="chip" data-ft="${ty}" aria-pressed="${filterType===ty}">${TYPE_LABEL[ty][0]+TYPE_LABEL[ty].slice(1).toLowerCase()} ${counts[ty]}</button>`));
+  $("#filters").innerHTML = aChips + `<span style="width:1px;background:var(--line-2);margin:2px 4px"></span>` + tChips.join("");
+  $("#filters").querySelectorAll("[data-asgn]").forEach(c=>c.addEventListener("click",()=>{ assigneeFilter=c.dataset.asgn; filterType="all"; renderWorklist(); }));
+  $("#filters").querySelectorAll("[data-ft]").forEach(c=>c.addEventListener("click",()=>{ filterType=c.dataset.ft; renderWorklist(); }));
+}
+function taskCard(t){
+  const p = P(t.pid); if(!p) return document.createComment("");
+  const leadCls = t.leadsev==="crit" ? "t-out" : "";
+  const wrap = document.createElement("div"); wrap.className="task";
+  wrap.innerHTML = `<div class="stripe sev-${t.sev}"></div>
+    <div class="body" tabindex="0" role="button" aria-label="Open ${esc(p.name)}">
+      <div class="row1"><span class="pt">${esc(p.name)}</span><span class="tag ${TYPE_TAG[t.type]}">${TYPE_LABEL[t.type]}</span>${t.assignee==="Field Outreach"?'<span class="asgn">◎ FIELD OUTREACH</span>':''}
+        <span class="meta">${esc(p.mrn)} · MPR ${p.mpr.toFixed(2)}</span></div>
+      <div class="action">${esc(t.title)}</div><div class="why">▸ ${esc(t.why)}</div></div>
+    <div class="side"><div class="runway st-${t.sev}">${t.supply}d<br><small>supply left</small></div>
+      <span class="leadwarn ${leadCls}" style="${leadCls?'':'color:var(--ink-3)'}">${esc(t.lead)}</span>
+      <div class="taskbtns"><button class="btn xs neutral" data-act="snooze">Snooze</button><button class="btn xs" data-act="done">Done</button></div></div>`;
+  const open = ()=>{ selectPatient(p.id); switchView("patient"); };
+  const body = wrap.querySelector(".body");
+  body.addEventListener("click", open);
+  body.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(); }});
+  wrap.querySelector('[data-act="done"]').addEventListener("click", async ()=>{ toast(`Cleared: ${p.name} — ${TYPE_LABEL[t.type].toLowerCase()}`); await api.post("/api/tasks/status",{id:t.id,status:"done"}); refreshAll(); });
+  wrap.querySelector('[data-act="snooze"]').addEventListener("click", async ()=>{ toast(`Snoozed ${p.name}`); await api.post("/api/tasks/status",{id:t.id,status:"snoozed"}); refreshAll(); });
+  return wrap;
+}
+function renderWorklist(){
+  renderFilters();
+  const lanes = $("#lanes"); lanes.innerHTML = "";
+  let open = openTasks().filter(byAssignee); if(filterType!=="all") open = open.filter(t=>t.type===filterType);
+  [ { dot:"sev-crit", title:"Gap imminent — act today", sev:"crit" }, { dot:"sev-warn", title:"Get ahead — this week", sev:"warn" } ].forEach(g=>{
+    const items = open.filter(t=>t.sev===g.sev).sort((a,b)=>a.supply-b.supply);
+    const lane = document.createElement("div"); lane.className="lane";
+    lane.innerHTML = `<div class="lanehd"><span class="dot ${g.dot}"></span>${g.title}<span class="ct">· ${items.length}</span></div>`;
+    if(items.length) items.forEach(t=>lane.appendChild(taskCard(t)));
+    else lane.appendChild(Object.assign(document.createElement("div"),{className:"laneempty",textContent:"✓ Nothing here — all clear."}));
+    lanes.appendChild(lane);
+  });
+  const snoozed = STATE.tasks.filter(t=>t.status==="snoozed"); const sb = $("#snoozedBar");
+  if(snoozed.length){
+    sb.innerHTML = `<button class="btn xs neutral" id="showSnoozed">🕘 ${snoozed.length} snoozed</button><div id="snoozedList" hidden style="margin-top:10px"></div>`;
+    const list = sb.querySelector("#snoozedList");
+    list.innerHTML = snoozed.map(t=>`<div class="task" style="opacity:.7"><div class="stripe sev-${t.sev}"></div>
+      <div class="body"><div class="row1"><span class="pt">${esc(P(t.pid)?P(t.pid).name:"")}</span><span class="tag ${TYPE_TAG[t.type]}">${TYPE_LABEL[t.type]}</span></div>
+      <div class="action">${esc(t.title)}</div></div><div class="side"><button class="btn xs neutral" data-restore="${t.id}">Restore</button></div></div>`).join("");
+    sb.querySelector("#showSnoozed").addEventListener("click",()=>{ list.hidden = !list.hidden; });
+    list.querySelectorAll("[data-restore]").forEach(b=>b.addEventListener("click", async ()=>{ await api.post("/api/tasks/status",{id:b.dataset.restore,status:"open"}); refreshAll(); }));
+  } else sb.innerHTML = "";
+  updateKPIs();
+}
+function updateKPIs(){
+  const open = openTasks();
+  $("#kpiUrgent").textContent = open.filter(t=>t.sev==="crit").length;
+  $("#kpiOpen").textContent = open.length;
+  $("#kpiCleared").textContent = STATE.tasks.filter(t=>t.status==="done").length;
+  const wb = $("#worklistBadge"); wb.textContent = open.length; wb.style.display = open.length ? "" : "none";
+}
+
+// ---------- messages ----------
+function mentionize(s){ return s.replace(/@[A-Za-z][A-Za-z0-9]*/g, m=>`<span class="mention">${m}</span>`); }
+function msgHTML(m){
+  const side = m.role==="nav" ? "out" : "in";
+  const who = m.role==="nav" ? "You" : `${esc(m.from)} · ${ROLE_LABEL[m.role]}`;
+  const to = m.to ? `<span class="toChip">→ ${esc(m.to)}</span>` : "";
+  return `<div class="msg ${side}"><div class="who"><i class="r-${m.role}"></i>${who}${to}</div>${mentionize(esc(m.t))}<div class="mtime">${esc(m.time)}</div></div>`;
+}
+function teamRecipients(p){ return [ {label:"Care team", mention:""},
+  {label:p.provider, mention:"@"+p.provider.replace(/^Dr\.?\s*/,"").split(" ")[0]}, {label:p.pharmacy, mention:"@Pharmacy"} ]; }
+
+// ---------- patient 360 ----------
+function selectPatient(id){ currentPatient=id; if(!currentChannel[id]) currentChannel[id]="sms"; renderPatientView(); }
+function renderPatientView(){ const p=P(currentPatient); if(!p) return; renderP360(p); renderTeam(p); renderMsgCard(p); renderNotesCard(p); renderRoster(); }
+function renderP360(p){
+  const main = $("#p360main"); main.innerHTML = "";
+  const markers = p.track.map(m=>`<div class="mk" style="left:${m.pos}%"><div class="pin sev-${m.sev}"></div><div class="dd st-${m.sev}">${m.dd}</div><div class="lb">${m.label}</div></div>`).join("");
+  const clock = document.createElement("div"); clock.className="card";
+  clock.innerHTML = `<div class="bd"><div class="phead"><div class="pav">${initials(p.name)}</div>
+      <div style="flex:1"><h2>${esc(p.name)}</h2><div class="sub">${esc(p.mrn)} · age ${p.age} · ${esc(p.rx.drug)}</div></div>
+      <span class="tag ${TYPE_TAG[p.type]}">${TYPE_LABEL[p.type]}</span></div>
+    <div class="clockrow"><div><div class="hint">CONTINUITY CLOCK · days of supply</div><div class="big st-${p.sev}">${p.supply}<small> days left</small></div></div>
+      <div style="text-align:right"><div class="hint">CURRENT MPR</div><div class="big">${p.mpr.toFixed(2)}</div></div></div>
+    <div class="track"><div class="rail2"></div><div class="fill" style="width:${p.fill}%"></div><div class="gapzone" style="left:${p.gapAt}%;right:0"></div><div class="now" style="left:${p.fill}%"></div>${markers}</div>
+    <div class="legend"><span><i style="background:var(--accent)"></i>supply runway</span><span><i style="background:var(--crit);opacity:.5"></i>gap zone</span><span>● pins = blocking steps</span></div></div>`;
+  main.appendChild(clock);
+  const cp = document.createElement("div"); cp.className="card";
+  cp.innerHTML = `<div class="hd"><h3>Critical path to next refill</h3><span class="hint" style="margin-left:auto">act on behalf of patient →</span></div>
+    <div class="bd"><div class="cp">${p.steps.map((s,i)=>`<div class="step ${s.s}"><div class="num">${s.s==="done"?"✓":i+1}</div>
+      <div><div class="t">${s.t}</div><div class="d">${s.d}</div></div><div class="when"><b>${s.when.split("\n")[0]}</b>${s.when.includes("\n")?s.when.split("\n")[1]:""}</div></div>`).join("")}</div>
+    <div class="actions" style="margin-top:16px"><button class="btn">Order labs</button><button class="btn ghost">Approve refill</button><button class="btn ghost">Route renewal</button><button class="btn ghost">Schedule encounter</button><button class="btn ghost" data-esc title="Create a field-outreach task if the patient can't be reached">Can't reach → field outreach</button></div></div>`;
+  main.appendChild(cp);
+  const clin = document.createElement("div"); clin.className="card";
+  clin.innerHTML = `<div class="hd"><h3>Clinical requirements</h3></div><div class="bd">
+    <div class="lgrid">${p.labs.map(l=>`<div class="lcell"><div class="k">${l.k}</div><div class="v st-${l.sev}">${l.v}</div><div class="s st-${l.sev}">${l.s}</div></div>`).join("")}</div>
+    <div class="lgrid" style="grid-template-columns:1fr 1fr;margin-top:12px">
+      <div class="lcell"><div class="k">Prescription</div><div class="v" style="font-size:12px">${p.rx.refills}</div><div class="s">${p.rx.exp}</div></div>
+      <div class="lcell"><div class="k">Pharmacy</div><div class="v" style="font-size:12px">${esc(p.pharmacy)}</div><div class="s">${esc(p.rx.drug)}</div></div></div></div>`;
+  main.appendChild(clin);
+  const act = document.createElement("div"); act.className="card";
+  act.innerHTML = `<div class="hd"><h3>Activity &amp; interactions</h3></div><div class="bd"><div class="feed">${p.feed.map(f=>`<div class="fitem"><div class="fdot sev-${f.sev}"></div><div><div class="ft">${f.t}</div><div class="fm">${f.m}</div></div></div>`).join("")}</div></div>`;
+  main.appendChild(act);
+  const escBtn = main.querySelector("[data-esc]");
+  if(escBtn) escBtn.addEventListener("click", ()=>escalate(p.id, `Unreachable — escalated from ${p.name}'s profile · supply ends ${p.supply}d`));
+}
+function renderTeam(p){
+  $("#team").innerHTML = `<div class="roster">
+    <div class="rosteritem"><div class="rav">${initials(p.provider)}</div><div><div class="rn">${esc(p.provider)}</div><div class="rs">Prescriber</div></div><button class="btn sm ghost" data-open-team>Message</button></div>
+    <div class="rosteritem"><div class="rav">RX</div><div><div class="rn">${esc(p.pharmacy)}</div><div class="rs">Pharmacy</div></div><button class="btn sm ghost" data-open-team>Message</button></div>
+    <div class="rosteritem"><div class="rav">${initials(p.name)}</div><div><div class="rn">${esc(p.name)}</div><div class="rs">Patient · SMS + portal</div></div><button class="btn sm ghost" data-open-sms>Message</button></div></div>`;
+  $("#team").querySelectorAll("[data-open-team]").forEach(b=>b.addEventListener("click",()=>{ currentChannel[p.id]="team"; renderMsgCard(P(p.id)); }));
+  $("#team").querySelectorAll("[data-open-sms]").forEach(b=>b.addEventListener("click",()=>{ currentChannel[p.id]="sms"; renderMsgCard(P(p.id)); }));
+}
+function renderMsgCard(p){
+  const tid = currentChannel[p.id] || "sms";
+  const th = p.threads.find(t=>t.id.endsWith(":"+tid)) || p.threads[0];
+  markReadServer(th.id);
+  const tabs = p.threads.map(t=>{ const u=unreadIn(t); const key=t.id.split(":")[1];
+    return `<button class="tab" data-tid="${key}" aria-selected="${t.id===th.id}">${t.label}${u?`<span class="u">${u}</span>`:""}</button>`; }).join("");
+  const tmpls = TEMPLATES[th.kind].map((t,i)=>`<button class="tmpl" data-ti="${i}">${t.k}</button>`).join("");
+  let routebar = "";
+  if(th.kind==="team"){ const recips = teamRecipients(p);
+    routebar = `<div class="routebar">To: <select id="routeto">${recips.map((r,i)=>`<option value="${i}">${esc(r.label)}</option>`).join("")}</select><span>@mention inserts automatically</span></div>`; }
+  const chanNote = th.kind==="team"
+    ? `<div class="chanhint" style="justify-content:space-between"><span><i class="tag t-enc" style="padding:1px 6px">INTERNAL</i> Care-team thread — ${esc(th.with)}. Not visible to the patient.</span><button type="button" class="btn xs neutral" data-esc-team>Flag unreachable → field outreach</button></div>`
+    : `<div class="chanhint">Reach ${esc(p.name)} by SMS or email · consented. Log calls &amp; in-person visits in Notes below.</div>`;
+  $("#msgcard").innerHTML = `<div class="hd"><h3>Messages</h3><span class="hint" style="margin-left:auto">${p.threads.length} channels</span></div>
+    <div class="bd"><div class="tabs" role="tablist">${tabs}</div>
+      <div class="thread" id="thread">${th.msgs.map(msgHTML).join("")}</div>
+      <div style="margin-top:12px">${routebar}<div class="templates">${tmpls}</div>
+      <form class="composer" id="composer"><input type="text" autocomplete="off" placeholder="${th.kind==='team'?'Message care team…':'Message patient (SMS)…'}" aria-label="Message"/><button class="btn sm" type="submit">Send</button></form>
+      ${chanNote}</div></div>`;
+  $("#msgcard").querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{ currentChannel[p.id]=b.dataset.tid; renderMsgCard(P(p.id)); }));
+  const inp = $("#composer input");
+  $("#msgcard").querySelectorAll(".tmpl").forEach(b=>b.addEventListener("click",()=>{ inp.value = TEMPLATES[th.kind][+b.dataset.ti].f(p); inp.focus(); }));
+  const th2 = $("#thread"); th2.scrollTop = th2.scrollHeight;
+  if(th.kind==="team"){ const sel=$("#routeto"); sel.addEventListener("change",()=>{ const r=teamRecipients(p)[+sel.value];
+    if(r.mention){ const rest=inp.value.replace(/^@\w+\s*/,""); inp.value=r.mention+" "+rest; } inp.focus(); }); }
+  const et=$("#msgcard [data-esc-team]"); if(et) et.addEventListener("click",()=>escalate(p.id, `Pharmacy/care-team flagged ${p.name} unreachable · supply ends ${p.supply}d`));
+  $("#composer").addEventListener("submit", async e=>{
+    e.preventDefault(); const v=inp.value.trim(); if(!v) return; let to=null;
+    if(th.kind==="team"){ const r=teamRecipients(p)[+($("#routeto").value||0)]; if(r && r.label!=="Care team") to=r.label; }
+    inp.value="";
+    await api.post("/api/messages",{ threadId: th.id, body: v, to }); refreshAll();
+  });
+}
+function renderNotesCard(p){
+  const wantTask = noteType==="Need";
+  $("#notescard").innerHTML = `<div class="hd"><h3>Notes &amp; call log</h3><span class="hint" style="margin-left:auto">${p.notes.length}</span></div>
+    <div class="bd"><div class="notes" id="noteslist">${p.notes.map(n=>`<div class="note"><div class="nh"><span class="ntype ${n.type}">${n.type}</span><span class="nm">${esc(n.author)} · ${esc(n.time)}</span></div><div class="nt">${esc(n.t)}</div></div>`).join("")}</div>
+      <form class="noteform" id="noteform">
+        <div class="seg" role="group" aria-label="Note type">
+          <button type="button" data-nt="Call" aria-pressed="${noteType==='Call'}">Call</button>
+          <button type="button" data-nt="Visit" aria-pressed="${noteType==='Visit'}">Visit</button>
+          <button type="button" data-nt="Need" aria-pressed="${noteType==='Need'}">Need</button>
+          <button type="button" data-nt="Note" aria-pressed="${noteType==='Note'}">Note</button></div>
+        <textarea placeholder="Log a call, a patient need, or a note for the care team…" aria-label="New note"></textarea>
+        <div class="r"><label><input type="checkbox" id="mkTask" ${wantTask?"checked":""}> Add to worklist</label>
+          <button class="btn sm grow" type="submit">Add note</button></div></form></div>`;
+  $("#noteform").querySelectorAll(".seg button").forEach(b=>b.addEventListener("click",()=>{ noteType=b.dataset.nt;
+    $("#noteform").querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed", x.dataset.nt===noteType));
+    $("#mkTask").checked = (noteType==="Need"); }));
+  $("#noteform").addEventListener("submit", async e=>{
+    e.preventDefault(); const ta=e.target.querySelector("textarea"); const v=ta.value.trim(); if(!v) return;
+    const makeTask = $("#mkTask").checked; ta.value="";
+    await api.post("/api/notes",{ patientId:p.id, type:noteType, body:v, makeTask });
+    if(makeTask) toast("Follow-up task added to worklist");
+    refreshAll();
+  });
+}
+function renderRoster(){
+  $("#roster").innerHTML = STATE.patients.map(p=>`<div class="rosteritem" data-id="${p.id}" aria-current="${p.id===currentPatient}">
+    <div class="rav">${initials(p.name)}</div><div><div class="rn">${esc(p.name)}</div><div class="rs">${p.supply}d supply · ${esc(p.mrn)}</div></div>
+    <span class="pin sev-${p.sev}" style="width:10px;height:10px;border-radius:50%"></span></div>`).join("");
+  $("#roster").querySelectorAll(".rosteritem").forEach(r=>r.addEventListener("click",()=>selectPatient(r.dataset.id)));
+}
+
+// ---------- inbox ----------
+function inboxRows(){
+  const rows = [];
+  STATE.patients.forEach(p=>p.threads.forEach(t=>{
+    if(inboxFilter==="patient" && t.kind!=="patient") return;
+    if(inboxFilter==="team" && t.kind!=="team") return;
+    if(inboxFilter==="unread" && unreadIn(t)===0) return;
+    const last = t.msgs[t.msgs.length-1] || {t:"",time:"",role:""};
+    rows.push({ pid:p.id, tid:t.id, name:p.name, kind:t.kind, prev:(last.role==="nav"?"You: ":"")+last.t, time:last.time, unread:unreadIn(t) });
+  }));
+  return rows.sort((a,b)=>(b.unread>0)-(a.unread>0));
+}
+function renderInbox(){
+  const rows = inboxRows();
+  $("#ithreads").innerHTML = rows.map(r=>{ const cur = openThread===r.tid;
+    return `<div class="ithread" data-tid="${r.tid}" data-pid="${r.pid}" aria-current="${!!cur}"><div class="iav">${initials(r.name)}</div>
+      <div style="min-width:0"><div class="itop"><span class="inm">${esc(r.name)}</span><span class="chtag ch-${r.kind}">${r.kind==="team"?"Team":"SMS"}</span>
+        <span class="itime">${esc(r.time)}</span>${r.unread?'<span class="udot" title="unread"></span>':""}</div><div class="iprev">${esc(r.prev)}</div></div></div>`;
+  }).join("") || `<div class="empty">No threads match this filter.</div>`;
+  $("#ithreads").querySelectorAll(".ithread").forEach(el=>el.addEventListener("click",()=>openInboxThread(el.dataset.tid)));
+  renderConvo();
+}
+async function openInboxThread(tid){ openThread=tid; await markReadServer(tid); renderInbox(); }
+function renderConvo(){
+  const c = $("#convo");
+  const f = openThread ? findThread(openThread) : null;
+  if(!f){ c.innerHTML = `<div class="empty">Select a conversation to read and reply.<br><span class="hint">Patient SMS and internal care-team threads both live here.</span></div>`; return; }
+  const p = f.p, th = f.t;
+  const badge = th.kind==="team" ? `<span class="chtag ch-team">Care team · internal</span>` : `<span class="chtag ch-patient">Patient · SMS</span>`;
+  let routebar=""; if(th.kind==="team"){ const recips=teamRecipients(p);
+    routebar = `<div class="routebar" style="margin-bottom:10px">To: <select id="iroute">${recips.map((r,i)=>`<option value="${i}">${esc(r.label)}</option>`).join("")}</select></div>`; }
+  const tmpls = TEMPLATES[th.kind].map((t,i)=>`<button class="tmpl" data-ti="${i}">${t.k}</button>`).join("");
+  c.innerHTML = `<div class="convohd"><div class="cav">${initials(p.name)}</div><div style="flex:1"><h3>${esc(p.name)}</h3><div class="csub">${esc(th.with)}</div></div>
+      ${badge}<button class="btn sm ghost" id="openProfile">Open profile →</button></div>
+    <div class="convobody" id="convobody">${th.msgs.map(msgHTML).join("")}</div>
+    <div class="convofoot">${routebar}<div class="templates">${tmpls}</div>
+      <form class="composer" id="iconvoform"><input type="text" autocomplete="off" placeholder="${th.kind==='team'?'Message care team…':'Message patient (SMS)…'}" aria-label="Message"/><button class="btn sm" type="submit">Send</button></form></div>`;
+  const body = $("#convobody"); body.scrollTop = body.scrollHeight;
+  const inp = $("#iconvoform input");
+  c.querySelectorAll(".tmpl").forEach(b=>b.addEventListener("click",()=>{ inp.value = TEMPLATES[th.kind][+b.dataset.ti].f(p); inp.focus(); }));
+  $("#openProfile").addEventListener("click",()=>{ currentChannel[p.id]=th.id.split(":")[1]; selectPatient(p.id); switchView("patient"); });
+  if(th.kind==="team"){ const sel=$("#iroute"); sel.addEventListener("change",()=>{ const r=teamRecipients(p)[+sel.value]; if(r.mention){ const rest=inp.value.replace(/^@\w+\s*/,""); inp.value=r.mention+" "+rest; } inp.focus(); }); }
+  $("#iconvoform").addEventListener("submit", async e=>{
+    e.preventDefault(); const v=inp.value.trim(); if(!v) return; let to=null;
+    if(th.kind==="team"){ const r=teamRecipients(p)[+($("#iroute").value||0)]; if(r && r.label!=="Care team") to=r.label; }
+    inp.value="";
+    await api.post("/api/messages",{ threadId: th.id, body:v, to }); refreshAll();
+  });
+}
+function updateBadges(){ const n=totalUnread(); const b=$("#inboxBadge"); b.textContent=n; b.style.display=n?"":"none"; b.className="badge"+(n?"":" soft"); }
+
+// ---------- panel ----------
+function spark(id, pts, color){
+  const w=180,h=34,max=Math.max(...pts),min=Math.min(...pts);
+  const nx=i=>i/(pts.length-1)*w, ny=v=>h-4-((v-min)/((max-min)||1))*(h-8);
+  const d=pts.map((v,i)=>`${i?"L":"M"}${nx(i).toFixed(1)} ${ny(v).toFixed(1)}`).join(" ");
+  const area=`M0 ${h} `+pts.map((v,i)=>`L${nx(i).toFixed(1)} ${ny(v).toFixed(1)}`).join(" ")+` L${w} ${h} Z`;
+  $("#"+id).innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none"><path d="${area}" fill="${color}" opacity="0.12"/><path d="${d}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round"/><circle cx="${nx(pts.length-1).toFixed(1)}" cy="${ny(pts[pts.length-1]).toFixed(1)}" r="2.6" fill="${color}"/></svg>`;
+}
+function renderPanel(){
+  const cs=getComputedStyle(document.documentElement); const A=cs.getPropertyValue("--accent").trim(), G=cs.getPropertyValue("--good").trim(), W=cs.getPropertyValue("--warn").trim();
+  spark("sp1",[93.1,93.8,94.2,94.0,95.1,95.6,96.2],G); spark("sp2",[0.95,0.96,0.96,0.97,0.97,0.98,0.98],A);
+  spark("sp3",[82,84,83,86,85,87,88],W); spark("sp4",[9,8,7,6,6,5,4],G);
+  $("#funnel").innerHTML = [ {l:"Screened / eligible",v:100,n:"142"}, {l:"Baseline labs done",v:96,n:"136"},
+    {l:"First fill dispensed",v:92,n:"131"}, {l:"Refills continuous",v:88,n:"125"}, {l:"Renewal on time",v:83,n:"118"} ]
+    .map(f=>`<div class="frow"><div class="fl">${f.l}</div><div class="bar" style="width:${f.v}%">${f.v}%</div><div class="fv">${f.n}</div></div>`).join("");
+}
+
+// ---------- continuity board ----------
+const OUT_BASE = Date.UTC(2026, 6, 27);
+function outDate(days){ const d = new Date(OUT_BASE + days*86400000); return d.toLocaleDateString("en-US",{ day:"2-digit", month:"short", timeZone:"UTC" }); }
+function renderBoard(){
+  const rows = STATE.patients.slice().sort((a,b)=> (a.actWithin??a.supply) - (b.actWithin??b.supply));
+  $("#boardBody").innerHTML = rows.map(p=>{
+    const aw = (p.actWithin!=null) ? p.actWithin : Math.max(0, p.supply-2);
+    const awSev = aw<=1 ? "crit" : aw<=7 ? "warn" : "ok";
+    const supSev = p.supply<=7 ? "crit" : p.supply<=20 ? "warn" : "ok";
+    const pct = Math.max(6, Math.min(100, Math.round(p.supply/45*100)));
+    return `<tr tabindex="0" role="button" data-id="${p.id}" aria-label="Open ${esc(p.name)}">
+      <td><div class="bpt">${esc(p.name)}</div><div class="bmrn">${esc(p.mrn)} · MPR ${p.mpr.toFixed(2)}</div></td>
+      <td class="num"><div class="supplybar"><span class="bignum st-${supSev}">${p.supply}<small>d</small></span><span class="bar"><i class="sev-${supSev}" style="width:${pct}%"></i></span></div></td>
+      <td><span class="runsout st-${supSev}">${outDate(p.supply)}</span></td>
+      <td><span class="tag ${TYPE_TAG[p.type]}">${TYPE_LABEL[p.type]}</span> ${esc(p.action || p.headline)}</td>
+      <td class="num"><span class="actwithin st-${awSev}">${aw===0 ? "today" : aw+"d"}</span></td>
+      <td><span class="bstatus ${awSev}">${awSev==="crit" ? "Act now" : awSev==="warn" ? "This week" : "On track"}</span></td>
+    </tr>`;
+  }).join("");
+  $("#boardBody").querySelectorAll("tr").forEach(tr=>{
+    const open = ()=>{ selectPatient(tr.dataset.id); switchView("patient"); };
+    tr.addEventListener("click", open);
+    tr.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(); } });
+  });
+}
+
+// ---------- views ----------
+const TITLES = { board:["Continuity board","When each patient runs out · days to next best action"],
+  worklist:["Worklist","Prioritized by time-to-gap"], patient:["Patient 360","Lifecycle, orders & collaboration"],
+  inbox:["Inbox","Patient & care-team messaging"], panel:["Panel Health","Cohort continuity metrics"] };
+function switchView(v){
+  document.querySelectorAll(".view").forEach(s=>s.classList.toggle("active", s.id==="view-"+v));
+  document.querySelectorAll(".navitem").forEach(n=>n.setAttribute("aria-current", n.dataset.view===v));
+  $("#viewtitle").firstChild.textContent = TITLES[v][0]; $("#viewsub").textContent = TITLES[v][1];
+  if(v==="board") renderBoard(); if(v==="panel") renderPanel(); if(v==="inbox") renderInbox(); if(v==="worklist") renderWorklist();
+}
+document.querySelectorAll(".navitem").forEach(n=>n.addEventListener("click",()=>switchView(n.dataset.view)));
+$("#ifilters").addEventListener("click",e=>{ const b=e.target.closest(".chip"); if(!b) return; inboxFilter=b.dataset.f;
+  $("#ifilters").querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed", c===b)); renderInbox(); });
+$("#resetBtn").addEventListener("click", async ()=>{ if(!confirm("Reset the server to sample data? This clears all changes for everyone.")) return; await api.post("/api/reset"); openThread=null; filterType="all"; inboxFilter="all"; refreshAll(); toast("Server reset to sample data"); });
+
+// ---------- live sync ----------
+let lastRev = 0;
+function subscribe(){
+  const es = new EventSource("/api/events");
+  es.onopen = ()=>setLive(true);
+  es.onerror = ()=>setLive(false);
+  es.onmessage = async (e)=>{ let d; try{ d=JSON.parse(e.data); }catch(_){ return; }
+    if(typeof d.rev!=="number" || d.rev===lastRev) return; const first=lastRev===0; lastRev=d.rev;
+    if(!first) await refreshAll();
+  };
+}
+
+// ---------- init ----------
+(async function init(){
+  try { await refreshAll(); if(STATE.patients[0]) selectPatient(STATE.patients[0].id); switchView("board"); subscribe(); }
+  catch(e){ toast("Couldn't reach the server — is it running?"); setLive(false); }
+})();
+</script>
+</body>
+</html>
