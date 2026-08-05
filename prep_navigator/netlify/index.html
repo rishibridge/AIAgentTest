@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Continuity — a PrEP navigator console demo (The Damien Center palette): 30+ patient panel, continuity board, worklist, per-patient lifecycle timeline, Outreach and Financial-assistance team views, Care plan schedule, and inbox.">
+<meta name="description" content="Continuity — a PrEP navigator console demo (The Damien Center palette): 30+ patient panel, continuity board, worklist, per-patient lifecycle timeline, Outreach and Financial-assistance team views with a 5-step enrollment cycle tracker, Care plan schedule, and inbox.">
 <title>Continuity — PrEP Navigator Console</title>
 <style>
   /* Palette adopted from The Damien Center brand (damien.org): cyan #0fb3dc,
@@ -353,6 +353,7 @@
   .jstep.active .jdot { background: var(--surface); border-color: var(--accent); color: var(--accent-ink); box-shadow: 0 0 0 3px var(--accent-wash); }
   .jlbl { font-size: 8.5px; font-family: var(--mono); color: var(--ink-3); text-align: center; line-height: 1.1; }
   .jstep.active .jlbl { color: var(--accent-ink); font-weight: 700; } .jstep.done .jlbl { color: var(--ink-2); }
+  .jtrack.ftrack { grid-template-columns: repeat(5, 1fr); margin: 4px 0 2px; }
 
   /* financial enrollment cycle strip */
   .fincycle { display: flex; gap: 8px; flex-wrap: wrap; margin: 2px 0 20px; }
@@ -669,7 +670,7 @@ const STAGES = {
     fin:{horizon:"short",prog:"Copay card / PAP renewal",cov:"Insured + copay assistance"},
     hl:"Copay assistance expiring — re-enroll before next fill",why:"$0 copay program up for renewal · re-attest income to keep fills free",reply:"YES please handle it",
     steps:[D("Refill","current"),A("Re-enroll copay/PAP","income re-attestation","now"),W("Assistance active","","~5d"),W("Next fill $0","","~2wk")]},
-  fin_uninsured:{type:"finasst",asgn:"Financial",act:"Try event-based enrollment; bridge on Advancing Access",sev:"crit",aw:0,lead:"same day",leadsev:"warn",j:4,labs:"ok",
+  fin_uninsured:{type:"finasst",asgn:"Financial",act:"Try event-based enrollment; bridge on Advancing Access",sev:"crit",aw:0,lead:"same day",leadsev:"warn",j:4,labs:"ok",cyc:0,
     fin:{horizon:"short",prog:"SEP attempt + Gilead Advancing Access (free meds)",cov:"Uninsured"},
     hl:"Uninsured — try event-based enrollment now, else bridge on Advancing Access so cost never blocks the first fill",
     why:"⚠️ No coverage · try event-based (SEP) enrollment with Damien premium assistance; if no qualifying event, enroll in Gilead Advancing Access ($0 meds) and hold for open enrollment",reply:"thank you, I can't afford it otherwise",
@@ -679,7 +680,7 @@ const STAGES = {
     hl:"Has a plan but can't afford the premium — Damien premium assistance covers it",
     why:"Damien pays the monthly premium (ADAP / Ryan White funded) so the plan doesn't lapse and coverage stays continuous",reply:"thank you, the premium went up and I couldn't keep it",
     steps:[D("Marketplace plan active","subsidized"),A("Damien enrolls premium assistance","re-attest income","now"),W("Damien pays the premium","","~1wk"),W("Coverage locked for the year","","")]},
-  fin_buy_insurance:{type:"finasst",asgn:"Financial",act:"Open enrollment → enroll → switch to Damien pharmacy",sev:"warn",aw:12,lead:"Damien navigator",leadsev:"warn",j:6,labs:"ok",
+  fin_buy_insurance:{type:"finasst",asgn:"Financial",act:"Open enrollment → enroll → switch to Damien pharmacy",sev:"warn",aw:12,lead:"Damien navigator",leadsev:"warn",j:6,labs:"ok",cyc:3,
     fin:{horizon:"long",prog:"Marketplace enroll + Damien premium assistance → Damien pharmacy",cov:"Advancing Access → enrolling"},
     hl:"Long-term: enroll at open enrollment, then switch fills back to Damien pharmacy",
     why:"On Advancing Access now · at open enrollment Damien's navigators enroll them in a Marketplace plan (premium assistance + subsidy); once the plan is effective, fills switch back to Damien pharmacy (340B)",reply:"that would be a huge relief",
@@ -717,6 +718,7 @@ function buildPatient(s){
     feed:[{sev,t:"<b>"+g.act+"</b> — "+g.hl,m:"today · rules engine"}],threads:threadsFor(s,g),notes:notesFor(s,g) };
   if(s.by) p.outreach={ status:s.ost||(g.j<6?"In progress":"On PrEP"),lastContact:s.lc||"today",attempts:s.att||0,enrolledBy:s.by };
   if(g.fin) p.fin=g.fin;
+  if(g.cyc!=null) p.cyc=g.cyc;
   p.assignee = s.assignee || g.asgn || null;
   return p;
 }
@@ -1240,6 +1242,10 @@ function logOutreach(pid, kind){
 const HORIZON = { short:{lbl:"Short-term · $0 now",cls:"h-short"}, premium:{lbl:"Premium assistance",cls:"h-premium"}, long:{lbl:"Long-term · buy insurance",cls:"h-long"} };
 function financeRoster(){ return STATE.patients.filter(p => p.assignee==="Financial" || p.type==="finasst" || STATE.tasks.some(t=>t.pid===p.id && t.type==="finasst" && t.status==="open")); }
 function updateFinanceBadge(){ const n=STATE.tasks.filter(t=>t.type==="finasst" && t.status==="open").length; const b=$("#financeBadge"); if(!b) return; b.textContent=n; b.style.display=n?"":"none"; b.className="badge"+(n?"":" soft"); }
+const FIN_CYCLE_SHORT = ["Event-based","Advancing Access","Open enroll","Enroll","Damien Rx"];
+function financeCycleTrack(active){
+  return `<div class="jtrack ftrack" title="Uninsured → insured enrollment cycle">${FIN_CYCLE_SHORT.map((m,i)=>`<div class="jstep ${i<active?'done':i===active?'active':'todo'}"><span class="jdot">${i<active?'✓':''}</span><span class="jlbl">${m}</span></div>`).join("")}</div>`;
+}
 function financeCard(p){
   const f = p.fin || { horizon:"short", prog:"Assistance", cov:"—" };
   const h = HORIZON[f.horizon] || HORIZON.short;
@@ -1250,6 +1256,7 @@ function financeCard(p){
     <div class="otop"><div class="oav">${initials(p.name)}</div>
       <div style="flex:1"><div class="onm">${esc(p.name)}</div><div class="omrn">${esc(p.mrn)} · ${esc(p.provider)}${enroller}</div></div>
       <span class="hbadge ${h.cls}">${h.lbl}</span></div>
+    ${p.cyc!=null?financeCycleTrack(p.cyc):""}
     <div class="orow"><span class="k">Coverage</span><span class="v">${esc(f.cov)}</span></div>
     <div class="orow"><span class="k">Program</span><span class="v" style="font-weight:500">${esc(f.prog)}</span></div>
     <div class="orow"><span class="k">Supply</span><span class="v st-${cov.sev}">${cov.t}</span></div>
