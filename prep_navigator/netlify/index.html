@@ -470,7 +470,7 @@
     </section>
 
     <section class="view" id="view-finance">
-      <div class="sechead"><h2>Financial assistance team</h2><p>Patients who can't afford PrEP or coverage. <b>Short-term:</b> stand up $0 copay cards / PAP so fills never stall on cost. <b>Long-term:</b> premium assistance and help <b>buying insurance</b> for durable coverage. Cost is never a reason for a gap.</p></div>
+      <div class="sechead"><h2>Financial assistance team</h2><p>Patients who can't afford PrEP or coverage. <b>Short-term:</b> stand up $0 copay cards / PAP so fills never stall on cost. <b>Long-term:</b> Damien provides <b>premium assistance</b> and <b>insurance enrollment support</b> so coverage is durable. Cost is never a reason for a gap.</p></div>
       <div class="okpis" id="financeKpis"></div>
       <div id="financeGroups"></div>
     </section>
@@ -641,16 +641,16 @@ const STAGES = {
     hl:"Uninsured — stand up $0 copay + PAP so cost never blocks the first fill",
     why:"⚠️ No coverage · enroll copay card + patient-assistance program now so meds ship free, then start a real insurance application",reply:"thank you, I can't afford it otherwise",
     steps:[D("Screened — uninsured","~180% FPL"),A("Enroll copay card + PAP","Financial team","now"),W("$0 fills active","bridge coverage","~3d"),W("Start Marketplace/Medicaid app","long-term","~2wk")]},
-  fin_premium:{type:"finasst",asgn:"Financial",act:"Enroll premium assistance",sev:"warn",aw:5,lead:"Ryan White/ADAP",leadsev:"warn",j:6,labs:"ok",
-    fin:{horizon:"premium",prog:"ADAP / Ryan White premium assistance",cov:"Marketplace — premium at risk"},
-    hl:"Has a plan but can't afford the premium — enroll ADAP/Ryan White to pay it",
-    why:"Premium assistance pays the monthly premium so the plan doesn't lapse and coverage stays continuous",reply:"yes please, the premium went up",
-    steps:[D("Marketplace plan active","subsidized"),A("Enroll ADAP premium assistance","re-attest income","now"),W("Premiums paid by program","","~1wk"),W("Coverage locked for the year","","")]},
-  fin_buy_insurance:{type:"finasst",asgn:"Financial",act:"Buy insurance (open enrollment)",sev:"warn",aw:12,lead:"enroll",leadsev:"warn",j:6,labs:"ok",
-    fin:{horizon:"long",prog:"Marketplace/Medicaid enrollment + subsidy",cov:"Uninsured → enrolling"},
-    hl:"Long-term: financial assistance to buy a subsidized plan for durable coverage",
-    why:"Move off short-term PAP onto real insurance · subsidy + financial help to buy a Marketplace/Medicaid plan so coverage outlasts the assistance window",reply:"that would be a huge relief",
-    steps:[D("On $0 PAP now","bridge coverage"),A("Enroll in Marketplace/Medicaid","subsidy + financial assistance","open enrollment"),W("Plan effective Jan 1","",""),W("Transition PAP → insurance","seamless","")]},
+  fin_premium:{type:"finasst",asgn:"Financial",act:"Damien premium assistance",sev:"warn",aw:5,lead:"Damien pays premium",leadsev:"warn",j:6,labs:"ok",
+    fin:{horizon:"premium",prog:"Damien premium assistance (ADAP / Ryan White funded)",cov:"Marketplace — premium at risk"},
+    hl:"Has a plan but can't afford the premium — Damien premium assistance covers it",
+    why:"Damien pays the monthly premium (ADAP / Ryan White funded) so the plan doesn't lapse and coverage stays continuous",reply:"thank you, the premium went up and I couldn't keep it",
+    steps:[D("Marketplace plan active","subsidized"),A("Damien enrolls premium assistance","re-attest income","now"),W("Damien pays the premium","","~1wk"),W("Coverage locked for the year","","")]},
+  fin_buy_insurance:{type:"finasst",asgn:"Financial",act:"Damien enrollment support",sev:"warn",aw:12,lead:"Damien navigator",leadsev:"warn",j:6,labs:"ok",
+    fin:{horizon:"long",prog:"Damien enrollment support — Marketplace/Medicaid + subsidy",cov:"Uninsured → enrolling"},
+    hl:"Long-term: Damien enrollment support to buy a subsidized plan for durable coverage",
+    why:"Damien's certified navigators enroll them in a Marketplace/Medicaid plan (with premium assistance) so coverage outlasts the short-term PAP window",reply:"that would be a huge relief",
+    steps:[D("On $0 PAP now","bridge coverage"),A("Damien navigator enrolls in Marketplace/Medicaid","subsidy + premium assistance","open enrollment"),W("Plan effective Jan 1","",""),W("Damien keeps premium assistance active","seamless","")]},
   lab_overdue:{type:"lab",act:"Order HIV test",sev:"crit",aw:0,lead:"needs 2d lead",leadsev:"crit",j:6,labs:"overdue",
     hl:"HIV test > 90d — refill blocked until a current result",why:"Supply ends in 4d · Rx can't be re-authorized without a current HIV test",
     steps:[D("Encounter","complete"),A("Order HIV test (home kit)","result gates the refill","now"),W("Re-authorize refill","on result","~4d"),W("Confirm + ship","","~6d")]},
@@ -1202,7 +1202,7 @@ function renderFinance(){
 function logFinance(pid){
   const p = P(pid); if(!p) return;
   const f = p.fin || {}; const prog = f.prog || "financial assistance";
-  p.notes.unshift({ type:"Note", author:"Jordan Ellis (financial)", t:`Enrolled in ${prog}. `+(f.horizon==="long"?"Insurance application submitted — bridging with PAP until the plan is effective.":"Fills are $0 while coverage is worked out."), time:"just now" });
+  p.notes.unshift({ type:"Note", author:"Jordan Ellis · Damien Benefits", t:`Enrolled in ${prog}. `+(f.horizon==="long"?"Damien navigator submitted the Marketplace/Medicaid application — bridging with PAP until the plan is effective.":f.horizon==="premium"?"Damien premium assistance active — the plan won't lapse.":"Fills are $0 while coverage is worked out."), time:"just now" });
   STATE.tasks.forEach(t=>{ if(t.pid===pid && t.type==="finasst" && t.status==="open") t.status="done"; });
   persist(); renderFinance(); updateFinanceBadge();
   if($("#view-worklist").classList.contains("active")) renderWorklist();
