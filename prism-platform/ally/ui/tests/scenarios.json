@@ -1,0 +1,1402 @@
+[
+  {
+    "id": 1,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 1: Patient Consent & The Firewall - Scenario 1",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 2,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 2: Patient Consent & The Firewall - Scenario 2",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 3,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 3: Patient Consent & The Firewall - Scenario 3",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 4,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 4: Patient Consent & The Firewall - Scenario 4",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 5,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 5: Patient Consent & The Firewall - Scenario 5",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 6,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 6: Patient Consent & The Firewall - Scenario 6",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 7,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 7: Patient Consent & The Firewall - Scenario 7",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 8,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 8: Patient Consent & The Firewall - Scenario 8",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 9,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 9: Patient Consent & The Firewall - Scenario 9",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 10,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 10: Patient Consent & The Firewall - Scenario 10",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 11,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 11: Patient Consent & The Firewall - Scenario 11",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 12,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 12: Patient Consent & The Firewall - Scenario 12",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 13,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 13: Patient Consent & The Firewall - Scenario 13",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 14,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 14: Patient Consent & The Firewall - Scenario 14",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 15,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 15: Patient Consent & The Firewall - Scenario 15",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 16,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 16: Patient Consent & The Firewall - Scenario 16",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 17,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 17: Patient Consent & The Firewall - Scenario 17",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 18,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 18: Patient Consent & The Firewall - Scenario 18",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 19,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 19: Patient Consent & The Firewall - Scenario 19",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 20,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 20: Patient Consent & The Firewall - Scenario 20",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 21,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 21: Patient Consent & The Firewall - Scenario 21",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 22,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 22: Patient Consent & The Firewall - Scenario 22",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 23,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 23: Patient Consent & The Firewall - Scenario 23",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 24,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 24: Patient Consent & The Firewall - Scenario 24",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 25,
+    "category": "Patient Consent & The Firewall",
+    "name": "Test 25: Patient Consent & The Firewall - Scenario 25",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 26,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 26: Clinical Safety & Emergency Routing - Scenario 1",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 27,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 27: Clinical Safety & Emergency Routing - Scenario 2",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 28,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 28: Clinical Safety & Emergency Routing - Scenario 3",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 29,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 29: Clinical Safety & Emergency Routing - Scenario 4",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 30,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 30: Clinical Safety & Emergency Routing - Scenario 5",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 31,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 31: Clinical Safety & Emergency Routing - Scenario 6",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 32,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 32: Clinical Safety & Emergency Routing - Scenario 7",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 33,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 33: Clinical Safety & Emergency Routing - Scenario 8",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 34,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 34: Clinical Safety & Emergency Routing - Scenario 9",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 35,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 35: Clinical Safety & Emergency Routing - Scenario 10",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 36,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 36: Clinical Safety & Emergency Routing - Scenario 11",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 37,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 37: Clinical Safety & Emergency Routing - Scenario 12",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 38,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 38: Clinical Safety & Emergency Routing - Scenario 13",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 39,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 39: Clinical Safety & Emergency Routing - Scenario 14",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 40,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 40: Clinical Safety & Emergency Routing - Scenario 15",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 41,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 41: Clinical Safety & Emergency Routing - Scenario 16",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 42,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 42: Clinical Safety & Emergency Routing - Scenario 17",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 43,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 43: Clinical Safety & Emergency Routing - Scenario 18",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 44,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 44: Clinical Safety & Emergency Routing - Scenario 19",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 45,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 45: Clinical Safety & Emergency Routing - Scenario 20",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 46,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 46: Clinical Safety & Emergency Routing - Scenario 21",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 47,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 47: Clinical Safety & Emergency Routing - Scenario 22",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 48,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 48: Clinical Safety & Emergency Routing - Scenario 23",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 49,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 49: Clinical Safety & Emergency Routing - Scenario 24",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 50,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 50: Clinical Safety & Emergency Routing - Scenario 25",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 51,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 51: Clinical Safety & Emergency Routing - Scenario 26",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 52,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 52: Clinical Safety & Emergency Routing - Scenario 27",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 53,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 53: Clinical Safety & Emergency Routing - Scenario 28",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 54,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 54: Clinical Safety & Emergency Routing - Scenario 29",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 55,
+    "category": "Clinical Safety & Emergency Routing",
+    "name": "Test 55: Clinical Safety & Emergency Routing - Scenario 30",
+    "action": "simulate_chat",
+    "expected": "pass"
+  },
+  {
+    "id": 56,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 56: Memory Graph & Consolidation - Scenario 1",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 57,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 57: Memory Graph & Consolidation - Scenario 2",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 58,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 58: Memory Graph & Consolidation - Scenario 3",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 59,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 59: Memory Graph & Consolidation - Scenario 4",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 60,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 60: Memory Graph & Consolidation - Scenario 5",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 61,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 61: Memory Graph & Consolidation - Scenario 6",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 62,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 62: Memory Graph & Consolidation - Scenario 7",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 63,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 63: Memory Graph & Consolidation - Scenario 8",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 64,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 64: Memory Graph & Consolidation - Scenario 9",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 65,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 65: Memory Graph & Consolidation - Scenario 10",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 66,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 66: Memory Graph & Consolidation - Scenario 11",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 67,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 67: Memory Graph & Consolidation - Scenario 12",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 68,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 68: Memory Graph & Consolidation - Scenario 13",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 69,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 69: Memory Graph & Consolidation - Scenario 14",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 70,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 70: Memory Graph & Consolidation - Scenario 15",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 71,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 71: Memory Graph & Consolidation - Scenario 16",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 72,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 72: Memory Graph & Consolidation - Scenario 17",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 73,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 73: Memory Graph & Consolidation - Scenario 18",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 74,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 74: Memory Graph & Consolidation - Scenario 19",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 75,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 75: Memory Graph & Consolidation - Scenario 20",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 76,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 76: Memory Graph & Consolidation - Scenario 21",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 77,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 77: Memory Graph & Consolidation - Scenario 22",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 78,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 78: Memory Graph & Consolidation - Scenario 23",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 79,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 79: Memory Graph & Consolidation - Scenario 24",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 80,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 80: Memory Graph & Consolidation - Scenario 25",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 81,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 81: Memory Graph & Consolidation - Scenario 26",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 82,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 82: Memory Graph & Consolidation - Scenario 27",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 83,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 83: Memory Graph & Consolidation - Scenario 28",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 84,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 84: Memory Graph & Consolidation - Scenario 29",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 85,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 85: Memory Graph & Consolidation - Scenario 30",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 86,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 86: Memory Graph & Consolidation - Scenario 31",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 87,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 87: Memory Graph & Consolidation - Scenario 32",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 88,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 88: Memory Graph & Consolidation - Scenario 33",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 89,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 89: Memory Graph & Consolidation - Scenario 34",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 90,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 90: Memory Graph & Consolidation - Scenario 35",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 91,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 91: Memory Graph & Consolidation - Scenario 36",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 92,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 92: Memory Graph & Consolidation - Scenario 37",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 93,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 93: Memory Graph & Consolidation - Scenario 38",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 94,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 94: Memory Graph & Consolidation - Scenario 39",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 95,
+    "category": "Memory Graph & Consolidation",
+    "name": "Test 95: Memory Graph & Consolidation - Scenario 40",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 96,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 96: The DDx Arena / Provider Copilot - Scenario 1",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 97,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 97: The DDx Arena / Provider Copilot - Scenario 2",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 98,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 98: The DDx Arena / Provider Copilot - Scenario 3",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 99,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 99: The DDx Arena / Provider Copilot - Scenario 4",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 100,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 100: The DDx Arena / Provider Copilot - Scenario 5",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 101,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 101: The DDx Arena / Provider Copilot - Scenario 6",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 102,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 102: The DDx Arena / Provider Copilot - Scenario 7",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 103,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 103: The DDx Arena / Provider Copilot - Scenario 8",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 104,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 104: The DDx Arena / Provider Copilot - Scenario 9",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 105,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 105: The DDx Arena / Provider Copilot - Scenario 10",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 106,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 106: The DDx Arena / Provider Copilot - Scenario 11",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 107,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 107: The DDx Arena / Provider Copilot - Scenario 12",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 108,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 108: The DDx Arena / Provider Copilot - Scenario 13",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 109,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 109: The DDx Arena / Provider Copilot - Scenario 14",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 110,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 110: The DDx Arena / Provider Copilot - Scenario 15",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 111,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 111: The DDx Arena / Provider Copilot - Scenario 16",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 112,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 112: The DDx Arena / Provider Copilot - Scenario 17",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 113,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 113: The DDx Arena / Provider Copilot - Scenario 18",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 114,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 114: The DDx Arena / Provider Copilot - Scenario 19",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 115,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 115: The DDx Arena / Provider Copilot - Scenario 20",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 116,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 116: The DDx Arena / Provider Copilot - Scenario 21",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 117,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 117: The DDx Arena / Provider Copilot - Scenario 22",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 118,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 118: The DDx Arena / Provider Copilot - Scenario 23",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 119,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 119: The DDx Arena / Provider Copilot - Scenario 24",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 120,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 120: The DDx Arena / Provider Copilot - Scenario 25",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 121,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 121: The DDx Arena / Provider Copilot - Scenario 26",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 122,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 122: The DDx Arena / Provider Copilot - Scenario 27",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 123,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 123: The DDx Arena / Provider Copilot - Scenario 28",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 124,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 124: The DDx Arena / Provider Copilot - Scenario 29",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 125,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 125: The DDx Arena / Provider Copilot - Scenario 30",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 126,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 126: The DDx Arena / Provider Copilot - Scenario 31",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 127,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 127: The DDx Arena / Provider Copilot - Scenario 32",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 128,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 128: The DDx Arena / Provider Copilot - Scenario 33",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 129,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 129: The DDx Arena / Provider Copilot - Scenario 34",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 130,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 130: The DDx Arena / Provider Copilot - Scenario 35",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 131,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 131: The DDx Arena / Provider Copilot - Scenario 36",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 132,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 132: The DDx Arena / Provider Copilot - Scenario 37",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 133,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 133: The DDx Arena / Provider Copilot - Scenario 38",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 134,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 134: The DDx Arena / Provider Copilot - Scenario 39",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 135,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 135: The DDx Arena / Provider Copilot - Scenario 40",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 136,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 136: The DDx Arena / Provider Copilot - Scenario 41",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 137,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 137: The DDx Arena / Provider Copilot - Scenario 42",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 138,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 138: The DDx Arena / Provider Copilot - Scenario 43",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 139,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 139: The DDx Arena / Provider Copilot - Scenario 44",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 140,
+    "category": "The DDx Arena / Provider Copilot",
+    "name": "Test 140: The DDx Arena / Provider Copilot - Scenario 45",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 141,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 141: Care Coordination & Provider Handoffs - Scenario 1",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 142,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 142: Care Coordination & Provider Handoffs - Scenario 2",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 143,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 143: Care Coordination & Provider Handoffs - Scenario 3",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 144,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 144: Care Coordination & Provider Handoffs - Scenario 4",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 145,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 145: Care Coordination & Provider Handoffs - Scenario 5",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 146,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 146: Care Coordination & Provider Handoffs - Scenario 6",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 147,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 147: Care Coordination & Provider Handoffs - Scenario 7",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 148,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 148: Care Coordination & Provider Handoffs - Scenario 8",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 149,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 149: Care Coordination & Provider Handoffs - Scenario 9",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 150,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 150: Care Coordination & Provider Handoffs - Scenario 10",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 151,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 151: Care Coordination & Provider Handoffs - Scenario 11",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 152,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 152: Care Coordination & Provider Handoffs - Scenario 12",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 153,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 153: Care Coordination & Provider Handoffs - Scenario 13",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 154,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 154: Care Coordination & Provider Handoffs - Scenario 14",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 155,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 155: Care Coordination & Provider Handoffs - Scenario 15",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 156,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 156: Care Coordination & Provider Handoffs - Scenario 16",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 157,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 157: Care Coordination & Provider Handoffs - Scenario 17",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 158,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 158: Care Coordination & Provider Handoffs - Scenario 18",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 159,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 159: Care Coordination & Provider Handoffs - Scenario 19",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 160,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 160: Care Coordination & Provider Handoffs - Scenario 20",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 161,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 161: Care Coordination & Provider Handoffs - Scenario 21",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 162,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 162: Care Coordination & Provider Handoffs - Scenario 22",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 163,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 163: Care Coordination & Provider Handoffs - Scenario 23",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 164,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 164: Care Coordination & Provider Handoffs - Scenario 24",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 165,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 165: Care Coordination & Provider Handoffs - Scenario 25",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 166,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 166: Care Coordination & Provider Handoffs - Scenario 26",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 167,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 167: Care Coordination & Provider Handoffs - Scenario 27",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 168,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 168: Care Coordination & Provider Handoffs - Scenario 28",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 169,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 169: Care Coordination & Provider Handoffs - Scenario 29",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 170,
+    "category": "Care Coordination & Provider Handoffs",
+    "name": "Test 170: Care Coordination & Provider Handoffs - Scenario 30",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 171,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 171: E2E Integration & UX Flows - Scenario 1",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 172,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 172: E2E Integration & UX Flows - Scenario 2",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 173,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 173: E2E Integration & UX Flows - Scenario 3",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 174,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 174: E2E Integration & UX Flows - Scenario 4",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 175,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 175: E2E Integration & UX Flows - Scenario 5",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 176,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 176: E2E Integration & UX Flows - Scenario 6",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 177,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 177: E2E Integration & UX Flows - Scenario 7",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 178,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 178: E2E Integration & UX Flows - Scenario 8",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 179,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 179: E2E Integration & UX Flows - Scenario 9",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 180,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 180: E2E Integration & UX Flows - Scenario 10",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 181,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 181: E2E Integration & UX Flows - Scenario 11",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 182,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 182: E2E Integration & UX Flows - Scenario 12",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 183,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 183: E2E Integration & UX Flows - Scenario 13",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 184,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 184: E2E Integration & UX Flows - Scenario 14",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 185,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 185: E2E Integration & UX Flows - Scenario 15",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 186,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 186: E2E Integration & UX Flows - Scenario 16",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 187,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 187: E2E Integration & UX Flows - Scenario 17",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 188,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 188: E2E Integration & UX Flows - Scenario 18",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 189,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 189: E2E Integration & UX Flows - Scenario 19",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 190,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 190: E2E Integration & UX Flows - Scenario 20",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 191,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 191: E2E Integration & UX Flows - Scenario 21",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 192,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 192: E2E Integration & UX Flows - Scenario 22",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 193,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 193: E2E Integration & UX Flows - Scenario 23",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 194,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 194: E2E Integration & UX Flows - Scenario 24",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 195,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 195: E2E Integration & UX Flows - Scenario 25",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 196,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 196: E2E Integration & UX Flows - Scenario 26",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 197,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 197: E2E Integration & UX Flows - Scenario 27",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 198,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 198: E2E Integration & UX Flows - Scenario 28",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 199,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 199: E2E Integration & UX Flows - Scenario 29",
+    "action": "view_dashboard",
+    "expected": "pass"
+  },
+  {
+    "id": 200,
+    "category": "E2E Integration & UX Flows",
+    "name": "Test 200: E2E Integration & UX Flows - Scenario 30",
+    "action": "view_dashboard",
+    "expected": "pass"
+  }
+]
