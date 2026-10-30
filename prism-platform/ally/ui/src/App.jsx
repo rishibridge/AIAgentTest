@@ -392,6 +392,25 @@ function LandingPage({ onDemoMode, onChatMode, onProviderMode }) {
           </div>
         </button>
       </div>
+
+      {/* Ownership & Copyright Footer */}
+      <div
+        data-testid="copyright-footer"
+        style={{
+          position: 'absolute',
+          bottom: '20px',
+          left: 0,
+          right: 0,
+          textAlign: 'center',
+          fontFamily: "'Work Sans', sans-serif",
+          fontSize: '0.72rem',
+          letterSpacing: '0.08em',
+          color: '#6B6560',
+          zIndex: 1,
+        }}
+      >
+        © 2026 <span style={{ color: '#9B9285', fontWeight: 500 }}>Rishi Khullar — Unusual Insights Inc.</span> All Rights Reserved. Proprietary & Confidential — Unauthorized copying or reverse engineering strictly prohibited.
+      </div>
     </div>
   );
 }
@@ -1191,8 +1210,12 @@ function App() {
                 <li style={{ marginBottom: '8px' }}><strong style={{ color: '#D9B873' }}>All data is visible to developers.</strong> Any text entered into this system may be viewed by the development team for debugging and improvement purposes.</li>
                 <li style={{ marginBottom: '8px' }}><strong style={{ color: '#D9B873' }}>Not a medical device.</strong> This system does not provide medical advice, diagnosis, or treatment recommendations. It is a technology demonstration only.</li>
                 <li style={{ marginBottom: '8px' }}><strong style={{ color: '#D9B873' }}>No warranty or liability.</strong> The developer assumes no responsibility for any outcomes, decisions, or actions taken based on interactions with this system.</li>
+                <li style={{ marginBottom: '8px' }}><strong style={{ color: '#D9B873' }}>Proprietary IP & Non-Reverse-Engineering.</strong> This platform—including the Prism Architecture, Temporal Memory Graph, Adversarial Reasoning Engine, workflows, and UI/UX—is the exclusive confidential and proprietary property of <strong style={{ color: '#EDEAE3' }}>Rishi Khullar and Unusual Insights Inc.</strong> By proceeding, you agree not to copy, reproduce, record, scrape, reverse-engineer, decompile, or use any concepts or workflows shown here to build or train a competing product or service.</li>
               </ul>
-              <p style={{ color: '#9B9285', fontSize: '0.8rem', fontStyle: 'italic' }}>All patient scenarios shown are fictional. Any resemblance to real individuals is coincidental.</p>
+              <p style={{ color: '#9B9285', fontSize: '0.8rem', fontStyle: 'italic', marginBottom: '10px' }}>All patient scenarios shown are fictional. Any resemblance to real individuals is coincidental.</p>
+              <div data-testid="disclaimer-copyright" style={{ paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.08)', color: '#9B9285', fontSize: '0.75rem', letterSpacing: '0.04em' }}>
+                © 2026 <strong style={{ color: '#D9B873' }}>Rishi Khullar — Unusual Insights Inc.</strong> All Rights Reserved. Proprietary & Confidential.
+              </div>
             </div>
             <button
               onClick={() => setShowDisclaimer(false)}
@@ -1200,7 +1223,7 @@ function App() {
               onMouseOver={e => e.target.style.transform = 'scale(1.02)'}
               onMouseOut={e => e.target.style.transform = 'scale(1)'}
             >
-              I Understand — Proceed to Demo
+              I Understand & Agree — Proceed to Demo
             </button>
           </div>
         </div>
