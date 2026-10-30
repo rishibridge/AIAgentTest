@@ -160,7 +160,7 @@ function LandingPage({ onDemoMode, onChatMode, onProviderMode }) {
       }} />
 
       {/* Logo / Title */}
-      <div style={{ textAlign: 'center', marginBottom: '60px', position: 'relative', zIndex: 1 }}>
+      <div style={{ textAlign: 'center', marginBottom: '40px', position: 'relative', zIndex: 1 }}>
         <div style={{
           fontFamily: "'Cormorant Garamond', serif", fontSize: '1rem',
           color: '#9B9285', textTransform: 'uppercase', letterSpacing: '0.25em',
@@ -398,15 +398,16 @@ function LandingPage({ onDemoMode, onChatMode, onProviderMode }) {
         data-testid="copyright-footer"
         style={{
           position: 'absolute',
-          bottom: '20px',
+          bottom: '10px',
           left: 0,
           right: 0,
           textAlign: 'center',
           fontFamily: "'Work Sans', sans-serif",
-          fontSize: '0.72rem',
+          fontSize: '0.7rem',
           letterSpacing: '0.08em',
           color: '#6B6560',
           zIndex: 1,
+          pointerEvents: 'none',
         }}
       >
         © 2026 <span style={{ color: '#9B9285', fontWeight: 500 }}>Rishi Khullar — Unusual Insights Inc.</span> All Rights Reserved. Proprietary & Confidential — Unauthorized copying or reverse engineering strictly prohibited.
@@ -1197,29 +1198,29 @@ function App() {
     return (
       <>
       {showDisclaimer && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
-          <div style={{ background: '#0D0F14', border: '1px solid rgba(255,80,80,0.3)', borderRadius: '16px', padding: '40px', maxWidth: '560px', width: '90%', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-              <span style={{ fontSize: '2rem' }}>⚠️</span>
-              <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', fontWeight: 700, color: '#FF6B6B', margin: 0 }}>Experimental Demo — Not for Clinical Use</h2>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', overflowY: 'auto', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+          <div style={{ background: '#0D0F14', border: '1px solid rgba(255,80,80,0.3)', borderRadius: '16px', padding: '20px 28px', maxWidth: '680px', width: '92%', maxHeight: '94vh', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexShrink: 0 }}>
+              <span style={{ fontSize: '1.4rem' }}>⚠️</span>
+              <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.4rem', fontWeight: 700, color: '#FF6B6B', margin: 0 }}>Experimental Demo — Not for Clinical Use</h2>
             </div>
-            <div style={{ color: '#EDEAE3', fontSize: '0.9rem', lineHeight: 1.7, marginBottom: '24px' }}>
-              <p style={{ marginBottom: '12px' }}>This application is an <strong style={{ color: '#FF6B6B' }}>experimental research prototype</strong> under active development. By proceeding, you acknowledge:</p>
-              <ul style={{ paddingLeft: '20px', margin: '0 0 16px 0' }}>
-                <li style={{ marginBottom: '8px' }}><strong style={{ color: '#D9B873' }}>No PHI or PPI.</strong> Do not enter any Protected Health Information or Personal Patient Information. Data protection safeguards are not in place.</li>
-                <li style={{ marginBottom: '8px' }}><strong style={{ color: '#D9B873' }}>All data is visible to developers.</strong> Any text entered into this system may be viewed by the development team for debugging and improvement purposes.</li>
-                <li style={{ marginBottom: '8px' }}><strong style={{ color: '#D9B873' }}>Not a medical device.</strong> This system does not provide medical advice, diagnosis, or treatment recommendations. It is a technology demonstration only.</li>
-                <li style={{ marginBottom: '8px' }}><strong style={{ color: '#D9B873' }}>No warranty or liability.</strong> The developer assumes no responsibility for any outcomes, decisions, or actions taken based on interactions with this system.</li>
-                <li style={{ marginBottom: '8px' }}><strong style={{ color: '#D9B873' }}>Proprietary IP & Non-Reverse-Engineering.</strong> This platform—including the Prism Architecture, Temporal Memory Graph, Adversarial Reasoning Engine, workflows, and UI/UX—is the exclusive confidential and proprietary property of <strong style={{ color: '#EDEAE3' }}>Rishi Khullar and Unusual Insights Inc.</strong> By proceeding, you agree not to copy, reproduce, record, scrape, reverse-engineer, decompile, or use any concepts or workflows shown here to build or train a competing product or service.</li>
+            <div style={{ color: '#EDEAE3', fontSize: '0.8rem', lineHeight: 1.48, marginBottom: '12px', overflowY: 'auto', flex: 1 }}>
+              <p style={{ margin: '0 0 8px 0' }}>This application is an <strong style={{ color: '#FF6B6B' }}>experimental research prototype</strong> under active development. By proceeding, you acknowledge:</p>
+              <ul style={{ paddingLeft: '18px', margin: '0 0 10px 0' }}>
+                <li style={{ marginBottom: '5px' }}><strong style={{ color: '#D9B873' }}>No PHI or PPI.</strong> Do not enter any Protected Health Information or Personal Patient Information. Data protection safeguards are not in place.</li>
+                <li style={{ marginBottom: '5px' }}><strong style={{ color: '#D9B873' }}>All data is visible to developers.</strong> Any text entered into this system may be viewed by the development team for debugging and improvement purposes.</li>
+                <li style={{ marginBottom: '5px' }}><strong style={{ color: '#D9B873' }}>Not a medical device.</strong> This system does not provide medical advice, diagnosis, or treatment recommendations. It is a technology demonstration only.</li>
+                <li style={{ marginBottom: '5px' }}><strong style={{ color: '#D9B873' }}>No warranty or liability.</strong> The developer assumes no responsibility for any outcomes, decisions, or actions taken based on interactions with this system.</li>
+                <li style={{ marginBottom: '5px' }}><strong style={{ color: '#D9B873' }}>Proprietary IP & Non-Reverse-Engineering.</strong> This platform—including the Prism Architecture, Temporal Memory Graph, Adversarial Reasoning Engine, workflows, and UI/UX—is the exclusive confidential and proprietary property of <strong style={{ color: '#EDEAE3' }}>Rishi Khullar and Unusual Insights Inc.</strong> By proceeding, you agree not to copy, reproduce, record, scrape, reverse-engineer, decompile, or use any concepts or workflows shown here to build or train a competing product or service.</li>
               </ul>
-              <p style={{ color: '#9B9285', fontSize: '0.8rem', fontStyle: 'italic', marginBottom: '10px' }}>All patient scenarios shown are fictional. Any resemblance to real individuals is coincidental.</p>
-              <div data-testid="disclaimer-copyright" style={{ paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.08)', color: '#9B9285', fontSize: '0.75rem', letterSpacing: '0.04em' }}>
+              <p style={{ color: '#9B9285', fontSize: '0.74rem', fontStyle: 'italic', margin: '0 0 6px 0' }}>All patient scenarios shown are fictional. Any resemblance to real individuals is coincidental.</p>
+              <div data-testid="disclaimer-copyright" style={{ paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.08)', color: '#9B9285', fontSize: '0.73rem', letterSpacing: '0.03em' }}>
                 © 2026 <strong style={{ color: '#D9B873' }}>Rishi Khullar — Unusual Insights Inc.</strong> All Rights Reserved. Proprietary & Confidential.
               </div>
             </div>
             <button
               onClick={() => setShowDisclaimer(false)}
-              style={{ width: '100%', padding: '14px', background: 'linear-gradient(135deg, #D9B873, #C4A35A)', border: 'none', borderRadius: '8px', color: '#050608', fontWeight: 700, fontSize: '1rem', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.1em', transition: 'transform 0.2s' }}
+              style={{ width: '100%', padding: '12px', flexShrink: 0, background: 'linear-gradient(135deg, #D9B873, #C4A35A)', border: 'none', borderRadius: '8px', color: '#050608', fontWeight: 700, fontSize: '0.92rem', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.1em', transition: 'transform 0.2s' }}
               onMouseOver={e => e.target.style.transform = 'scale(1.02)'}
               onMouseOut={e => e.target.style.transform = 'scale(1)'}
             >
