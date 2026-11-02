@@ -271,6 +271,45 @@ class ConversationEngine:
         # Clean stray literal markdown bold/italic markers for clean chat bubble rendering (H8)
         raw_text = out.get("text", "")
         cleaned_text = re.sub(r"\*\*([^*]+)\*\*", r"\1", raw_text)
+
+        # Guarantee 3-option consent menu on non-emergency substance/unprescribed pill disclosures
+        msg_low = (patient_message or "").lower()
+        rep_low = cleaned_text.lower()
+        is_substance_disclosure = any(
+            k in msg_low
+            for k in (
+                "friend's", "neighbor's", "oxycodone", "xanax", "benzo",
+                "anxiety pill", "extra tramadol", "smoked some weed", "marijuana", "cocaine",
+            )
+        )
+        is_emergency_turn = any(
+            tc.get("tool") == "trigger_emergency_alert" for tc in out.get("tool_calls", [])
+        ) or any(
+            k in msg_low
+            for k in (
+                "too many pills", "whole bottle", "full bottle", "overdose",
+                "end my life", "kill myself", "can't wake", "stopped breathing",
+                "swallow all", "take all of them",
+            )
+        )
+        is_consent_selection = any(
+            k in msg_low
+            for k in ("keep it between us", "between us", "don't want my doctor", "share it", "forget it")
+        )
+        has_all_3_consent_options = (
+            ("share" in rep_low or "clinician" in rep_low or "dr. patel" in rep_low)
+            and ("between us" in rep_low or "private" in rep_low or "undisclosed" in rep_low)
+            and ("forget" in rep_low or "not record" in rep_low or "won't record" in rep_low)
+        )
+        if is_substance_disclosure and not is_emergency_turn and not is_consent_selection and not has_all_3_consent_options:
+            cleaned_text = (
+                cleaned_text.rstrip()
+                + "\n\nWhen you're ready, let me know how you'd like me to handle this in your record: "
+                "1. Share it with Dr. Patel so she can support you safely, "
+                "2. Keep it between us as a private undisclosed note, or "
+                "3. Forget it entirely so nothing is recorded."
+            )
+
         out["text"] = cleaned_text
 
         # Audit turn reply for high-significance / safety memory misses and log any miss as a divergence event (H9)
