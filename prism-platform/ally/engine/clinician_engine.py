@@ -101,13 +101,16 @@ Generate your clinical consultation response. Remember to respond in the JSON fo
             debate_result = None
             # Use gemini-2.5-flash for all clinician chat (same model that works for patient chat)
             chat_model = 'gemini-2.5-flash'
-            if "[DDX ARENA" in clinician_message:
+            is_ddx_arena = "[DDX ARENA" in clinician_message
+            if is_ddx_arena:
                 chat_model = 'gemini-2.5-flash'
                 reasoning = ReasoningEngine(graph=patient_graph, llm_client=self.llm)
-                debate_result = reasoning.analyze(clinician_message)
-                prompt = f"{context}\n\n---\nCLINICIAN'S MESSAGE:\n{clinician_message}\n\nREASONING ENGINE DEBATE RESULTS:\nAdvocate: {json.dumps(debate_result.get('advocate', ''))}\nSkeptic: {json.dumps(debate_result.get('skeptic', ''))}\nJudge: {json.dumps(debate_result.get('judge', ''))}\n\nSynthesize these results into your final clinical consultation response JSON."
+                memory_ctx = reasoning._build_context_prompt(clinician_message)
+                prompt = f"{context}\n\n{memory_ctx}\n\n---\nCLINICIAN'S MESSAGE:\n{clinician_message}\n\nPerform an adversarial clinical evaluation (Advocate case, Skeptic counter-case, and Judge synthesis) grounded strictly in the patient graph and divergences above, and return a SINGLE JSON object containing \"text\", \"flags\", \"node_updates\", \"edge_updates\", \"referenced_nodes\", \"recommendations\", and \"debate\": {{\"advocate\": {{\"position\": \"...\", \"evidence\": []}}, \"skeptic\": {{\"critique\": \"...\", \"counter_evidence\": []}}, \"judge\": {{\"verdict\": \"...\", \"confidence\": 0.85}}}}."
 
             result = self.llm.generate_json(prompt, system_instruction=CLINICIAN_SYSTEM_PROMPT, model=chat_model)
+            if is_ddx_arena and isinstance(result.get("debate"), dict):
+                debate_result = result["debate"]
             print(f"[ClinicianEngine] LLM returned keys: {list(result.keys())}")
             
             # If JSON parsing produced an empty or keyless result, fall back to raw text generation
@@ -250,7 +253,7 @@ Respond as JSON:
             for kind, kind_nodes in sorted(by_kind.items()):
                 ctx += f"\n### {kind.upper()}\n"
                 for n in kind_nodes:
-                    label = n.properties.get("label", n.id)
+                    label = n.properties.get("label") or n.properties.get("text") or n.id
                     node_id = n.id
 
                     # Apply visibility rules

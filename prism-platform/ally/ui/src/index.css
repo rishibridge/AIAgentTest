@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Work+Sans:wght@300;400;500;600;700&display=swap');
+@import url('/fonts/fonts.css');
 
 /* ── Reset ─────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -26,4 +26,52 @@ body { font-family: 'Work Sans', system-ui, sans-serif; background: #050608; col
   border: 1px solid rgba(255,255,255,0.08);
   backdrop-filter: blur(12px);
   border-radius: 12px;
+}
+
+/* ── Responsive Mobile Layout (H7: iPhone 13 390x844 & narrow viewports) ── */
+.ally-mobile-tab-bar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .ally-graph-hint {
+    display: none !important;
+  }
+
+  .ally-live-header {
+    height: auto !important;
+    min-height: 48px !important;
+    padding: 8px 12px !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .ally-live-header-subtitle {
+    display: none !important;
+  }
+
+  .ally-mobile-tab-bar {
+    display: flex !important;
+    width: 100%;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    background: #0B0D11;
+    flex-shrink: 0;
+  }
+
+  .ally-live-split {
+    flex-direction: column !important;
+  }
+
+  .ally-live-pane-hidden-mobile {
+    display: none !important;
+  }
+
+  .ally-live-pane-active-mobile {
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    border-right: none !important;
+  }
 }

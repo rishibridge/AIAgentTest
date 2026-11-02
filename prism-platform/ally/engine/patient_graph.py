@@ -20,6 +20,17 @@ NODE_KINDS = [
 ]
 
 
+def _coerce_label_str(raw: Any, fallback: str = "") -> str:
+    """Ensure node/edge labels are always strings even if a dict was passed."""
+    if isinstance(raw, str):
+        return raw
+    if isinstance(raw, dict):
+        return str(raw.get("text") or raw.get("label") or fallback or str(raw))
+    if raw is None:
+        return fallback
+    return str(raw)
+
+
 # ── Conversation models (genuinely new — no Prism equivalent) ──────
 class ConversationMessage(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -32,6 +43,11 @@ class ConversationMessage(BaseModel):
     significance: bool = False
     pause_before: int = 0
     italic: bool = False
+    # Telemetry metadata (M12)
+    model: Optional[str] = None
+    model_version: Optional[str] = None
+    context_tokens: Optional[int] = None
+    latency_ms: Optional[int] = None
 
 
 class Conversation(BaseModel):
@@ -41,6 +57,35 @@ class Conversation(BaseModel):
     messages: List[ConversationMessage] = Field(default_factory=list)
     started_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     status: str = "active"  # active, ended, consolidated
+
+
+class ClinicalHypothesis(BaseModel):
+    id: str = Field(default_factory=lambda: f"hyp_{uuid.uuid4().hex[:8]}")
+    text: str
+    status: str = "open"  # open, confirmed, refuted
+    generated_by: str = "gemini-2.5-flash"
+    model_version: str = "ally-v1.1"
+    confirmed_by: Optional[str] = None
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    updated_at: Optional[str] = None
+    edge_source: Optional[str] = None
+    edge_target: Optional[str] = None
+
+
+class DebateVerdictRecord(BaseModel):
+    id: str = Field(default_factory=lambda: f"verdict_{uuid.uuid4().hex[:8]}")
+    session_id: str
+    patient_id: str
+    topic: str = ""
+    judge_type: str = "ai"  # ai or human
+    judge_name: str = "Chief Medical Arbiter"
+    verdict_text: str = ""
+    winning_position: Optional[str] = None
+    score: int = 0
+    resolved_divergence_id: Optional[str] = None
+    rounds_count: int = 0
+    judged_output: List[str] = Field(default_factory=list)
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
 
 class HandoffPackage(BaseModel):
@@ -57,9 +102,12 @@ class HandoffPackage(BaseModel):
     excluded_content_flag: bool = False
     quotes_vs_inferences: List[Dict[str, str]] = Field(default_factory=list)
     simplified_graph_mermaid: str = ""
-    hypotheses: List[str] = Field(default_factory=list)
+    hypotheses: List[Any] = Field(default_factory=list)
     family_overlap_flag: Optional[str] = None
     generated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    model: str = "gemini-2.5-flash"
+    model_version: str = "ally-v1.1"
+    graph_version: int = 1
     # Pre-computed graph data for InteractiveGraph component
     graph_nodes: List[Dict[str, Any]] = Field(default_factory=list)
     graph_edges: List[Dict[str, Any]] = Field(default_factory=list)
@@ -86,6 +134,7 @@ class Patient(BaseModel):
     excluded_content: List[str] = Field(default_factory=list)
     locked_nodes: List[str] = Field(default_factory=list)
 
+
 # ── View wrappers (bridge Prism's Node/Edge to Ally's display format) ──
 class _NodeView:
     """Lightweight view object that bridges Prism Node to Ally's expected shape."""
@@ -93,7 +142,7 @@ class _NodeView:
 
     def __init__(self, node: Node, pos: tuple):
         self.id = node.id
-        self.label = node.properties.get('label', node.id)
+        self.label = _coerce_label_str(node.properties.get('label', node.id), fallback=node.id)
         self.size = node.properties.get('size', 14)
         self.kind = node.node_type
         self.is_new = node.properties.get('is_new', False)
@@ -129,7 +178,7 @@ class _EdgeView:
         self.id = key
         self.source = edge.source
         self.target = edge.target
-        self.label = edge.properties.get('label', '')
+        self.label = _coerce_label_str(edge.properties.get('label', ''), fallback='')
         self.weight = edge.properties.get('weight', 1)
         self.is_new = edge.properties.get('is_new', False)
         self.dashed = edge.properties.get('dashed', False)
@@ -170,22 +219,34 @@ class PatientGraph(TemporalGraph):
         self.snapshots: List[GraphSnapshot] = []
         self.conversations: List[Conversation] = []
         self.handoffs: List[HandoffPackage] = []
+        self.debates: List[DebateVerdictRecord] = []
+        self.graph_version: int = 1
         # Ally-specific: position + display metadata tracked per node
         self._positions: Dict[str, Tuple[float, float]] = {}
         self._display: Dict[str, Dict[str, Any]] = {}  # node_id -> {label, size, kind, is_new}
 
     # ── Node operations (delegate to TemporalGraph) ─────────────────
-    def add_node(self, node_id: str, label: str, kind: str = "event",
+    def add_node(self, node_id: str, label: Any, kind: str = "event",
                  size: float = 14, x: float = 0.0, y: float = 0.0,
                  is_new: bool = False, properties: Dict[str, Any] = None) -> str:
         """Add a node using Prism's TemporalGraph.add_node with Ally display metadata."""
-        props = properties or {}
+        props = dict(properties) if properties else {}
+        if isinstance(label, dict):
+            # Defensive safeguard against (node_type, properties_dict) callers (H5/H1)
+            extra = dict(label)
+            clean_label = _coerce_label_str(label, fallback=node_id)
+            props.update(extra)
+        else:
+            clean_label = _coerce_label_str(label, fallback=node_id)
+
         props.update({
-            "label": label,
+            "label": clean_label,
             "size": size,
             "kind": kind,
             "is_new": is_new,
         })
+        if "text" not in props:
+            props["text"] = clean_label.replace("\n", " ")
 
         # If node already exists in the graph, update it
         if self._graph.has_node(node_id):
@@ -202,8 +263,9 @@ class PatientGraph(TemporalGraph):
 
         # Track display metadata
         self._display[node_id] = {
-            "label": label, "size": size, "kind": kind, "is_new": is_new
+            "label": clean_label, "size": size, "kind": kind, "is_new": is_new
         }
+        self.graph_version += 1
 
         return node_id
 
@@ -219,6 +281,7 @@ class PatientGraph(TemporalGraph):
             self._graph.remove_node(node_id)  # NetworkX removes connected edges
             self._positions.pop(node_id, None)
             self._display.pop(node_id, None)
+            self.graph_version += 1
             return True
         return False
 
@@ -228,9 +291,10 @@ class PatientGraph(TemporalGraph):
                  dashed: bool = False, clinician: bool = False,
                  properties: Dict[str, Any] = None) -> str:
         """Add an edge using Prism's TemporalGraph.add_edge with Ally display metadata."""
-        props = properties or {}
+        clean_label = _coerce_label_str(label, fallback="")
+        props = dict(properties) if properties else {}
         props.update({
-            "label": label,
+            "label": clean_label,
             "weight": weight,
             "is_new": is_new,
             "dashed": dashed,
@@ -238,8 +302,9 @@ class PatientGraph(TemporalGraph):
         })
         # Use deterministic key for Ally's source__target pattern
         edge_id = f"{source}__{target}"
-        edge = Edge(id=edge_id, source=source, target=target, edge_type=label, properties=props)
+        edge = Edge(id=edge_id, source=source, target=target, edge_type=clean_label, properties=props)
         self._graph.add_edge(source, target, key=edge_id, data=edge)
+        self.graph_version += 1
         return edge_id
 
     def get_edge(self, source: str, target: str) -> Optional[Edge]:
@@ -254,6 +319,7 @@ class PatientGraph(TemporalGraph):
         edge_id = f"{source}__{target}"
         if self._graph.has_edge(source, target, key=edge_id):
             self._graph.remove_edge(source, target, key=edge_id)
+            self.graph_version += 1
             return True
         return False
 
@@ -262,6 +328,7 @@ class PatientGraph(TemporalGraph):
         edge = self.get_edge(source, target)
         if edge:
             edge.properties["weight"] = min(4, edge.properties.get("weight", 1) + amount)
+            self.graph_version += 1
         return edge
 
     def confirm_inferred_edge(self, source: str, target: str) -> Optional[Edge]:
@@ -269,6 +336,7 @@ class PatientGraph(TemporalGraph):
         edge = self.get_edge(source, target)
         if edge and edge.properties.get("dashed"):
             edge.properties["dashed"] = False
+            self.graph_version += 1
         return edge
 
     # ── Graph state queries ─────────────────────────────────────────
@@ -297,6 +365,7 @@ class PatientGraph(TemporalGraph):
         return {
             "patient_id": self.patient.id,
             "patient_name": self.patient.name,
+            "graph_version": self.graph_version,
             "nodes": [n.model_dump() for n in self.nodes.values()],
             "edges": [e.model_dump() for e in self.edges.values()],
             "node_count": self._graph.number_of_nodes(),
@@ -307,11 +376,11 @@ class PatientGraph(TemporalGraph):
         return {nid: {"x": pos[0], "y": pos[1]} for nid, pos in self._positions.items()}
 
     # ── Snapshots ───────────────────────────────────────────────────
-    def snapshot(self, label: str) -> GraphSnapshot:
+    def snapshot(self, label: str, timestamp: Optional[str] = None, snap_id: Optional[str] = None) -> GraphSnapshot:
         snap = GraphSnapshot(
-            id=str(uuid.uuid4()),
+            id=snap_id or str(uuid.uuid4()),
             label=label,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=timestamp or datetime.utcnow().isoformat(),
             node_ids=list(self._graph.nodes),
             edge_ids=[k for _, _, k in self._graph.edges(keys=True)],
             node_data=[n.model_dump() for n in self.nodes.values()],
@@ -321,11 +390,17 @@ class PatientGraph(TemporalGraph):
         return snap
 
     # ── Conversations ───────────────────────────────────────────────
-    def start_conversation(self, label: str = "") -> Conversation:
+    def start_conversation(
+        self,
+        label: str = "",
+        started_at: Optional[str] = None,
+        conv_id: Optional[str] = None,
+    ) -> Conversation:
         conv = Conversation(
-            id=str(uuid.uuid4()),
+            id=conv_id or str(uuid.uuid4()),
             patient_id=self.patient.id,
             label=label,
+            started_at=started_at or datetime.utcnow().isoformat(),
         )
         self.conversations.append(conv)
         return conv
@@ -340,6 +415,7 @@ class PatientGraph(TemporalGraph):
         conv = self.get_conversation(conv_id)
         if conv:
             conv.messages.append(message)
+            self.graph_version += 1
             return message
         return None
 
@@ -362,8 +438,10 @@ class PatientGraph(TemporalGraph):
     def to_dict(self) -> Dict[str, Any]:
         return {
             "patient": self.patient.model_dump(),
+            "graph_version": self.graph_version,
             "graph": self.get_graph_state(),
             "conversations": [c.model_dump() for c in self.conversations],
             "snapshots": [s.model_dump() for s in self.snapshots],
             "handoffs": [h.model_dump() for h in self.handoffs],
+            "debates": [d.model_dump() for d in self.debates],
         }

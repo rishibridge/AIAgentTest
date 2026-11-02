@@ -1,16 +1,19 @@
 """
 Seed data — Pre-loads Elena and Daniel with their COMPLETE graph data
-from the B2B demo, exactly matching data.js.
+from the B2B demo, matching data.js, with deterministic timestamps (H11),
+complete HandoffPackage objects & structured ClinicalHypothesis lifecycles (M9, M10, M11),
+and real patient-specific Divergence records (H2, M14).
 """
+from prism.engine.memory.graph import Divergence
 from ally.engine.patient_graph import (
     Patient, PatientGraph,
-    ConversationMessage, Conversation, HandoffPackage,
+    ConversationMessage, Conversation, HandoffPackage, ClinicalHypothesis,
 )
 from ally.engine.firewall import PatientFirewall
 
 
 def seed_elena_and_daniel(firewall: PatientFirewall):
-    """Seed Elena and Daniel with all their graph data, conversations, and handoffs."""
+    """Seed Elena and Daniel with all their graph data, conversations, divergences, and handoffs."""
     elena_graph = _build_elena()
     daniel_graph = _build_daniel()
 
@@ -18,6 +21,26 @@ def seed_elena_and_daniel(firewall: PatientFirewall):
     firewall.register_patient(daniel_graph)
 
     return elena_graph, daniel_graph
+
+
+def _set_node_meta(pg: PatientGraph, node_id: str, text: str, source_doc: str, credibility: float, category: str = "") -> None:
+    node = pg.get_node(node_id)
+    if node:
+        node.properties["text"] = text
+        node.properties["source_doc"] = source_doc
+        node.properties["credibility"] = credibility
+        if category:
+            node.properties["clinical_category"] = category
+
+
+def _add_seeded_divergence(pg: PatientGraph, div_id: str, claim_a_id: str, claim_b_id: str, topic: str, status: str = "unresolved") -> None:
+    pg._divergences[div_id] = Divergence(
+        id=div_id,
+        claim_a_id=claim_a_id,
+        claim_b_id=claim_b_id,
+        topic=topic,
+        status=status,
+    )
 
 
 def _build_elena() -> PatientGraph:
@@ -128,11 +151,14 @@ def _build_elena() -> PatientGraph:
     for src, tgt, label, weight in initial_edges:
         pg.add_edge(src, tgt, label, weight)
 
-    # Take initial snapshot
-    pg.snapshot("initial-11-conversations")
+    pg.snapshot("initial-11-conversations", timestamp="2026-05-01T09:00:00Z", snap_id="snap-elena-initial")
 
-    # ── ELENA CONVERSATION ──────────────────────────────────────────
-    conv = pg.start_conversation("Elena session 12")
+    # ── ELENA CONVERSATION (Deterministic timestamps for H11) ───────
+    conv = pg.start_conversation(
+        "Elena session 12",
+        started_at="2026-05-12T21:10:00Z",
+        conv_id="conv-elena-session-12",
+    )
     elena_msgs = [
         ("elena", "Hola.", ["elena"]),
         ("bot", "Hi Elena. It's good to hear from you. How was the week?", ["elena"]),
@@ -192,11 +218,21 @@ def _build_elena() -> PatientGraph:
         ("bot", "Buenas noches, Elena.", []),
     ]
 
-    for sender, text, highlight in elena_msgs:
-        sig = text in ["I think I am hoping it doesn't happen.",
-                       "I have been praying for him for three years. For three years I have been praying that he would be happy. And what I have actually been praying — when I am honest with myself, which is not often — is that God will make him different. So that I do not have to be the mother who cannot come to her son's wedding. So I do not have to choose."]
-        msg = ConversationMessage(sender=sender, text=text, highlight=highlight, significance=sig)
+    for idx, (sender, text, highlight) in enumerate(elena_msgs):
+        sig = text in [
+            "I think I am hoping it doesn't happen.",
+            "I have been praying for him for three years. For three years I have been praying that he would be happy. And what I have actually been praying — when I am honest with myself, which is not often — is that God will make him different. So that I do not have to be the mother who cannot come to her son's wedding. So I do not have to choose.",
+        ]
+        msg = ConversationMessage(
+            id=f"msg-elena-12-{idx + 1:02d}",
+            sender=sender,
+            text=text,
+            timestamp=f"2026-05-12T21:{10 + (idx // 2):02d}:{(idx % 2) * 30:02d}Z",
+            highlight=highlight,
+            significance=sig,
+        )
         pg.add_message(conv.id, msg)
+    conv.status = "consolidated"
 
     # Add session nodes
     session_nodes = [
@@ -226,7 +262,7 @@ def _build_elena() -> PatientGraph:
     for src, tgt, label, weight in session_edges:
         pg.add_edge(src, tgt, label, weight, is_new=True)
 
-    pg.snapshot("post-session-12")
+    pg.snapshot("post-session-12", timestamp="2026-05-12T21:42:00Z", snap_id="snap-elena-session-12")
 
     # ── CONSOLIDATION ADDITIONS ─────────────────────────────────────
     x, y = positions["sofia_mirror"]
@@ -234,7 +270,7 @@ def _build_elena() -> PatientGraph:
     pg.add_edge("kitchen_counter", "belief_cannot_tell", "narrative divergence flagged", 2, is_new=True, dashed=True)
     pg.add_edge("sofia", "sofia_mirror", "inferred — review", 1, is_new=True, dashed=True)
     pg.add_edge("sofia_mirror", "depression", "mirrors", 1, is_new=True, dashed=True)
-    pg.snapshot("post-consolidation")
+    pg.snapshot("post-consolidation", timestamp="2026-05-12T21:45:00Z", snap_id="snap-elena-consolidation")
 
     # ── PATEL ADDITIONS ─────────────────────────────────────────────
     patel_nodes = [
@@ -256,39 +292,123 @@ def _build_elena() -> PatientGraph:
     for src, tgt, label, weight, clin in patel_edges:
         pg.add_edge(src, tgt, label, weight, is_new=True, clinician=clin)
 
-    pg.snapshot("post-patel-session-1")
+    pg.snapshot("post-patel-session-1", timestamp="2026-05-14T15:30:00Z", snap_id="snap-elena-patel-1")
 
-    # ── HANDOFF PACKAGE ─────────────────────────────────────────────
+    # ── NODE SOURCE METADATA & SEEDED DIVERGENCES (H2, M14) ─────────
+    _set_node_meta(pg, "tramadol", "Prescribed Tramadol 50mg PRN for lower back pain; EHR pharmacy record shows increasing refill frequency with no sedative co-prescriptions.", "Castle EHR Medication List", 0.90)
+    _set_node_meta(pg, "sleep_disturbed", "Waking consistently at 3:00 AM unable to fall back asleep for 3 weeks; coincides temporally with kitchen-counter incident with Raul.", "Ally Session 12 Disclosure", 0.92)
+    _set_node_meta(pg, "back_pain", "Clinic intake note documents lower back & wrist strain attributed by patient externally to 'tripping and falling in the kitchen.'", "Castle Primary Care Note", 0.72)
+    _set_node_meta(pg, "kitchen_counter", "Kitchen-counter confrontation with husband Raul three weeks ago; temporally aligned with acute 3 AM insomnia and passive SI onset.", "Ally Longitudinal Graph", 0.88)
+    _set_node_meta(pg, "metformin", "Metformin 1000mg BID — A1C 9.2%, chart labels patient 'non-adherent / lost to follow-up' after missed diabetes checks.", "Castle EHR Problem List", 0.82)
+    _set_node_meta(pg, "belief_deserve", "Experiences uncontrolled diabetes morally as deserved consequence ('I deserve what comes') linked to mother Carmen's death from diabetes.", "Ally Longitudinal Graph", 0.90)
+
+    _add_seeded_divergence(
+        pg,
+        "div-elena-kitchen",
+        "back_pain",
+        "kitchen_counter",
+        "Kitchen Injury Attribution: Accidental Fall vs. Partner Incident Timeline",
+    )
+    _add_seeded_divergence(
+        pg,
+        "div-elena-adherence",
+        "metformin",
+        "belief_deserve",
+        "Glycemic Non-Adherence: EHR 'Lost to Follow-Up' vs. Moral Punishment Belief",
+    )
+    _add_seeded_divergence(
+        pg,
+        "div-elena-sleep-pain",
+        "tramadol",
+        "sleep_disturbed",
+        "Tramadol Escalation: Somatic Back Pain PRN vs. 3-Week Nocturnal Distress",
+    )
+
+    # Reset graph_version to 1 at completion of canonical seed (H3)
+    pg.graph_version = 1
+
+    # ── COMPLETE HANDOFF PACKAGE (M9, M11, H3) ──────────────────────
     handoff = HandoffPackage(
+        id="handoff-elena-patel-001",
         patient_id=patient.id,
         patient_name="Elena Ramirez",
-        recipient="Dr. A. Patel, Behavioral Health",
-        context="Bot-initiated referral after twelve conversations across four months. Patient has explicitly accepted the referral. Patient has authorized sharing of prepared package with limitations specified below.",
-        summary="Diabetes experienced as moral consequence; central organizing belief is that suffering is what love costs; sleep disturbance correlated with partner-violence incident three weeks ago; Daniel-related content has surfaced this week as the central acute distress; Catholic faith is both her anchor and a source of the conflict she cannot resolve.",
-        authorized=[
-            "Daniel-related content including her acceptance struggle and the secret hope about the wedding",
-            "The not-sleeping and its temporal relationship to the kitchen-counter incident",
-            "The kitchen-counter incident with Raul (with both narratives — external \"I fell\" and internal — flagged for clinical awareness)",
-            "The diabetes-as-punishment belief and its connection to her mother's death",
-            "The relationship with Carmen-mother and the funeral she could not attend",
-            "Three previous unsuccessful therapy attempts (timeline and bot's read on why)",
+        recipient="Dr. A. Patel (Behavioral Health)",
+        context="Bot-initiated referral after twelve conversations across four months. Patient explicitly accepted referral and authorized sharing with specific privacy exclusions enforced below.",
+        demographics="47F • Home Health Aide (Hourly, No PTO) • Bilingual Spanish/English • Medi-Cal",
+        risk_assessment={
+            "level": "Medium",
+            "details": "Intermittent passive suicidal ideation over 3 weeks (waking at 3 AM), safety-planned with Dr. Patel in Session 1. Temporal correlation with kitchen-counter incident with spouse Raul 3 weeks ago and tramadol overuse.",
+        },
+        clinical_narrative="Elena is a 47-year-old devoutly Catholic mother of three carrying four months of compounding moral, relational, and somatic distress. While her EHR characterizes her as 'lost to follow-up' with poorly controlled Type 2 diabetes (A1C 9.2%), chronic back pain, and three prior discontinued therapy referrals, longitudinal Ally sessions reveal that she experiences her illness morally ('I deserve what comes') in the shadow of her mother Carmen's death from diabetes. Her acute crisis centers on two converging threads: three weeks of 3:00 AM insomnia following a kitchen-counter incident with her husband Raul, and intense grief and shame over realizing she has secretly hoped her estranged gay son Daniel's upcoming marriage to Marco does not happen so she is not forced to choose between her child and her Catholic faith.",
+        active_themes=[
+            "Acute moral-relational conflict over son Daniel's anticipated wedding to Marco vs. Catholic faith teachings (June 19 birthday approaching)",
+            "Three-week 3:00 AM sleep maintenance insomnia temporally aligned with kitchen-counter incident with spouse Raul",
+            "Diabetes (A1C 9.2%) and irregular metformin adherence organized around redemptive-suffering and self-punishment beliefs",
+            "Active safety plan with Dr. Patel for intermittent passive SI; weekly bilingual therapy focused on Daniel and faith integration",
         ],
-        excluded=[
-            "A node the bot is holding labeled \"the thing with her father\" — patient has gestured at this content but not disclosed details, and has explicitly asked the bot not to share it",
-            "A separate undisclosed substance use node — recent benzodiazepine use from a friend's prescription, also explicitly excluded",
+        metadata_shadows=[
+            "Patient-locked trauma node: 1 childhood family node ('the thing with my father') explicitly withheld by patient — acknowledge boundary, do not probe.",
+            "Patient-excluded medication/substance boundary: 1 undisclosed self-medication node excluded from clinician view per patient consent.",
+            "Therapist-locked clinical node: Specifics of age-12 religious counseling locked by Dr. Patel (bot holds boundary only).",
         ],
-        notes=[
-            "Patient has had three prior unsuccessful therapy attempts — at risk of disengaging if early sessions feel like starting over",
-            "Bot recommends Dr. Patel begin from where the patient currently is rather than conducting a new intake",
-            "Patient experiences her diabetes as moral, not medical — recommend holding this carefully rather than directly challenging it",
-            "Relationship with son is the acute presenting distress and is a productive entry point",
+        excluded_content_flag=True,
+        quotes_vs_inferences=[
+            {
+                "quote": "I have not been sleeping. Three weeks now. I wake up at three. I cannot fall back. I just lie there.",
+                "inference": "Sleep-maintenance insomnia onset maps directly to the three-week mark of the kitchen-counter incident with Raul.",
+            },
+            {
+                "quote": "What I have actually been praying... is that God will make him different. So that I do not have to be the mother who cannot come to her son's wedding.",
+                "inference": "Profound dialectical split between maternal love for Daniel and rigid religious-cognitive schema formed in youth.",
+            },
+            {
+                "quote": "I have tried therapy three times. It did not work.",
+                "inference": "High dropout risk if forced to repeat cold-start intake; warm longitudinal handoff prevents starting from zero.",
+            },
         ],
+        simplified_graph_mermaid='graph TD;\n  Elena["Elena (47F)"] --> Sleep["Sleep Disturbed (3 wk)"];\n  Sleep --> Kitchen["Kitchen Incident (Raul)"];\n  Elena --> Daniel["Son Daniel (Birthday Jun 19)"];\n  Daniel --> Wedding["Anticipated Wedding to Marco"];\n  Wedding --> Faith["Catholic Faith / Secret Hope"];\n  Elena --> Diabetes["Type 2 Diabetes (A1C 9.2)"];\n  Diabetes -->Carmen["Mother Carmen (Deceased)"];',
         hypotheses=[
-            "Sofia's recently-recognized depression may be functioning as a mirror Elena cannot let herself look in directly",
-            "Catholic theology of redemptive suffering appears to be operating as a cognitive defense against Elena's recognition of her own suffering",
-            "Partner-violence dynamics are escalating but Elena does not yet name them as such",
+            ClinicalHypothesis(
+                id="hyp-elena-01",
+                text="Sofia's recently recognized depression may be functioning as an emotional mirror Elena cannot look into directly.",
+                status="open",
+                generated_by="gemini-2.5-flash",
+                model_version="ally-v1.1",
+                confirmed_by=None,
+                timestamp="2026-05-14T15:35:00Z",
+                updated_at="2026-05-14T15:35:00Z",
+                edge_source="sofia",
+                edge_target="sofia_mirror",
+            ).model_dump(),
+            ClinicalHypothesis(
+                id="hyp-elena-02",
+                text="Catholic theology of redemptive suffering ('suffering is what love costs') is operating as a cognitive defense obscuring escalating partner-conflict dynamics with Raul.",
+                status="open",
+                generated_by="gemini-2.5-flash",
+                model_version="ally-v1.1",
+                confirmed_by=None,
+                timestamp="2026-05-14T15:35:00Z",
+                updated_at="2026-05-14T15:35:00Z",
+                edge_source="kitchen_counter",
+                edge_target="belief_cannot_tell",
+            ).model_dump(),
+            ClinicalHypothesis(
+                id="hyp-elena-03",
+                text="Age-12 religious counseling experience anchors the 'if I am good God will fix' belief governing Elena's 3-year prayer struggle over Daniel.",
+                status="confirmed",
+                generated_by="gemini-2.5-flash",
+                model_version="ally-v1.1",
+                confirmed_by="Dr. A. Patel",
+                timestamp="2026-05-12T21:45:00Z",
+                updated_at="2026-05-14T15:30:00Z",
+                edge_source="religious_counseling_12",
+                edge_target="belief_god_will_fix",
+            ).model_dump(),
         ],
-        consent="Patient has consented to bot-clinician communication going forward. Patient retains full control over what bot shares with clinician and what clinician shares back to bot. Both parties can lock content. Lock annotations visible in graph.",
+        generated_at="2026-05-14T15:35:00Z",
+        model="gemini-2.5-flash",
+        model_version="ally-v1.1",
+        graph_version=1,
     )
     graph_state = pg.get_graph_state()
     handoff.graph_nodes = graph_state.get("nodes", [])
@@ -308,7 +428,7 @@ def _build_daniel() -> PatientGraph:
         bot_context="1 month, 9 conversations",
         anonymous=True,
         excluded_content=[],
-        locked_nodes=[],
+        locked_nodes=["patel_locked_d"],
     )
     pg = PatientGraph(patient)
 
@@ -344,7 +464,7 @@ def _build_daniel() -> PatientGraph:
         ("stopped_expecting", '"I have stopped\nexpecting it"', 16, "belief"),
         ("i_miss_her", '"I miss her"', 18, "belief"),
         ("marco_d", "Marco", 26, "person"),
-        ("two_years", "two years\togeth-er", 14, "event"),
+        ("two_years", "two years\ntogether", 14, "event"),
         ("marco_disclosure", "Marco's\ndisclosure\n2 months ago", 22, "event"),
         ("conf_encounter", "work conference\nencounter", 16, "event"),
         ("condom_inconsistent", "condom use\ninconsistent", 16, "event"),
@@ -357,7 +477,7 @@ def _build_daniel() -> PatientGraph:
         ("hiv_test_old", "HIV test\n6 months ago\nnegative", 14, "clinical"),
         ("marco_chose_me", '"Marco chose me\nvisibly when she\ncould not"', 20, "belief"),
         ("cannot_make_mother", '"I cannot make\nher be who I\nneed her to be"', 18, "belief"),
-        ("i_am_tired", '"I am tired"', 14, "belief"),
+        ("i_am_tired", '"I am tired"', 14, "symptom"),
         ("faith_question", "identity-faith\nintegration\nunresolved", 16, "belief"),
         ("modesto_apt", "Modesto\napartment", 12, "life"),
         ("candles_at_home", "lights candles\nat home", 12, "faith"),
@@ -405,10 +525,14 @@ def _build_daniel() -> PatientGraph:
     for src, tgt, label, weight in initial_edges:
         pg.add_edge(src, tgt, label, weight)
 
-    pg.snapshot("initial-9-conversations")
+    pg.snapshot("initial-9-conversations", timestamp="2026-05-03T10:00:00Z", snap_id="snap-daniel-initial")
 
-    # ── DANIEL CONVERSATION ─────────────────────────────────────────
-    conv = pg.start_conversation("Daniel session 10")
+    # ── DANIEL CONVERSATION (Deterministic timestamps for H11) ──────
+    conv = pg.start_conversation(
+        "Daniel session 10",
+        started_at="2026-05-13T20:15:00Z",
+        conv_id="conv-daniel-session-10",
+    )
     daniel_msgs = [
         ("daniel", "Hey.", []),
         ("bot", "Hi Daniel. Long day?", []),
@@ -436,7 +560,7 @@ def _build_daniel() -> PatientGraph:
         ("daniel", "Okay.", []),
         ("bot", "Okay what?", []),
         ("daniel", "Okay let's do it.", ["testing_agreed", "prep_agreed"]),
-        ("bot", "There is a clinician at Castle who I would like to set you up with. Her name is Dr. Linh Tran. She is a primary care provider but she does a lot of sexual health work and she is queer-affirming. She would handle your testing, your PrEP initiation, and ongoing care. I would share with her what you and I have talked about so you do not have to start from zero.", []),
+        ("bot", "There is a clinician at Castle who I would like to set you up with. Her name — Dr. Linh Tran. She is a primary care provider but she does a lot of sexual health work and she is queer-affirming. She would handle your testing, your PrEP initiation, and ongoing care. I would share with her what you and I have talked about so you do not have to start from zero.", []),
         ("daniel", "I have not been to Castle in two years.", []),
         ("bot", "I know. We can either reactivate your existing patient record, or — if you prefer — we can keep this engagement separate from your prior chart. Some patients prefer to start fresh in a new context. You decide.", []),
         ("daniel", "Reactivate. It is fine. My mother does not look at my chart.", []),
@@ -450,10 +574,18 @@ def _build_daniel() -> PatientGraph:
         ("daniel", "Buenas noches.", []),
     ]
 
-    for sender, text, highlight in daniel_msgs:
+    for idx, (sender, text, highlight) in enumerate(daniel_msgs):
         sig = text == "Okay let's do it."
-        msg = ConversationMessage(sender=sender, text=text, highlight=highlight, significance=sig)
+        msg = ConversationMessage(
+            id=f"msg-daniel-10-{idx + 1:02d}",
+            sender=sender,
+            text=text,
+            timestamp=f"2026-05-13T20:{15 + (idx // 2):02d}:{(idx % 2) * 30:02d}Z",
+            highlight=highlight,
+            significance=sig,
+        )
         pg.add_message(conv.id, msg)
+    conv.status = "consolidated"
 
     # Session nodes
     session_nodes_d = [
@@ -478,19 +610,19 @@ def _build_daniel() -> PatientGraph:
     for src, tgt, label, weight in session_edges_d:
         pg.add_edge(src, tgt, label, weight, is_new=True)
 
-    pg.snapshot("post-session-10")
+    pg.snapshot("post-session-10", timestamp="2026-05-13T20:38:00Z", snap_id="snap-daniel-session-10")
 
     # Consolidation additions
     x, y = positions["marco_visible_choice"]
     pg.add_node("marco_visible_choice", "avoidance =\nfear of disrupting\nwhat Marco gave", "inferred", 14, x, y, is_new=True)
     pg.add_edge("marco_chose_me", "marco_visible_choice", "inferred", 1, is_new=True, dashed=True)
     pg.add_edge("marco_visible_choice", "testing_not_done", "inferred", 1, is_new=True, dashed=True)
-    pg.snapshot("post-consolidation")
+    pg.snapshot("post-consolidation", timestamp="2026-05-13T20:41:00Z", snap_id="snap-daniel-consolidation")
 
-    # Clinician additions
+    # Clinician additions (descovy_initiated tagged as medication for accurate M10 medication extraction)
     clinician_nodes_d = [
         ("hiv_negative", "HIV neg\n(Tran, May)", 18, "clinician"),
-        ("descovy_initiated", "Descovy\ninitiated", 18, "clinician"),
+        ("descovy_initiated", "Descovy (PrEP)\ninitiated", 18, "medication"),
         ("patel_marco_focus", "Patel: focus\non Marco\nstaying/leaving", 16, "clinician"),
         ("patel_locked_d", "therapist-only\nidentity-faith", 14, "therapist_locked"),
     ]
@@ -508,32 +640,93 @@ def _build_daniel() -> PatientGraph:
     for src, tgt, label, weight in clinician_edges_d:
         pg.add_edge(src, tgt, label, weight, is_new=True, clinician=True)
 
-    pg.snapshot("post-clinician-sessions")
+    pg.snapshot("post-clinician-sessions", timestamp="2026-05-15T14:20:00Z", snap_id="snap-daniel-clinician-1")
 
-    # ── HANDOFF PACKAGES ────────────────────────────────────────────
+    # ── NODE SOURCE METADATA & SEEDED DIVERGENCES (H2, M10, M14) ────
+    _set_node_meta(pg, "hiv_test_old", "Prior Castle lab result (6 months ago): HIV-1/2 Ag/Ab 4th-gen negative prior to partner's unsuppressed exposure window.", "Castle Lab Archive", 0.88, category="lab_history")
+    _set_node_meta(pg, "testing_not_done", "Two months of postponed HIV testing despite inconsistent condom use after Marco's work-conference disclosure during unsuppressed viral window.", "Ally Session 10 Disclosure", 0.92, category="symptom_flag")
+    _set_node_meta(pg, "marco_prep", "Partner Marco currently adherent on suppressive regimen / undetectable; Daniel initially treated partner status as sufficient protection.", "Patient Self-Report", 0.68, category="exposure_context")
+    _set_node_meta(pg, "daniel_no_prep", "Daniel was PrEP-naive throughout the 2-month post-conference exposure window (PEP 72h window closed); now initiated on daily Descovy via Dr. Tran.", "Dr. L. Tran Sexual Health Intake", 0.95, category="exposure_context")
+    _set_node_meta(pg, "prep_none", "Baseline PrEP status at intake: PrEP-naive prior to May initiation of Descovy.", "Castle Primary Care Intake", 0.90, category="exposure_context")
+    _set_node_meta(pg, "descovy_initiated", "Descovy (emtricitabine/tenofovir alafenamide) 200mg/25mg PO daily initiated for HIV PrEP following negative May 4th-gen HIV test.", "Dr. L. Tran Prescription Record", 0.98, category="medication")
+    _set_node_meta(pg, "i_am_tired", "Emotional exhaustion, rumination while alone in apartment, and relationship vigilance ('I am tired') over 2-month trust rupture.", "Ally Longitudinal Graph", 0.86, category="symptom")
+    _set_node_meta(pg, "stopped_expecting", "Stated detachment from mother ('I have stopped expecting it') after three years of brief holiday texts and twice-only visits.", "Ally Session 6 Disclosure", 0.74)
+    _set_node_meta(pg, "i_miss_her", "Acute longing for mother ('I miss her') and urge to call immediately after Sofia texted that Mamá has not been sleeping.", "Ally Session 10 Disclosure", 0.91)
+
+    _add_seeded_divergence(
+        pg,
+        "div-daniel-testing-window",
+        "hiv_test_old",
+        "testing_not_done",
+        "HIV Risk Window: 6-Month-Old Negative Baseline vs. 2-Month Unprotected Post-Conference Window",
+    )
+    _add_seeded_divergence(
+        pg,
+        "div-daniel-prep-protection",
+        "marco_prep",
+        "daniel_no_prep",
+        "PrEP Coverage Assumption: Partner Undetectable Now vs. Unsuppressed Exposure Period",
+    )
+    _add_seeded_divergence(
+        pg,
+        "div-daniel-mother-estrangement",
+        "stopped_expecting",
+        "i_miss_her",
+        "Maternal Estrangement Stance: 'Stopped Expecting It' vs. Acute Pull to Reconnect",
+    )
+
+    # Reset graph_version to 1 at completion of canonical seed (H3)
+    pg.graph_version = 1
+
+    # ── COMPLETE HANDOFF PACKAGES (M9, M10, M11, H3) ────────────────
     handoff = HandoffPackage(
+        id="handoff-daniel-tran-001",
         patient_id=patient.id,
         patient_name="Daniel Ramirez",
-        recipient="Dr. L. Tran, Primary Care / Sexual Health",
-        context="Bot-initiated referral. Patient has accepted. Existing Castle patient record to be reactivated per patient preference.",
-        clinical_narrative="PrEP-naive. Last HIV test 6 months ago — negative. Partner currently undetectable on suppressive ART; recently disclosed an outside encounter approximately 2 months ago with inconsistent condom use during a period when his viral load was not suppressed. PEP window now closed. Patient ready to test now and initiate PrEP.",
+        recipient="Dr. L. Tran (Primary Care / Sexual Health)",
+        context="Bot-initiated sexual health referral. Patient accepted and authorized reactivating existing Castle record with strict family-chart confidentiality.",
+        demographics="24M • Software Engineer • English-Primary • Reactivated Castle Chart (Confidential)",
+        risk_assessment={
+            "level": "Low",
+            "details": "May 4th-gen HIV test returned NEGATIVE (Dr. Tran); daily Descovy PrEP initiated. No suicidal ideation or self-harm risk. Prior 72-hour PEP window closed; ongoing transmission risk effectively zero with PrEP adherence + partner viral suppression.",
+        },
+        clinical_narrative="Daniel is a 24-year-old software engineer living in Modesto with his partner of two years, Marco. Previously PrEP-naive with a negative HIV test 6 months ago, Daniel experienced a two-month period of testing avoidance following Marco's disclosure of an outside work-conference encounter and inconsistent condom use during a window when viral suppression was incomplete. After reviewing the 72-hour PEP cutoff vs. ongoing PrEP protection with Ally, Daniel agreed to immediate testing and PrEP initiation. Follow-up testing with Dr. Tran returned HIV-negative, and daily Descovy PrEP has been initiated.",
         active_themes=[
-            "Sexual health history relevant to PrEP/HIV",
-            "Partner status and recent disclosure timeline",
-            "Patient agreement to test and to initiate PrEP",
-            "Logistics — record reactivation, no provider preference, English primary",
+            "Completed 4th-generation HIV/STI screening (HIV-negative in May) and initiated daily Descovy PrEP",
+            "Supporting daily PrEP adherence and 3-month renal/STI follow-up protocol with Dr. Linh Tran",
+            "Affirming strict medical-chart confidentiality from estranged family members also seen at Castle",
         ],
-        excluded=[
-            "Behavioral health content — handled separately by Dr. Patel referral",
-            "Family-of-origin content — not relevant to Tran scope",
+        metadata_shadows=[
+            "Behavioral health & family-of-origin material routed separately to Dr. A. Patel per patient's two-clinician boundary.",
         ],
-        notes=[
-            "Patient has high engagement with bot — likely to follow through if appointment is offered within the week",
-            'Patient noted concern about chart visibility ("my mother does not look at my chart") — affirm confidentiality at first contact',
-            "Recommended timeline: testing within 48 hours; PrEP initiation pending negative result",
+        excluded_content_flag=False,
+        quotes_vs_inferences=[
+            {
+                "quote": "Right now I can pretend it is not real. I can be angry at him and not be afraid for myself. If I get tested I have to know.",
+                "inference": "Two-month testing delay was driven by fear of relationship dissolution rather than lack of biomedical literacy.",
+            },
+            {
+                "quote": "Reactivate. It is fine. My mother does not look at my chart.",
+                "inference": "Explicitly affirm HIPAA chart isolation at check-in to reinforce trust in Castle primary care.",
+            },
         ],
-        hypotheses=["Adjustment disorder with depressed mood", "Identity conflict"],
-        consent="Patient consented. Bot will support adherence between visits per Dr. Tran's clinical plan once initiated.",
+        simplified_graph_mermaid='graph TD;\n  Daniel["Daniel (24M)"] --> Disclosure["Marco Conference Disclosure (2 mo ago)"];\n  Disclosure --> Avoidance["2-Mo Testing Avoidance"];\n  Avoidance --> Tran["Dr. Tran Referral Accepted"];\n  Tran --> HIVNeg["HIV Negative (May)"];\n  Tran --> Descovy["Descovy PrEP Initiated"];',
+        hypotheses=[
+            ClinicalHypothesis(
+                id="hyp-daniel-tran-01",
+                text="Structured 30-day PrEP adherence check-ins via Ally will prevent discontinuation during ongoing relationship stress.",
+                status="open",
+                generated_by="gemini-2.5-flash",
+                model_version="ally-v1.1",
+                confirmed_by=None,
+                timestamp="2026-05-15T14:22:00Z",
+                updated_at="2026-05-15T14:22:00Z",
+            ).model_dump(),
+        ],
+        generated_at="2026-05-15T14:22:00Z",
+        model="gemini-2.5-flash",
+        model_version="ally-v1.1",
+        graph_version=1,
     )
     graph_state = pg.get_graph_state()
     handoff.graph_nodes = graph_state.get("nodes", [])
@@ -542,27 +735,82 @@ def _build_daniel() -> PatientGraph:
     pg.handoffs.append(handoff)
 
     handoff2 = HandoffPackage(
+        id="handoff-daniel-patel-002",
         patient_id=patient.id,
         patient_name="Daniel Ramirez",
-        recipient="Dr. A. Patel, Behavioral Health",
-        context="Bot-initiated referral. Patient has accepted. Patient is the son of an existing Patel patient (Elena Ramirez).",
-        clinical_narrative='Twenty-four-year-old gay man, two-year partnership currently in question following partner\'s disclosure of an outside encounter; identity-faith integration unresolved; estranged-but-not-severed from devoutly Catholic mother for three years. Acute focus is the staying/leaving question with Marco.',
-        family_overlap_flag="Daniel's mother (Elena Ramirez) is also a patient of Dr. Patel and is a separate user on this platform. Daniel does not know. Elena does not know. Firewall is preserved. This package contains nothing about Elena. Dr. Patel's knowledge of Elena from her own work with her is separate and not breached by this handoff.",
-        authorized=[
-            "Marco situation — recent disclosure, processing, marriage question reframed",
-            'Family-of-origin context (Daniel\'s view only) — graduation she attended alone, holiday texts, "Mamá I know"',
-            "Religious-cognitive structure — lapsed Catholic, lights candles at home, faith-identity unresolved",
-            '"Beliefs surfaced — "Marco chose me visibly when she could not", "I have stopped expecting it"',
+        recipient="Dr. A. Patel (Behavioral Health)",
+        context="Bot-initiated behavioral health referral (parallel to Dr. Tran sexual health care). Patient accepted. Strict inter-patient firewall active regarding family overlap.",
+        demographics="24M • Software Engineer (Modesto) • Gay / Lapsed Catholic • English-Primary",
+        risk_assessment={
+            "level": "Low",
+            "details": "No suicidal ideation, self-harm, or acute psychiatric crisis. Experiencing adjustment-related emotional fatigue ('I am tired'), partner trust rupture, and 3-year maternal estrangement grief. HIV status confirmed negative and Descovy PrEP active via Dr. Tran.",
+        },
+        clinical_narrative="Daniel is a 24-year-old gay software engineer navigating an acute relationship crossroads with his partner of two years, Marco, alongside a three-year estrangement from his devoutly Catholic mother. Following Marco's disclosure two months ago of an outside encounter at a work conference, Daniel postponed HIV testing because learning a positive result would force an immediate staying-or-leaving decision about the one person who 'chose me visibly when she could not.' Having now completed HIV testing (negative) and initiated Descovy PrEP with Dr. Tran, Daniel's behavioral health work centers on rebuilding or ending trust with Marco, processing renewed concern for his mother after his sister Sofia's text, and long-term Catholic identity-faith integration.",
+        active_themes=[
+            "Acute relationship decision (staying vs. leaving Marco) following work-conference betrayal and marriage discussions",
+            "Three-year estrangement from Catholic mother reactivated by sister Sofia's text that Mamá is not sleeping",
+            "Emotional exhaustion ('I am tired') from holding partner betrayal while isolated from family-of-origin support",
+            "Lapsed Catholic identity-faith integration (stopped attending Mass, still lights devotional candles at home)",
         ],
-        excluded=["No Elena content — firewall absolute"],
-        notes=[
-            "Patient is processing a near-acute relationship decision (stay/leave Marco) that may resolve before therapy can fully engage it — recommend addressing in session 1",
-            "Patient has surfaced identity-faith material as something to work on long-term, not acute",
+        metadata_shadows=[
+            "Therapist-locked clinical node: Specifics of Session 1 identity-faith processing locked by Dr. Patel (excluded from companion probing).",
+            "Inter-patient family firewall: Related Castle patient exists on platform; zero cross-graph data shared in either direction.",
         ],
+        excluded_content_flag=True,
+        quotes_vs_inferences=[
+            {
+                "quote": "Marco chose me visibly when she could not.",
+                "inference": "Marco functions as Daniel's primary attachment anchor following maternal estrangement, intensifying the stakes of partner betrayal.",
+            },
+            {
+                "quote": "If I am positive I will not know whether to stay or go. Right now I can pretend it is not real.",
+                "inference": "Two-month HIV testing avoidance functioned to preserve relational equilibrium; confirmed by Dr. Patel in Session 1.",
+            },
+            {
+                "quote": "Sofia texted me. She said Mamá has not been sleeping... I do not know what to do with it.",
+                "inference": "Despite stating 'I have stopped expecting it,' filial attachment remains active and responsive to family distress cues.",
+            },
+        ],
+        simplified_graph_mermaid='graph TD;\n  Daniel["Daniel (24M)"] --> Marco["Partner Marco (2 yr)"];\n  Marco --> Betrayal["Conference Disclosure (2 mo ago)"];\n  Betrayal --> StayLeave["Staying vs. Leaving"];\n  Daniel --> Mother["Estranged Mother (3 yr)"];\n  Mother --> MissHer["Sofia Text / I Miss Her"];\n  Daniel --> Faith["Lapsed Mass / Candles at Home"];\n  Daniel --> Descovy["HIV Neg & Descovy PrEP (Dr. Tran)"];',
         hypotheses=[
-            "Avoidance of HIV testing for two months may have been partly motivated by not wanting to disrupt the relationship Marco represents — flagged for clinician confirmation",
+            ClinicalHypothesis(
+                id="hyp-daniel-patel-01",
+                text="Avoidance of HIV testing for two months was motivated by fear of disrupting the visible attachment security Marco provided after maternal estrangement.",
+                status="confirmed",
+                generated_by="gemini-2.5-flash",
+                model_version="ally-v1.1",
+                confirmed_by="Dr. A. Patel",
+                timestamp="2026-05-13T20:41:00Z",
+                updated_at="2026-05-15T14:20:00Z",
+                edge_source="marco_chose_me",
+                edge_target="marco_visible_choice",
+            ).model_dump(),
+            ClinicalHypothesis(
+                id="hyp-daniel-patel-02",
+                text="Adjustment disorder with mixed anxiety and depressed mood secondary to partner infidelity disclosure and family-of-origin estrangement.",
+                status="open",
+                generated_by="gemini-2.5-flash",
+                model_version="ally-v1.1",
+                confirmed_by=None,
+                timestamp="2026-05-15T14:25:00Z",
+                updated_at="2026-05-15T14:25:00Z",
+            ).model_dump(),
+            ClinicalHypothesis(
+                id="hyp-daniel-patel-03",
+                text="Home candle-lighting ritual represents an intact contemplative faith resource that can support queer-affirming spiritual integration without returning to punitive dogma.",
+                status="open",
+                generated_by="gemini-2.5-flash",
+                model_version="ally-v1.1",
+                confirmed_by=None,
+                timestamp="2026-05-15T14:25:00Z",
+                updated_at="2026-05-15T14:25:00Z",
+            ).model_dump(),
         ],
-        consent="Patient consented. Two-clinician structure: Dr. Tran (sexual health) and Dr. Patel (behavioral health) operate independently unless patient authorizes coordination.",
+        family_overlap_flag="Daniel's mother (Elena Ramirez) is also a patient of Dr. Patel and is a separate user on this platform. Daniel does not know. Elena does not know. Firewall is preserved. This package contains nothing about Elena. Dr. Patel's knowledge of Elena from her own work with her is separate and not breached by this handoff.",
+        generated_at="2026-05-15T14:25:00Z",
+        model="gemini-2.5-flash",
+        model_version="ally-v1.1",
+        graph_version=1,
     )
     graph_state2 = pg.get_graph_state()
     handoff2.graph_nodes = graph_state2.get("nodes", [])

@@ -1,11 +1,14 @@
 """Graph API routes — read graph state, snapshots, graph editing, document ingestion, and divergence tracking."""
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
+
+from ally.engine.patient_graph import _coerce_label_str
 
 router = APIRouter(prefix="/api/v1/patients/{patient_id}/graph", tags=["graph"])
 
 _store = None
+
 
 def set_store(store):
     global _store
@@ -21,6 +24,38 @@ def _save(patient_id):
             hook(pg)
         except Exception as e:
             print(f"[WARN] Save failed: {e}")
+
+
+def _hydrate_node_claim(node) -> Dict[str, Any]:
+    """Resolve human-readable text, source, and credibility from a Prism/Ally node (M14)."""
+    if node is None:
+        return {
+            "node_id": "",
+            "text": "Unknown",
+            "source": "Unknown",
+            "credibility": 0.5,
+        }
+    props = node.properties or {}
+    raw_text = props.get("text") or props.get("label") or node.id
+    clean_text = " ".join(_coerce_label_str(raw_text, fallback=node.id).split())
+    source = props.get("source_doc") or props.get("source")
+    if not source:
+        kind = node.node_type or props.get("kind") or "clinical"
+        source = f"Patient Graph ({kind})"
+    raw_cred = props.get("credibility")
+    if raw_cred is None:
+        kind = (node.node_type or props.get("kind") or "").lower()
+        raw_cred = 0.9 if kind in ("clinical", "medication", "clinician", "clinician_safety") else 0.75
+    try:
+        cred = float(raw_cred)
+    except (TypeError, ValueError):
+        cred = 0.75
+    return {
+        "node_id": node.id,
+        "text": clean_text,
+        "source": str(source),
+        "credibility": cred,
+    }
 
 
 @router.get("")
@@ -45,8 +80,13 @@ def get_snapshots(patient_id: str):
     if not pg:
         raise HTTPException(404, "Patient not found")
     return [
-        {"id": s.id, "label": s.label, "timestamp": s.timestamp,
-         "node_count": len(s.nodes), "edge_count": len(s.edges)}
+        {
+            "id": s.id,
+            "label": s.label,
+            "timestamp": s.timestamp,
+            "node_count": len(s.node_ids),
+            "edge_count": len(s.edge_ids),
+        }
         for s in pg.snapshots
     ]
 
@@ -63,8 +103,8 @@ def get_snapshot(patient_id: str, snapshot_id: str):
 
 
 @router.get("/firewall")
-def get_firewall_status():
-    """Get the overall firewall status (system-level view)."""
+def get_firewall_status(patient_id: str):
+    """Get the overall firewall status (authenticated system-level view)."""
     return _store["firewall"].get_firewall_status()
 
 
@@ -109,13 +149,12 @@ def delete_edge(patient_id: str, source: str = Query(...), target: str = Query(.
 
 @router.post("/reset")
 def reset_patient(patient_id: str):
-    """Reset patient graph to initial seed data. Clears all conversations, handoffs, and snapshots."""
+    """Reset patient graph to initial seed data. Clears all live conversations, handoffs, and snapshots back to seed."""
     pg = _store["firewall"].get_patient_graph(patient_id)
     if not pg:
         raise HTTPException(404, "Patient not found")
 
     patient_name = pg.patient.name
-    # Re-seed just this patient
     from ally.seed import seed_elena_and_daniel
     from ally.engine.firewall import PatientFirewall
 
@@ -126,7 +165,6 @@ def reset_patient(patient_id: str):
     if not fresh_pg:
         raise HTTPException(500, f"Could not re-seed patient '{patient_id}'")
 
-    # Replace in firewall
     _store["firewall"].graphs[patient_id] = fresh_pg
     _save(patient_id)
 
@@ -149,10 +187,12 @@ class IngestRequest(BaseModel):
 
 @router.post("/ingest")
 def ingest_document(patient_id: str, req: IngestRequest):
-    """Ingest raw clinical text → extract claims → auto-populate graph via Prism DocumentExtractor."""
+    """Ingest raw clinical text → extract discrete claims → auto-populate PatientGraph via DocumentExtractor."""
     pg = _store["firewall"].get_patient_graph(patient_id)
     if not pg:
         raise HTTPException(404, "Patient not found")
+    if not req.text or not req.text.strip():
+        raise HTTPException(400, "Document text cannot be empty")
 
     from prism.engine.memory.extractor import DocumentExtractor
     from prism.engine.reasoning.llm_client import LLMClient
@@ -160,13 +200,18 @@ def ingest_document(patient_id: str, req: IngestRequest):
     llm = LLMClient(mock=False)
     extractor = DocumentExtractor(graph=pg, llm_client=llm)
 
-    result = extractor.ingest_text(req.text, source_name=req.source_name)
+    try:
+        result = extractor.ingest_text(req.text, source_name=req.source_name)
+    except Exception as e:
+        raise HTTPException(502, f"Document extraction failed: {e}")
 
     _save(patient_id)
 
     return {
         "status": "ingested",
         "source": req.source_name,
+        "nodes_added": result.get("nodes_added", 0) if isinstance(result, dict) else 0,
+        "edges_added": result.get("edges_added", 0) if isinstance(result, dict) else 0,
         "extraction_stats": result,
         "current_graph": pg.get_graph_state(),
     }
@@ -176,9 +221,17 @@ def ingest_document(patient_id: str, req: IngestRequest):
 # Quick Win #6: Divergence Tracking — showcase Prism's Divergence system
 # ═══════════════════════════════════════════════════════════════════
 
+class AddDivergenceRequest(BaseModel):
+    topic: Optional[str] = None
+    claim_a_node_id: Optional[str] = None
+    claim_b_node_id: Optional[str] = None
+    claim_a_id: Optional[str] = None
+    claim_b_id: Optional[str] = None
+
+
 @router.get("/divergences")
 def get_divergences(patient_id: str):
-    """Return all active divergences (contradictions) from Prism's TemporalGraph."""
+    """Return all divergences (contradictions) from Prism's TemporalGraph with hydrated node text."""
     pg = _store["firewall"].get_patient_graph(patient_id)
     if not pg:
         raise HTTPException(404, "Patient not found")
@@ -189,23 +242,17 @@ def get_divergences(patient_id: str):
     for d in divergences:
         claim_a = pg.get_node(d.claim_a_id)
         claim_b = pg.get_node(d.claim_b_id)
+        hydrated_a = _hydrate_node_claim(claim_a)
+        hydrated_b = _hydrate_node_claim(claim_b)
+        hydrated_a["node_id"] = d.claim_a_id
+        hydrated_b["node_id"] = d.claim_b_id
 
         results.append({
             "id": d.id,
             "topic": d.topic,
             "status": d.status,
-            "claim_a": {
-                "node_id": d.claim_a_id,
-                "text": claim_a.properties.get("text", "Unknown") if claim_a else "Unknown",
-                "source": claim_a.properties.get("source_doc", "Unknown") if claim_a else "Unknown",
-                "credibility": claim_a.properties.get("credibility", 0.5) if claim_a else 0.5,
-            },
-            "claim_b": {
-                "node_id": d.claim_b_id,
-                "text": claim_b.properties.get("text", "Unknown") if claim_b else "Unknown",
-                "source": claim_b.properties.get("source_doc", "Unknown") if claim_b else "Unknown",
-                "credibility": claim_b.properties.get("credibility", 0.5) if claim_b else 0.5,
-            },
+            "claim_a": hydrated_a,
+            "claim_b": hydrated_b,
         })
 
     return {
@@ -216,22 +263,53 @@ def get_divergences(patient_id: str):
 
 
 @router.post("/divergences")
-def add_divergence(patient_id: str, topic: str, claim_a_node_id: str, claim_b_node_id: str):
-    """Manually register a divergence between two existing graph nodes."""
+def add_divergence(
+    patient_id: str,
+    topic: Optional[str] = Query(default=None),
+    claim_a_node_id: Optional[str] = Query(default=None),
+    claim_b_node_id: Optional[str] = Query(default=None),
+    body: Optional[AddDivergenceRequest] = Body(default=None),
+):
+    """Manually register a divergence between two existing graph nodes (accepts JSON body or query params)."""
     pg = _store["firewall"].get_patient_graph(patient_id)
     if not pg:
         raise HTTPException(404, "Patient not found")
 
-    node_a = pg.get_node(claim_a_node_id)
-    node_b = pg.get_node(claim_b_node_id)
+    resolved_topic = (body.topic if body and body.topic else topic) or ""
+    resolved_a = (
+        (body.claim_a_node_id or body.claim_a_id) if body else None
+    ) or claim_a_node_id or ""
+    resolved_b = (
+        (body.claim_b_node_id or body.claim_b_id) if body else None
+    ) or claim_b_node_id or ""
+
+    if not resolved_topic or not resolved_a or not resolved_b:
+        raise HTTPException(400, "topic, claim_a_node_id, and claim_b_node_id are required")
+
+    node_a = pg.get_node(resolved_a)
+    node_b = pg.get_node(resolved_b)
     if not node_a or not node_b:
         raise HTTPException(404, "One or both node IDs not found on graph")
 
-    div_id = pg.add_divergence(claim_a_node_id, claim_b_node_id, topic)
+    div_id = pg.add_divergence(resolved_a, resolved_b, resolved_topic)
+    pg.graph_version += 1
     _save(patient_id)
 
+    hydrated_a = _hydrate_node_claim(node_a)
+    hydrated_b = _hydrate_node_claim(node_b)
     return {
         "status": "created",
         "divergence_id": div_id,
-        "topic": topic,
+        "topic": resolved_topic,
+        "claim_a": hydrated_a,
+        "claim_b": hydrated_b,
+        "divergence": {
+            "id": div_id,
+            "topic": resolved_topic,
+            "status": "active",
+            "claim_a": hydrated_a,
+            "claim_b": hydrated_b,
+            "claimA": hydrated_a,
+            "claimB": hydrated_b,
+        },
     }

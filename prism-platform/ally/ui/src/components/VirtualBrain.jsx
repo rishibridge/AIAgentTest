@@ -310,8 +310,11 @@ export default function InteractiveGraph({
               const auraR = isPulse || node.kind === 'significance' ? r * 3.2 : isSelected ? r * 2.8 : isHovered ? r * 2.4 : r * 1.9;
               const auraOp = isPulse || node.kind === 'significance' ? 1 : isSelected ? 1 : isHovered ? 0.85 : 0.55;
 
+              const cleanAriaLabel = String(node.label || node.id).replace(/\s*\n\s*/g, ' ').trim();
               return (
                 <g key={`n-${node.id}`}
+                  role="img"
+                  aria-label={`${cleanAriaLabel} (${node.kind})`}
                   transform={`translate(${pos.x}, ${pos.y})`}
                   style={{ cursor: interactive ? 'pointer' : 'default', opacity: nodeOpacity, transition: 'opacity 350ms ease' }}
                   onMouseEnter={() => setHoveredNode(node.id)} onMouseLeave={() => setHoveredNode(null)}
@@ -390,16 +393,16 @@ export default function InteractiveGraph({
                     </g>
                   )}
 
-                  {/* Label */}
+                  {/* Label (L2: space separator between tspan lines for screen readers & text copy) */}
                   <text x="0" y={r + 16} textAnchor="middle"
                     fontSize={Math.max(10, Math.min(14, node.size * 0.32))}
                     fontFamily={FONT_SANS} fill={node.is_new ? C.goldSoft : C.ink}
                     fontWeight={node.kind === 'self' || node.kind === 'significance' || node.is_new ? 600 : 400}
                     style={{ pointerEvents: 'none' }}
                   >
-                    {node.label.split('\n').map((line, j) => (
+                    {String(node.label || node.id).split('\n').map((line, j) => (
                       <tspan key={j} x="0" dy={j === 0 ? 0 : Math.max(11, node.size * 0.34)}>
-                        {line}{j === 0 && node.is_new ? ' ✦' : ''}
+                        {j > 0 ? ` ${line}` : line}{j === 0 && node.is_new ? ' ✦' : ''}
                       </tspan>
                     ))}
                   </text>
@@ -419,9 +422,9 @@ export default function InteractiveGraph({
         </div>
       )}
 
-      {/* Hint text */}
+      {/* Hint text (H7: hidden on narrow mobile viewports via .ally-graph-hint) */}
       {interactive && (
-        <div style={{ position: 'absolute', bottom: 10, left: 14, fontFamily: FONT_SANS, fontSize: 10, color: C.inkFaint, letterSpacing: '0.06em', textTransform: 'uppercase', pointerEvents: 'none' }}>
+        <div className="ally-graph-hint" style={{ position: 'absolute', bottom: 10, left: 14, fontFamily: FONT_SANS, fontSize: 10, color: C.inkFaint, letterSpacing: '0.06em', textTransform: 'uppercase', pointerEvents: 'none' }}>
           click any node or edge for details &middot; scroll to zoom &middot; drag empty space to pan
         </div>
       )}

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, FastForward, StepForward, StepBack, Send, Loader2, Users, MessageCircle, Brain, Stethoscope, ArrowLeft, SkipForward } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Play, Pause, RotateCcw, FastForward, StepForward, StepBack, Send, Loader2, Users, MessageCircle, Brain, Stethoscope, ArrowLeft, SkipForward, Shield, AlertTriangle } from 'lucide-react';
 import VirtualBrain from './components/VirtualBrain';
 import InsightPanel from './components/InsightPanel';
 import NodeDetailPanel from './components/NodeDetailPanel';
@@ -29,10 +29,28 @@ const CRISIS_NUMBERS = [
   { pattern: /online\.rainn\.org/g, tel: null, label: 'RAINN Online', url: 'https://online.rainn.org' },
 ];
 
+/**
+ * Render inline markdown (**bold** and *italic*) inside string fragments so
+ * literal asterisks never appear in chat bubbles (H8).
+ */
+const renderInlineMarkdown = (str, keyPrefix) => {
+  if (typeof str !== 'string' || (!str.includes('*'))) return [str];
+  const tokens = str.split(/(\*\*[^*]+\*\*|\*[^*\n]+\*)/g);
+  return tokens.filter(Boolean).map((tok, idx) => {
+    if (tok.startsWith('**') && tok.endsWith('**') && tok.length > 4) {
+      return React.createElement('strong', { key: `${keyPrefix}-b-${idx}`, style: { color: '#FFF', fontWeight: 600 } }, tok.slice(2, -2));
+    }
+    if (tok.startsWith('*') && tok.endsWith('*') && tok.length > 2) {
+      return React.createElement('em', { key: `${keyPrefix}-i-${idx}` }, tok.slice(1, -1));
+    }
+    return tok;
+  });
+};
+
 const formatMessageText = (text) => {
   if (!text) return null;
-  return text.split('\n').map((line, i) => {
-    // Check if this line contains any crisis numbers
+  const lines = String(text).split('\n');
+  return lines.map((line, i) => {
     let parts = [line];
     for (const cn of CRISIS_NUMBERS) {
       const newParts = [];
@@ -71,9 +89,37 @@ const formatMessageText = (text) => {
       }
       parts = newParts;
     }
-    return React.createElement(React.Fragment, { key: i }, ...parts, i < text.split('\n').length - 1 ? React.createElement('br') : null);
+
+    const formattedParts = [];
+    parts.forEach((part, pi) => {
+      if (typeof part === 'string') {
+        formattedParts.push(...renderInlineMarkdown(part, `md-${i}-${pi}`));
+      } else {
+        formattedParts.push(part);
+      }
+    });
+
+    return React.createElement(React.Fragment, { key: i }, ...formattedParts, i < lines.length - 1 ? React.createElement('br') : null);
   });
 };
+
+/**
+ * Convert raw internal snake_case node IDs into human-readable labels for patient chat (L1).
+ */
+const humanizeGraphRef = (rawRef, nodeLabelMap = {}) => {
+  if (!rawRef) return 'Memory';
+  const str = String(rawRef).trim();
+  const mapped = nodeLabelMap[str];
+  if (mapped) {
+    return String(mapped).replace(/\s+/g, ' ').trim();
+  }
+  return str
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
 /* ═══════════════════════════════════════════════════════════════════
  * WOW MOMENTS — Insight overlays at specific chat indices
  * ═══════════════════════════════════════════════════════════════════ */
@@ -98,7 +144,7 @@ const WOW_MOMENTS = {
 };
 
 /* ═══════════════════════════════════════════════════════════════════
- * PHASES — internal phase names for CinematicDemo compatibility
+ * PHASES & PRESENTER TELEPROMPTER NOTES (M3 & M5)
  * ═══════════════════════════════════════════════════════════════════ */
 const PHASES = [
   'elena_profile',
@@ -121,12 +167,27 @@ const PHASES = [
   'end'
 ];
 
-/* ═══════════════════════════════════════════════════════════════════
- * APP MODES — top-level navigation state machine
- * LANDING → DEMO (existing 16 phases with skip)
- *         → PATIENT_PICKER → LIVE_CHAT
- *                          → CLINICIAN_CHAT
- * ═══════════════════════════════════════════════════════════════════ */
+const PRESENTER_NOTES = {
+  elena_profile: { label: 'Elena Profile', note: 'Highlight the gap between what the EHR knows ("lost to follow-up") and 4 months of longitudinal companion trust.' },
+  elena_graph_intro: { label: 'Elena Graph Intro', note: 'Point out how beliefs, family ties, medications, and unspoken tensions coexist as typed nodes rather than flat chat logs.' },
+  elena_graph: { label: 'Elena Memory Map', note: 'Click any node or edge to inspect source provenance, credibility weighting, and therapist-locked boundaries.' },
+  elena_chat: { label: 'Elena Session #12', note: 'Watch Ally connect 3-week insomnia to the kitchen-counter incident with Raul and respect patient-controlled disclosure.' },
+  elena_consolidation: { label: 'Post-Session Consolidation', note: '5-step hippocampal pipeline: significance filtering, divergence preservation, edge thickening, and dashed inferred hypotheses.' },
+  elena_reasoning: { label: 'Adversarial DDx Layer', note: 'Proposer vs. Skeptic vs. Arbiter catches latent Bipolar-II activation risk before an unopposed SSRI is started.' },
+  elena_handoff: { label: 'Warm Handoff to Dr. Patel', note: 'Patient-authorized context transfers cleanly while firewalled disclosures remain locked per Elena\'s explicit consent.' },
+  elena_provider_response: { label: 'Clinician Feedback Loop', note: 'Dr. Patel locks childhood trauma for in-person EMDR; Ally updates its graph directive immediately.' },
+  elena_next_chat: { label: 'Elena Session #13', note: 'Ally honors Dr. Patel\'s trauma boundary automatically—empathizing without probing locked clinical territory.' },
+  transition_daniel: { label: 'Transition to Daniel', note: 'Pivot from cooperative chronic-care distress to acute shame, avoidance, and preventive sexual-health risk.' },
+  daniel_profile: { label: 'Daniel Profile', note: 'Daniel (24) is Elena\'s estranged son—demonstrating completely distinct clinical needs on the same underlying architecture.' },
+  daniel_graph: { label: 'Daniel Memory Map', note: 'Notice how Marco, faith conflict, and HIV-testing avoidance form a tight emotional cluster.' },
+  daniel_chat: { label: 'Daniel Session #10', note: 'Ally recalls Elena\'s birthday, holds non-judgmental space around HIV testing fear, and coordinates dual PCP + therapy referrals.' },
+  daniel_consolidation: { label: 'Daniel Consolidation', note: 'Dashed inferred edge links testing avoidance to fear of losing the stability Marco represents.' },
+  daniel_handoff: { label: 'Dual Warm Handoffs', note: 'Role-scoped handoff packages: biomedical PrEP/testing context for Dr. Tran, relational/identity context for Dr. Patel.' },
+  daniel_updates: { label: 'Closed-Loop Outcomes', note: 'HIV negative confirmed, Descovy (PrEP) initiated, and Dr. Patel confirms the inferred avoidance hypothesis.' },
+  family_system: { label: 'Family Firewall', note: 'Mother and son share a clinician, yet per-patient keyed logical isolation ensures zero cross-patient data leakage.' },
+  end: { label: 'Closing Summary', note: 'Recap the four pillars—Remembers, Knows You, Cares, Collaborates—or jump into the Live Interactive Sandbox.' },
+};
+
 const APP_MODE = {
   LANDING: 'LANDING',
   DEMO: 'DEMO',
@@ -143,9 +204,10 @@ function LandingPage({ onDemoMode, onChatMode, onProviderMode }) {
 
   return (
     <div className="fade-enter-active" style={{
-      width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column',
+      width: '100vw', minHeight: '100vh', display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center', background: '#050608',
-      color: '#fff', position: 'relative', overflow: 'hidden',
+      color: '#fff', position: 'relative', overflowX: 'hidden', overflowY: 'auto',
+      padding: '32px 16px 48px', boxSizing: 'border-box',
     }}>
       {/* Ambient background glow */}
       <div style={{
@@ -238,12 +300,12 @@ function LandingPage({ onDemoMode, onChatMode, onProviderMode }) {
       </div>
 
       {/* Mode cards */}
-      <div style={{ display: 'flex', gap: '32px', position: 'relative', zIndex: 1 }}>
+      <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
         {/* Demo Mode Card */}
         <button
           onClick={onDemoMode}
           style={{
-            width: '320px', padding: '40px 32px',
+            width: '310px', maxWidth: '90vw', padding: '36px 28px',
             background: 'rgba(255,255,255,0.04)',
             border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: '16px', backdropFilter: 'blur(12px)',
@@ -279,7 +341,7 @@ function LandingPage({ onDemoMode, onChatMode, onProviderMode }) {
             fontFamily: "'Work Sans', sans-serif", fontSize: '0.88rem',
             color: '#A8A39A', lineHeight: 1.6,
           }}>
-            Guided 16-phase walkthrough of Elena & Daniel's stories. Perfect for presentations.
+            Guided 18-step walkthrough of Elena &amp; Daniel's stories. Isolated canonical seed for presentations.
           </div>
           <div style={{
             marginTop: '20px', fontFamily: "'Work Sans', sans-serif",
@@ -294,7 +356,7 @@ function LandingPage({ onDemoMode, onChatMode, onProviderMode }) {
         <button
           onClick={onChatMode}
           style={{
-            width: '320px', padding: '40px 32px',
+            width: '310px', maxWidth: '90vw', padding: '36px 28px',
             background: 'rgba(255,255,255,0.04)',
             border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: '16px', backdropFilter: 'blur(12px)',
@@ -330,14 +392,14 @@ function LandingPage({ onDemoMode, onChatMode, onProviderMode }) {
             fontFamily: "'Work Sans', sans-serif", fontSize: '0.88rem',
             color: '#A8A39A', lineHeight: 1.6,
           }}>
-            Experience the companion from the patient's perspective. Talk to the AI directly.
+            Live Interactive Sandbox from the patient's perspective. Talk to Ally directly.
           </div>
           <div style={{
             marginTop: '20px', fontFamily: "'Work Sans', sans-serif",
             fontSize: '0.75rem', color: '#D9B873', textTransform: 'uppercase',
             letterSpacing: '0.1em',
           }}>
-            Start Chat →
+            Start Sandbox Chat →
           </div>
         </button>
 
@@ -345,7 +407,7 @@ function LandingPage({ onDemoMode, onChatMode, onProviderMode }) {
         <button
           onClick={onProviderMode}
           style={{
-            width: '320px', padding: '40px 32px',
+            width: '310px', maxWidth: '90vw', padding: '36px 28px',
             background: 'rgba(255,255,255,0.04)',
             border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: '16px', backdropFilter: 'blur(12px)',
@@ -393,24 +455,25 @@ function LandingPage({ onDemoMode, onChatMode, onProviderMode }) {
         </button>
       </div>
 
-      {/* Ownership & Copyright Footer */}
+      {/* Concise non-duplicative architecture footer (L3: full IP notice lives solely in Entry Gate) */}
       <div
-        data-testid="copyright-footer"
+        data-testid="landing-architecture-footer"
         style={{
           position: 'absolute',
-          bottom: '10px',
+          bottom: '12px',
           left: 0,
           right: 0,
           textAlign: 'center',
           fontFamily: "'Work Sans', sans-serif",
-          fontSize: '0.7rem',
-          letterSpacing: '0.08em',
-          color: '#6B6560',
+          fontSize: '0.68rem',
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          color: '#5C5750',
           zIndex: 1,
           pointerEvents: 'none',
         }}
       >
-        © 2026 <span style={{ color: '#9B9285', fontWeight: 500 }}>Rishi Khullar — Unusual Insights Inc.</span> All Rights Reserved. Proprietary & Confidential — Unauthorized copying or reverse engineering strictly prohibited.
+        Castle Behavioral Health • Per-Patient Keyed Logical Isolation • Self-Hosted Sovereign Assets
       </div>
     </div>
   );
@@ -486,20 +549,20 @@ function PatientPicker({ onSelectPatient, onBack, isClinician, onToggleClinician
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '48px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={{
           fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem',
           color: isClinician ? '#D9B873' : '#5FAEB0', marginBottom: '8px', textAlign: 'center',
         }}>
-          {isClinician ? 'Clinical Consultation' : 'Patient Companion'}
+          {isClinician ? 'Clinical Consultation' : 'Patient Companion (Live Sandbox)'}
         </div>
         <div style={{
           fontFamily: "'Work Sans', sans-serif", fontSize: '0.88rem',
-          color: '#9B9285', marginBottom: '40px', textAlign: 'center', maxWidth: '500px',
+          color: '#9B9285', marginBottom: '40px', textAlign: 'center', maxWidth: '520px',
         }}>
           {isClinician
-            ? 'Select a patient to review their neural map and run clinical queries.'
-            : 'Select a patient to start a live conversation with Ally.'}
+            ? 'Select a patient to review their neural map, divergences, and run DDx consultations.'
+            : 'Select a patient to start a live interactive conversation with Ally (isolated from Guided Demo Mode).'}
         </div>
 
         {loading && (
@@ -563,7 +626,6 @@ function PatientPicker({ onSelectPatient, onBack, isClinician, onToggleClinician
                   e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
-                {/* Patient avatar */}
                 <div style={{
                   width: '48px', height: '48px', borderRadius: '50%',
                   background: isClinician ? 'rgba(217,184,115,0.12)' : 'rgba(95,174,176,0.12)',
@@ -588,7 +650,6 @@ function PatientPicker({ onSelectPatient, onBack, isClinician, onToggleClinician
                   {age !== '—' ? `Age ${age}` : 'Age not recorded'}
                 </div>
 
-                {/* Stats */}
                 <div style={{ display: 'flex', gap: '16px' }}>
                   <div style={{
                     padding: '6px 12px', background: 'rgba(95,174,176,0.08)',
@@ -645,7 +706,7 @@ function HandoffCard({ data, accent = '#D9B873' }) {
       )}
       {data.hypotheses && data.hypotheses.length > 0 && (
         <div style={{ marginBottom: '16px' }}><strong style={{ color: '#D4A645' }}>Bot Hypotheses:</strong>
-          <ul style={{ paddingLeft: '20px', marginTop: '8px' }}>{data.hypotheses.map((item, i) => <li key={i} style={{ marginBottom: '6px', fontStyle: 'italic' }}>{item}</li>)}</ul>
+          <ul style={{ paddingLeft: '20px', marginTop: '8px' }}>{data.hypotheses.map((item, i) => <li key={i} style={{ marginBottom: '6px', fontStyle: 'italic' }}>{typeof item === 'string' ? item : (item?.text || '')}</li>)}</ul>
         </div>
       )}
       {data.family_overlap_flag && (
@@ -704,21 +765,50 @@ function ConsolidationPanel({ isElena }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
- * LIVE CHAT COMPONENT — Real LLM-powered conversation
+ * LIVE CHAT COMPONENT — Real LLM-powered conversation (M2, H8, L1)
  * ═══════════════════════════════════════════════════════════════════ */
-function LiveChat({ patientId, patientName, onGraphUpdate, onConvIdReady }) {
+function LiveChat({ patientId, patientName, onGraphUpdate, onConvIdReady, nodeLabelMap = {}, sessionEndedExternal = false }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [convId, setConvId] = useState(null);
   const scrollRef = useRef(null);
+  const convIdRef = useRef(null);
+  const hasMessagesRef = useRef(false);
+  const endedRef = useRef(false);
 
   useEffect(() => {
-    // Start a new conversation
+    endedRef.current = sessionEndedExternal;
+  }, [sessionEndedExternal]);
+
+  useEffect(() => {
+    let mounted = true;
+    hasMessagesRef.current = false;
+    endedRef.current = false;
     api.startConversation(patientId, 'Live session').then(res => {
+      if (!mounted) {
+        api.abandonConversation(patientId, res.conversation_id);
+        return;
+      }
+      convIdRef.current = res.conversation_id;
       setConvId(res.conversation_id);
       if (onConvIdReady) onConvIdReady(res.conversation_id);
     }).catch(console.error);
+
+    const handleBeforeUnload = () => {
+      if (convIdRef.current && !endedRef.current && !hasMessagesRef.current) {
+        api.abandonConversation(patientId, convIdRef.current);
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (convIdRef.current && !endedRef.current && !hasMessagesRef.current) {
+        api.abandonConversation(patientId, convIdRef.current);
+      }
+    };
   }, [patientId]);
 
   useEffect(() => {
@@ -729,6 +819,7 @@ function LiveChat({ patientId, patientName, onGraphUpdate, onConvIdReady }) {
     if (!input.trim() || !convId || loading) return;
     const text = input.trim();
     setInput('');
+    hasMessagesRef.current = true;
     setMessages(m => [...m, { sender: patientName.split(' ')[0].toLowerCase(), text }]);
     setLoading(true);
     try {
@@ -738,27 +829,26 @@ function LiveChat({ patientId, patientName, onGraphUpdate, onConvIdReady }) {
         significance: res.bot_response.significance,
         toolCalls: res.tool_calls || [],
       }]);
-      // Push updated graph to parent so VirtualBrain refreshes
       if (onGraphUpdate && res.current_graph) {
         onGraphUpdate(res.current_graph);
       }
     } catch (e) {
-      setMessages(m => [...m, { sender: 'bot', text: 'I hear you. Tell me more about what you\'re feeling.' }]);
+      setMessages(m => [...m, { sender: 'bot', text: `Unable to reach Ally right now (${e.message}).` }]);
     }
     setLoading(false);
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ padding: '16px 24px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.8rem', color: '#9B9285', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-        <span>Live Conversation • Real-Time</span>
-        <span style={{ color: '#4DB8B8', marginLeft: '16px' }}>LLM-Powered</span>
+      <div style={{ padding: '12px 20px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.74rem', color: '#9B9285', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <span>Live Interactive Sandbox</span>
+        <span style={{ color: '#4DB8B8' }}>LLM-Powered</span>
       </div>
-      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
         {messages.map((msg, i) => (
           <div key={i} className="fade-enter-active" style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', alignItems: msg.sender === 'bot' ? 'flex-start' : 'flex-end' }}>
             <div style={{ fontSize: '0.75rem', color: '#9B9285', textTransform: 'uppercase', marginBottom: '4px' }}>{msg.sender === 'bot' ? 'Ally' : patientName.split(' ')[0]}</div>
-            <div style={{ background: msg.sender === 'bot' ? 'rgba(77, 184, 184, 0.15)' : 'rgba(255,255,255,0.1)', padding: '12px 16px', borderRadius: '12px', border: msg.sender === 'bot' ? '1px solid rgba(77,184,184,0.3)' : 'none', maxWidth: '85%' }}>
+            <div style={{ background: msg.sender === 'bot' ? 'rgba(77, 184, 184, 0.15)' : 'rgba(255,255,255,0.1)', padding: '12px 16px', borderRadius: '12px', border: msg.sender === 'bot' ? '1px solid rgba(77,184,184,0.3)' : 'none', maxWidth: '88%' }}>
               {formatMessageText(msg.text)}
               {msg.significance && <div style={{ marginTop: '6px', fontSize: '0.7rem', color: '#D4A645', textTransform: 'uppercase', letterSpacing: '0.1em' }}>★ significance moment</div>}
               {msg.toolCalls && msg.toolCalls.some(tc => tc.tool === 'trigger_emergency_alert') && (
@@ -775,15 +865,15 @@ function LiveChat({ patientId, patientName, onGraphUpdate, onConvIdReady }) {
                 </div>
               )}
               {msg.toolCalls && msg.toolCalls.length > 0 && !msg.toolCalls.some(tc => tc.tool === 'trigger_emergency_alert') && (
-                <div style={{ marginTop: '8px', padding: '8px 10px', background: 'rgba(217,184,115,0.08)', borderRadius: '6px', border: '1px solid rgba(217,184,115,0.15)', fontSize: '0.7rem', color: '#D9B873' }}>
-                  <div style={{ fontWeight: 600, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Graph Updated</div>
+                <div data-testid="memory-updated-badge" style={{ marginTop: '8px', padding: '8px 10px', background: 'rgba(217,184,115,0.08)', borderRadius: '6px', border: '1px solid rgba(217,184,115,0.15)', fontSize: '0.7rem', color: '#D9B873' }}>
+                  <div style={{ fontWeight: 600, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Memory Updated</div>
                   {msg.toolCalls.map((tc, j) => (
-                    <div key={j} style={{ color: '#9B9285', marginBottom: '2px' }}>
-                      {tc.tool === 'add_node' && `+ Node: ${tc.args?.label || tc.args?.node_id}`}
-                      {tc.tool === 'add_edge' && `+ Edge: ${tc.args?.source} → ${tc.args?.target}`}
-                      {tc.tool === 'flag_significance' && `★ Significance: ${tc.args?.reason?.substring(0, 60)}`}
-                      {tc.tool === 'flag_divergence' && `⚠ Divergence: ${tc.args?.topic}`}
-                      {tc.tool === 'thicken_edge' && `↑ Strengthened: ${tc.args?.source} → ${tc.args?.target}`}
+                    <div key={j} style={{ color: '#B5AEA3', marginBottom: '2px' }}>
+                      {tc.tool === 'add_node' && `+ Remembered: ${humanizeGraphRef(tc.args?.label || tc.args?.node_id, nodeLabelMap)}`}
+                      {tc.tool === 'add_edge' && `+ Connected: ${humanizeGraphRef(tc.args?.source, nodeLabelMap)} ↔ ${humanizeGraphRef(tc.args?.target, nodeLabelMap)}`}
+                      {tc.tool === 'flag_significance' && `★ Noted as important: ${(tc.args?.reason || '').substring(0, 68)}`}
+                      {tc.tool === 'flag_divergence' && `⚑ Held both perspectives: ${humanizeGraphRef(tc.args?.topic, nodeLabelMap)}`}
+                      {tc.tool === 'thicken_edge' && `↑ Reinforced: ${humanizeGraphRef(tc.args?.source, nodeLabelMap)} ↔ ${humanizeGraphRef(tc.args?.target, nodeLabelMap)}`}
                     </div>
                   ))}
                 </div>
@@ -797,16 +887,17 @@ function LiveChat({ patientId, patientName, onGraphUpdate, onConvIdReady }) {
           </div>
         )}
       </div>
-      <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+      <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.05)', background: '#050608' }}>
         <div style={{ display: 'flex', gap: '8px' }}>
           <input
+            data-testid="live-chat-input"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSend()}
             placeholder={`Talk to Ally as ${patientName.split(' ')[0]}...`}
-            style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#EDEAE3', padding: '12px 16px', borderRadius: '8px', fontSize: '0.9rem', outline: 'none' }}
+            style={{ flex: 1, minWidth: 0, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#EDEAE3', padding: '12px 14px', borderRadius: '8px', fontSize: '0.9rem', outline: 'none' }}
           />
-          <button onClick={handleSend} disabled={loading || !input.trim()} style={{ background: loading ? 'rgba(77,184,184,0.2)' : '#5FAEB0', border: 'none', color: '#050608', padding: '12px 16px', borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center' }}>
+          <button data-testid="live-chat-send" onClick={handleSend} disabled={loading || !input.trim()} style={{ background: loading ? 'rgba(77,184,184,0.2)' : '#5FAEB0', border: 'none', color: '#050608', padding: '12px 16px', borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
             <Send size={16} />
           </button>
         </div>
@@ -816,7 +907,7 @@ function LiveChat({ patientId, patientName, onGraphUpdate, onConvIdReady }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
- * STANDALONE LIVE CHAT VIEW — Full-screen patient chat from picker
+ * STANDALONE LIVE CHAT VIEW — Full-screen patient chat (H1, H7, C1)
  * ═══════════════════════════════════════════════════════════════════ */
 function StandaloneLiveChat({ patientId, patientName, onBack }) {
   const [detailKind, setDetailKind] = useState(null);
@@ -826,9 +917,21 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
   const [convId, setConvId] = useState(null);
   const [consolidating, setConsolidating] = useState(false);
   const [consolidationResult, setConsolidationResult] = useState(null);
+  const [consolidationError, setConsolidationError] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(false);
+  const [mobilePane, setMobilePane] = useState('chat'); // 'chat' | 'graph' (H7)
+  const [isAdmin, setIsAdmin] = useState(() => api.getAuthRole() === 'admin');
+  const [statusNotice, setStatusNotice] = useState(null);
+  const [chatResetNonce, setChatResetNonce] = useState(0);
 
-  // Fetch graph on mount
+  const nodeLabelMap = useMemo(() => {
+    const map = {};
+    (graphData.nodes || []).forEach(n => {
+      map[n.id] = String(n.label || n.id).replace(/\s+/g, ' ').trim();
+    });
+    return map;
+  }, [graphData.nodes]);
+
   const refreshGraph = () => {
     Promise.all([api.getGraph(patientId), api.getGraphPositions(patientId)])
       .then(([graph, posData]) => {
@@ -848,7 +951,6 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
 
   useEffect(() => { refreshGraph(); }, [patientId]);
 
-  // When LiveChat gets a graph update from the API response, update immediately
   const handleGraphUpdate = (currentGraph) => {
     if (!currentGraph) return;
     const nodes = (currentGraph.nodes || []).map((n) => ({
@@ -867,7 +969,7 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
 
       if (trulyNewIds.length > 0) {
         setHighlight(trulyNewIds);
-        setTimeout(() => setHighlight([]), 4000); // 4 second pulse
+        setTimeout(() => setHighlight([]), 4000);
       }
 
       const newPositions = { ...prev.positions };
@@ -880,32 +982,49 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
     });
   };
 
-  // End session and trigger consolidation
+  const runConsolidation = async (targetConvId) => {
+    setConsolidating(true);
+    setConsolidationError(null);
+    setConsolidationResult(null);
+    try {
+      const result = await api.triggerConsolidation(patientId, targetConvId);
+      if (!result || result.status === 'error' || !Array.isArray(result.steps) || result.steps.length === 0) {
+        throw new Error(result?.detail || 'Consolidation pipeline returned an incomplete state.');
+      }
+      setConsolidationResult(result);
+      refreshGraph();
+      api.generateHandoff(patientId, 'Dr. A. Patel', 'Clinician').catch(() => {});
+    } catch (e) {
+      console.error('Consolidation error:', e);
+      setConsolidationError(e.message || 'Consolidation pipeline failed.');
+    } finally {
+      setConsolidating(false);
+    }
+  };
+
   const handleEndSession = async () => {
     if (!convId) return;
     setSessionEnded(true);
+    setMobilePane('chat');
     try {
       await api.endConversation(patientId, convId);
     } catch (e) { console.error('End conversation error:', e); }
-
-    setConsolidating(true);
-    try {
-      const result = await api.triggerConsolidation(patientId, convId);
-      setConsolidationResult(result);
-      // Refresh graph after consolidation
-      refreshGraph();
-      // Post-consolidation: generate handoff in background
-      // This is the correct place — like hippocampal replay during sleep,
-      // batch processing happens AFTER the session, not during.
-      api.generateHandoff(patientId, 'Dr. Provider', 'Clinician').catch(() => {});
-    } catch (e) {
-      console.error('Consolidation error:', e);
-      setConsolidationResult({ status: 'error', steps: [] });
-    }
-    setConsolidating(false);
+    await runConsolidation(convId);
   };
 
-  // Delete a node or edge from the graph
+  const handleUnlockAdmin = async () => {
+    const key = window.prompt('Enter Admin Key for reset / delete operations (local default: ally-local-admin-2026):', 'ally-local-admin-2026');
+    if (!key) return;
+    try {
+      await api.elevateAdmin(key);
+      setIsAdmin(true);
+      setStatusNotice('Admin unlocked');
+      setTimeout(() => setStatusNotice(null), 3000);
+    } catch (e) {
+      setStatusNotice(`Admin unlock failed: ${e.message}`);
+    }
+  };
+
   const handleDeleteItem = async (kind, target) => {
     try {
       let result;
@@ -916,102 +1035,167 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
       }
       if (result.current_graph) {
         handleGraphUpdate(result.current_graph);
+      } else {
+        refreshGraph();
       }
       setDetailKind(null);
       setDetailTarget(null);
     } catch (e) {
-      console.error('Delete error:', e);
+      setStatusNotice(`Delete requires Admin role (${e.message})`);
     }
   };
 
-  // Reset patient to seed data
   const handleReset = async () => {
-    if (!window.confirm(`Reset ${patientName} to initial seed data? This will erase all conversations, new nodes, and handoffs.`)) return;
+    if (!isAdmin) {
+      setStatusNotice('Admin role required to reset patient — click Admin Unlock first.');
+      return;
+    }
+    if (!window.confirm(`Reset ${patientName} to initial seed data? This will erase live sandbox conversations and added nodes.`)) return;
     try {
       const result = await api.resetPatient(patientId);
       if (result.current_graph) {
         handleGraphUpdate(result.current_graph);
       }
-      // Also refresh positions since they're reset too
       refreshGraph();
       setConsolidationResult(null);
+      setConsolidationError(null);
       setSessionEnded(false);
       setConvId(null);
+      setChatResetNonce(n => n + 1);
+      setStatusNotice('Patient reset to seed state');
+      setTimeout(() => setStatusNotice(null), 3000);
     } catch (e) {
-      console.error('Reset error:', e);
+      setStatusNotice(`Reset error: ${e.message}`);
     }
   };
 
   return (
-    <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', background: '#050608', color: '#fff' }}>
-      {/* Header */}
-      <div style={{
-        height: '60px', padding: '0 24px', display: 'flex', alignItems: 'center',
+    <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', background: '#050608', color: '#fff', overflow: 'hidden' }}>
+      {/* Responsive Header (H7) */}
+      <div className="ally-live-header" style={{
+        minHeight: '60px', padding: '8px 20px', display: 'flex', alignItems: 'center',
         justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)',
-        background: 'rgba(255,255,255,0.02)',
+        background: 'rgba(255,255,255,0.02)', gap: '12px', flexShrink: 0,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
           <button
             onClick={onBack}
             style={{
               background: 'none', border: '1px solid rgba(255,255,255,0.15)',
-              color: '#9B9285', padding: '6px 12px', borderRadius: '6px',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-              fontSize: '0.8rem', fontFamily: "'Work Sans', sans-serif",
+              color: '#9B9285', padding: '6px 10px', borderRadius: '6px',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
+              fontSize: '0.78rem', fontFamily: "'Work Sans', sans-serif", flexShrink: 0,
             }}
           >
             <ArrowLeft size={14} /> Back
           </button>
-          <div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.4rem', color: '#5FAEB0' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.25rem', color: '#5FAEB0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               Patient Companion
             </div>
-            <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.7rem', color: '#9B9285', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              {patientName} • Live Conversation • {graphData.nodes.length} nodes
+            <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.66rem', color: '#9B9285', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {patientName} • {graphData.nodes.length} nodes
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {statusNotice && (
+            <span style={{ fontSize: '0.7rem', color: '#D9B873', fontFamily: "'Work Sans', sans-serif" }}>{statusNotice}</span>
+          )}
           <button
+            data-testid="live-admin-btn"
+            onClick={handleUnlockAdmin}
+            style={{
+              background: isAdmin ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${isAdmin ? 'rgba(76,175,80,0.4)' : 'rgba(255,255,255,0.12)'}`,
+              color: isAdmin ? '#4CAF50' : '#9B9285', padding: '6px 10px', borderRadius: '6px',
+              cursor: 'pointer', fontSize: '0.72rem', fontFamily: "'Work Sans', sans-serif",
+              display: 'flex', alignItems: 'center', gap: '5px',
+            }}
+          >
+            <Shield size={12} /> {isAdmin ? 'Admin' : 'Admin Unlock'}
+          </button>
+          <button
+            data-testid="reset-seed-btn"
             onClick={handleReset}
             style={{
               background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)',
-              color: '#9B9285', padding: '8px 14px', borderRadius: '6px',
-              cursor: 'pointer', fontSize: '0.75rem', fontFamily: "'Work Sans', sans-serif",
-              display: 'flex', alignItems: 'center', gap: '6px',
+              color: isAdmin ? '#EDEAE3' : '#6B6560', padding: '6px 12px', borderRadius: '6px',
+              cursor: 'pointer', fontSize: '0.72rem', fontFamily: "'Work Sans', sans-serif",
+              display: 'flex', alignItems: 'center', gap: '5px',
             }}
           >
-            ↺ Reset to Seed
+            ↺ Reset
           </button>
           {!sessionEnded && (
             <button
+              data-testid="end-consolidate-btn"
               onClick={handleEndSession}
               style={{
                 background: 'rgba(200,72,72,0.15)', border: '1px solid rgba(200,72,72,0.4)',
-                color: '#C84848', padding: '8px 16px', borderRadius: '6px',
-                cursor: 'pointer', fontSize: '0.8rem', fontFamily: "'Work Sans', sans-serif",
-                display: 'flex', alignItems: 'center', gap: '6px',
+                color: '#C84848', padding: '6px 12px', borderRadius: '6px',
+                cursor: 'pointer', fontSize: '0.74rem', fontFamily: "'Work Sans', sans-serif",
+                display: 'flex', alignItems: 'center', gap: '5px',
               }}
             >
-              End Session & Consolidate
+              End &amp; Consolidate
             </button>
           )}
-          {sessionEnded && !consolidating && (
-            <div style={{ color: '#D9B873', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              ★ Session ended & consolidated
+          {sessionEnded && !consolidating && !consolidationError && (
+            <div style={{ color: '#D9B873', fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              ★ Consolidated
+            </div>
+          )}
+          {sessionEnded && !consolidating && consolidationError && (
+            <div style={{ color: '#E85D5D', fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              ⚠ Consolidation Failed
             </div>
           )}
           {consolidating && (
-            <div style={{ color: '#5FAEB0', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ color: '#5FAEB0', fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
               <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Consolidating...
             </div>
           )}
         </div>
       </div>
 
-      {/* Main content */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        <div style={{ flex: 1, position: 'relative' }}>
+      {/* Mobile Chat / Graph Toggle Bar (H7 — visible on <= 768px) */}
+      <div className="ally-mobile-tab-bar" style={{ background: '#0A0C10', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
+        <button
+          data-testid="mobile-tab-chat"
+          onClick={() => setMobilePane('chat')}
+          style={{
+            flex: 1, padding: '10px', border: 'none', cursor: 'pointer',
+            background: mobilePane === 'chat' ? 'rgba(95,174,176,0.14)' : 'transparent',
+            borderBottom: mobilePane === 'chat' ? '2px solid #5FAEB0' : '2px solid transparent',
+            color: mobilePane === 'chat' ? '#5FAEB0' : '#8A857D',
+            fontFamily: "'Work Sans', sans-serif", fontSize: '0.76rem', fontWeight: 600,
+          }}
+        >
+          💬 Conversation
+        </button>
+        <button
+          data-testid="mobile-tab-graph"
+          onClick={() => setMobilePane('graph')}
+          style={{
+            flex: 1, padding: '10px', border: 'none', cursor: 'pointer',
+            background: mobilePane === 'graph' ? 'rgba(217,184,115,0.14)' : 'transparent',
+            borderBottom: mobilePane === 'graph' ? '2px solid #D9B873' : '2px solid transparent',
+            color: mobilePane === 'graph' ? '#D9B873' : '#8A857D',
+            fontFamily: "'Work Sans', sans-serif", fontSize: '0.76rem', fontWeight: 600,
+          }}
+        >
+          🧠 Memory Graph ({graphData.nodes.length})
+        </button>
+      </div>
+
+      {/* Main Split Content (H7) */}
+      <div className="ally-live-split" style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+        <div
+          className={mobilePane === 'graph' ? 'ally-live-pane-active-mobile' : 'ally-live-pane-hidden-mobile'}
+          style={{ flex: 1, position: 'relative', minHeight: 0 }}
+        >
           {graphData.nodes.length > 0 ? (
             <VirtualBrain
               nodes={graphData.nodes} edges={graphData.edges} positions={graphData.positions}
@@ -1029,20 +1213,59 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
             </div>
           )}
 
+          {detailTarget && mobilePane === 'graph' && (
+            <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 'min(380px, 100%)', zIndex: 25 }}>
+              <NodeDetailPanel
+                kind={detailKind}
+                target={detailTarget}
+                nodes={graphData.nodes}
+                onClose={() => { setDetailKind(null); setDetailTarget(null); }}
+                onDelete={isAdmin ? handleDeleteItem : undefined}
+              />
+            </div>
+          )}
         </div>
-        <div style={{ width: '400px', borderLeft: '1px solid rgba(255,255,255,0.1)', flexShrink: 0, position: 'relative' }}>
-          {consolidating && !consolidationResult ? (
+
+        <div
+          className={mobilePane === 'chat' ? 'ally-live-pane-active-mobile' : 'ally-live-pane-hidden-mobile'}
+          style={{ width: '400px', borderLeft: '1px solid rgba(255,255,255,0.1)', flexShrink: 0, position: 'relative', minHeight: 0 }}
+        >
+          {consolidating && !consolidationResult && !consolidationError ? (
             <ConsolidationPanel isElena={patientId.includes('elena')} />
+          ) : sessionEnded && consolidationError ? (
+            /* Explicit Error State on Consolidation Failure (H1) */
+            <div data-testid="consolidation-error-card" className="fade-enter-active" style={{ padding: '32px', overflowY: 'auto', height: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#E85D5D' }}>
+                <AlertTriangle size={26} />
+                <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.9rem', color: '#E85D5D', margin: 0 }}>Consolidation Failed</h2>
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#9B9285', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                Session ended • Pending Long-Term Consolidation
+              </div>
+              <div style={{ padding: '14px 16px', background: 'rgba(232,93,93,0.1)', border: '1px solid rgba(232,93,93,0.35)', borderRadius: '8px', color: '#EDEAE3', fontSize: '0.86rem', lineHeight: 1.55 }}>
+                {consolidationError}
+              </div>
+              <p style={{ color: '#A8A39A', fontSize: '0.85rem', lineHeight: 1.6, margin: 0 }}>
+                This session has NOT been marked consolidated, so no disclosures were lost. You can retry consolidation now or run the unconsolidated-session sweep.
+              </p>
+              <button
+                data-testid="retry-consolidation-btn"
+                onClick={() => convId && runConsolidation(convId)}
+                style={{ background: '#D9B873', color: '#050608', border: 'none', padding: '12px 18px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem' }}
+              >
+                ↻ Retry Consolidation
+              </button>
+            </div>
           ) : sessionEnded && consolidationResult ? (
-            <div className="fade-enter-active" style={{ padding: '32px', overflowY: 'auto', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div data-testid="consolidation-complete-card" className="fade-enter-active" style={{ padding: '32px', overflowY: 'auto', height: '100%', display: 'flex', flexDirection: 'column' }}>
               <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '2rem', color: '#5FAEB0', marginBottom: '8px' }}>Consolidation Complete</h2>
               <div style={{ fontSize: '0.8rem', color: '#9B9285', marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                 {patientName} • Long-term Memory Updated
               </div>
               <p style={{ color: '#EDEAE3', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '24px' }}>
-                The session has been fully processed by the Advocate/Skeptic/Judge pipeline. The graph has been permanently updated.
+                The session has been processed through all 5 Advocate/Skeptic/Judge steps and persisted to the longitudinal store.
               </p>
-              
+
               {consolidationResult.steps && consolidationResult.steps.map((step, i) => (
                 <div key={i} style={{ marginBottom: '20px', padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', borderLeft: '2px solid rgba(255,255,255,0.1)' }}>
                   <div style={{ fontWeight: 600, color: '#D9B873', marginBottom: '8px', fontSize: '0.9rem' }}>{step.title}</div>
@@ -1066,7 +1289,7 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
                     <div style={{ fontSize: '0.85rem', color: '#4DB8B8', marginTop: '8px' }}>
                       <span style={{ color: '#9B9285', fontSize: '0.75rem', textTransform: 'uppercase' }}>Inferred Connections:</span>
                       <ul style={{ paddingLeft: '20px', margin: '4px 0 0 0' }}>
-                        {step.judge.inferred_edges.map((e, j) => <li key={j}>{e.source} → {e.target}</li>)}
+                        {step.judge.inferred_edges.map((e, j) => <li key={j}>{humanizeGraphRef(e.source, nodeLabelMap)} ↔ {humanizeGraphRef(e.target, nodeLabelMap)}</li>)}
                       </ul>
                     </div>
                   )}
@@ -1074,11 +1297,25 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
               ))}
             </div>
           ) : (
-            <LiveChat patientId={patientId} patientName={patientName} onGraphUpdate={handleGraphUpdate} onConvIdReady={setConvId} />
+            <LiveChat
+              key={chatResetNonce}
+              patientId={patientId}
+              patientName={patientName}
+              onGraphUpdate={handleGraphUpdate}
+              onConvIdReady={setConvId}
+              nodeLabelMap={nodeLabelMap}
+              sessionEndedExternal={sessionEnded}
+            />
           )}
-          {detailTarget && !consolidating && !sessionEnded && (
+          {detailTarget && !consolidating && !sessionEnded && mobilePane === 'chat' && (
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 20 }}>
-              <NodeDetailPanel kind={detailKind} target={detailTarget} nodes={graphData.nodes} onClose={() => { setDetailKind(null); setDetailTarget(null); }} onDelete={handleDeleteItem} />
+              <NodeDetailPanel
+                kind={detailKind}
+                target={detailTarget}
+                nodes={graphData.nodes}
+                onClose={() => { setDetailKind(null); setDetailTarget(null); }}
+                onDelete={isAdmin ? handleDeleteItem : undefined}
+              />
             </div>
           )}
         </div>
@@ -1088,18 +1325,25 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
- * MAIN APP — State machine with Landing Page + Demo + Chat modes
+ * MAIN APP — State machine with Server-Backed Gate + Demo + Chat modes
  * ═══════════════════════════════════════════════════════════════════ */
 function App() {
-  // ── Top-level app mode ─────────────────────────────────────────
   const [appMode, setAppMode] = useState(APP_MODE.LANDING);
   const [showIntro, setShowIntro] = useState(false);
-  const [showDisclaimer, setShowDisclaimer] = useState(true);
+  const [showDisclaimer, setShowDisclaimer] = useState(() => {
+    try {
+      return !(sessionStorage.getItem('prism_terms_accepted') === 'true' && api.getAuthToken());
+    } catch (e) {
+      return true;
+    }
+  });
+  const [acceptingTerms, setAcceptingTerms] = useState(false);
+  const [gateError, setGateError] = useState(null);
   const [selectedPatientId, setSelectedPatientId] = useState(null);
   const [selectedPatientName, setSelectedPatientName] = useState('');
   const [isClinician, setIsClinician] = useState(false);
 
-  // ── Demo state (original 16-phase) ─────────────────────────────
+  // ── Demo state (canonical 18-step guided presentation) ─────────
   const [phaseIdx, setPhaseIdx] = useState(0);
   const [chatIndex, setChatIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -1110,14 +1354,26 @@ function App() {
   const [liveMode, setLiveMode] = useState(false);
   const chatContainerRef = useRef(null);
 
+  const handleAcceptDisclaimer = async () => {
+    setAcceptingTerms(true);
+    setGateError(null);
+    try {
+      await api.acceptTerms();
+      setShowDisclaimer(false);
+    } catch (e) {
+      setGateError(`Unable to establish authorized session: ${e.message}`);
+    } finally {
+      setAcceptingTerms(false);
+    }
+  };
+
   const phase = PHASES[phaseIdx] || 'end';
   const isElena = phase.includes('elena') || phase === 'elena_profile';
-  const context = isElena ? 'elena' : 'daniel';
 
   let conversation = isElena ? ELENA_CONVERSATION : DANIEL_CONVERSATION;
   if (phase === 'elena_next_chat') conversation = ELENA_NEXT_CONVERSATION;
 
-  let packageData = isElena ? ELENA_HANDOFF_PACKAGE : DANIEL_TRAN_PACKAGE;
+  const packageData = isElena ? ELENA_HANDOFF_PACKAGE : DANIEL_TRAN_PACKAGE;
 
   const wowMoment = (phase === 'elena_chat' && WOW_MOMENTS.elena_chat[chatIndex]) ||
                     (phase === 'elena_next_chat' && WOW_MOMENTS.elena_next_chat[chatIndex]) ||
@@ -1145,7 +1401,7 @@ function App() {
 
   const skipToEnd = () => {
     setIsPlaying(false);
-    setPhaseIdx(PHASES.length - 1); // Jump to 'end' phase
+    setPhaseIdx(PHASES.length - 1);
     setChatIndex(0);
   };
 
@@ -1159,7 +1415,7 @@ function App() {
 
   // Keyboard navigation (only in DEMO mode)
   useEffect(() => {
-    if (appMode !== APP_MODE.DEMO) return;
+    if (appMode !== APP_MODE.DEMO || showIntro) return;
     const handler = (e) => {
       if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); forceNext(); }
       if (e.key === 'ArrowLeft') { e.preventDefault(); forcePrev(); }
@@ -1170,12 +1426,12 @@ function App() {
 
   // Auto-advance
   useEffect(() => {
-    if (appMode !== APP_MODE.DEMO) return;
+    if (appMode !== APP_MODE.DEMO || showIntro) return;
     if (!isPlaying || phase === 'end') return;
     let delay = 3000;
-    if (phase === 'elena_profile') { delay = 10000; const t = setTimeout(() => setPhaseIdx(p => p + 1), delay / speedMultiplier); return () => clearTimeout(t); }
+    if (phase === 'elena_profile' || phase === 'daniel_profile') { delay = 10000; const t = setTimeout(() => setPhaseIdx(p => p + 1), delay / speedMultiplier); return () => clearTimeout(t); }
     if (phase.includes('graph')) { delay = 5000; const t = setTimeout(() => setPhaseIdx(p => p + 1), delay / speedMultiplier); return () => clearTimeout(t); }
-    if (phase.includes('handoff') || phase.includes('provider') || phase.includes('transition') || phase.includes('consolidation') || phase.includes('updates') || phase === 'family_system') {
+    if (phase.includes('handoff') || phase.includes('provider') || phase.includes('transition') || phase.includes('consolidation') || phase.includes('reasoning') || phase.includes('updates') || phase === 'family_system') {
       delay = 8000; const t = setTimeout(() => setPhaseIdx(p => p + 1), delay / speedMultiplier); return () => clearTimeout(t);
     }
     if (phase.includes('chat')) {
@@ -1183,17 +1439,16 @@ function App() {
       const t = setTimeout(() => { if (chatIndex < conversation.length - 1) { setChatIndex(c => c + 1); } else { setChatIndex(0); setPhaseIdx(p => p + 1); } }, delay / speedMultiplier);
       return () => clearTimeout(t);
     }
-  }, [phaseIdx, chatIndex, isPlaying, phase, conversation, wowMoment, speedMultiplier, appMode]);
+  }, [phaseIdx, chatIndex, isPlaying, phase, conversation, wowMoment, speedMultiplier, appMode, showIntro]);
 
-  // Auto-scroll chat
   useEffect(() => {
     chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' });
     setDetailKind(null); setDetailTarget(null);
   }, [chatIndex, phase]);
 
-  // ── ROUTING: Show the right view based on appMode ──────────────
+  // ── ROUTING ────────────────────────────────────────────────────
 
-  // LANDING PAGE
+  // LANDING PAGE + SERVER-ENFORCED ENTRY GATE (C2, L3)
   if (appMode === APP_MODE.LANDING) {
     return (
       <>
@@ -1211,20 +1466,27 @@ function App() {
                 <li style={{ marginBottom: '5px' }}><strong style={{ color: '#D9B873' }}>All data is visible to developers.</strong> Any text entered into this system may be viewed by the development team for debugging and improvement purposes.</li>
                 <li style={{ marginBottom: '5px' }}><strong style={{ color: '#D9B873' }}>Not a medical device.</strong> This system does not provide medical advice, diagnosis, or treatment recommendations. It is a technology demonstration only.</li>
                 <li style={{ marginBottom: '5px' }}><strong style={{ color: '#D9B873' }}>No warranty or liability.</strong> The developer assumes no responsibility for any outcomes, decisions, or actions taken based on interactions with this system.</li>
-                <li style={{ marginBottom: '5px' }}><strong style={{ color: '#D9B873' }}>Proprietary IP & Non-Reverse-Engineering.</strong> This platform—including the Prism Architecture, Temporal Memory Graph, Adversarial Reasoning Engine, workflows, and UI/UX—is the exclusive confidential and proprietary property of <strong style={{ color: '#EDEAE3' }}>Rishi Khullar and Unusual Insights Inc.</strong> By proceeding, you agree not to copy, reproduce, record, scrape, reverse-engineer, decompile, or use any concepts or workflows shown here to build or train a competing product or service.</li>
+                <li style={{ marginBottom: '5px' }}><strong style={{ color: '#D9B873' }}>Proprietary IP &amp; Non-Reverse-Engineering.</strong> This platform—including the Prism Architecture, Temporal Memory Graph, Adversarial Reasoning Engine, workflows, and UI/UX—is the exclusive confidential and proprietary property of <strong style={{ color: '#EDEAE3' }}>Rishi Khullar and Unusual Insights Inc.</strong> By proceeding, you agree not to copy, reproduce, record, scrape, reverse-engineer, decompile, or use any concepts or workflows shown here to build or train a competing product or service.</li>
               </ul>
               <p style={{ color: '#9B9285', fontSize: '0.74rem', fontStyle: 'italic', margin: '0 0 6px 0' }}>All patient scenarios shown are fictional. Any resemblance to real individuals is coincidental.</p>
               <div data-testid="disclaimer-copyright" style={{ paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.08)', color: '#9B9285', fontSize: '0.73rem', letterSpacing: '0.03em' }}>
-                © 2026 <strong style={{ color: '#D9B873' }}>Rishi Khullar — Unusual Insights Inc.</strong> All Rights Reserved. Proprietary & Confidential.
+                © 2026 <strong style={{ color: '#D9B873' }}>Rishi Khullar — Unusual Insights Inc.</strong> All Rights Reserved. Proprietary &amp; Confidential.
               </div>
+              {gateError && (
+                <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(232,93,93,0.14)', border: '1px solid rgba(232,93,93,0.4)', borderRadius: '6px', color: '#FF6B6B', fontSize: '0.75rem' }}>
+                  {gateError}
+                </div>
+              )}
             </div>
             <button
-              onClick={() => setShowDisclaimer(false)}
-              style={{ width: '100%', padding: '12px', flexShrink: 0, background: 'linear-gradient(135deg, #D9B873, #C4A35A)', border: 'none', borderRadius: '8px', color: '#050608', fontWeight: 700, fontSize: '0.92rem', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.1em', transition: 'transform 0.2s' }}
-              onMouseOver={e => e.target.style.transform = 'scale(1.02)'}
+              data-testid="accept-disclaimer-btn"
+              onClick={handleAcceptDisclaimer}
+              disabled={acceptingTerms}
+              style={{ width: '100%', padding: '12px', flexShrink: 0, background: 'linear-gradient(135deg, #D9B873, #C4A35A)', border: 'none', borderRadius: '8px', color: '#050608', fontWeight: 700, fontSize: '0.92rem', cursor: acceptingTerms ? 'wait' : 'pointer', textTransform: 'uppercase', letterSpacing: '0.1em', transition: 'transform 0.2s' }}
+              onMouseOver={e => e.target.style.transform = 'scale(1.01)'}
               onMouseOut={e => e.target.style.transform = 'scale(1)'}
             >
-              I Understand & Agree — Proceed to Demo
+              {acceptingTerms ? 'Authorizing Session...' : 'I Understand & Agree — Proceed to Demo'}
             </button>
           </div>
         </div>
@@ -1265,7 +1527,7 @@ function App() {
     );
   }
 
-  // LIVE CHAT (standalone, from patient picker)
+  // LIVE CHAT (standalone sandbox, from patient picker)
   if (appMode === APP_MODE.LIVE_CHAT) {
     return (
       <StandaloneLiveChat
@@ -1287,12 +1549,11 @@ function App() {
     );
   }
 
-  // ── DEMO MODE (original 16-phase presentation) ────────────────
+  // ── DEMO MODE (isolated canonical 18-step presentation) ────────
   if (showIntro) {
     return <IntroSequence onComplete={() => setShowIntro(false)} />;
   }
 
-  // ── Graph state selection ────────────────────────────────────────
   let nodes = isElena ? ELENA_NODES_INITIAL : DANIEL_NODES_INITIAL;
   let edges = isElena ? ELENA_EDGES_INITIAL : DANIEL_EDGES_INITIAL;
   let positions = isElena ? ELENA_NODE_POSITIONS : DANIEL_NODE_POSITIONS;
@@ -1310,7 +1571,8 @@ function App() {
     positions = combinedPositions;
     viewBox = "-400 0 1900 620";
     showFirewall = true;
-    insight = { title: "THE FIREWALL", body: "Ally maps the entire family system to generate clinical insight, but enforces absolute cryptographic isolation between patients." };
+    // Honest wording matching per-patient keyed logical isolation (M8)
+    insight = { title: "THE FIREWALL", body: "Ally models each patient's family context independently while enforcing per-patient keyed logical isolation between records — zero cross-patient edges or shared context." };
   } else if (phase === 'elena_graph' || phase === 'elena_graph_intro') {
     insight = { title: "ALLY UNDERSTANDS", body: "Ally builds a living, multidimensional neural map of beliefs, events, and family systems, holding contradictions objectively." };
   } else if (phase === 'daniel_graph') {
@@ -1351,47 +1613,11 @@ function App() {
   }
 
   const btnStyle = { background: 'none', border: 'none', color: '#D9B873', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' };
-
-  // ── Transition screens ───────────────────────────────────────────
-  if (phase === 'transition_daniel') {
-    return (
-      <div className="fade-enter-active" style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#050608', color: '#fff', padding: '0 20%' }}>
-        <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '3rem', color: '#9B9285', fontStyle: 'italic', fontWeight: 300, marginBottom: '20px', textAlign: 'center' }}>
-          Empathy is easy when the patient is cooperative.
-        </h2>
-        <h1 style={{ fontFamily: 'Work Sans', fontSize: '2rem', color: '#EDEAE3', letterSpacing: '0.05em', fontWeight: 300, textAlign: 'center', lineHeight: 1.6, marginBottom: '40px' }}>
-          Let's see what Ally does when the patient is avoiding medical care due to shame and fear.
-        </h1>
-        <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '4rem', color: '#D9B873', fontWeight: 600 }}>
-          Meet Daniel.
-        </h2>
-        <div style={{ marginTop: '40px', display: 'flex', gap: '16px' }}>
-          <button onClick={forcePrev} style={{ ...btnStyle, fontSize: '0.9rem', gap: '8px' }}><StepBack size={16} /> Back</button>
-          <button onClick={forceNext} style={{ ...btnStyle, fontSize: '0.9rem', gap: '8px' }}>Continue <StepForward size={16} /></button>
-        </div>
-        {/* Skip to End button */}
-        <button
-          onClick={skipToEnd}
-          style={{
-            position: 'fixed', bottom: '24px', right: '24px',
-            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-            color: '#9B9285', padding: '10px 20px', borderRadius: '24px',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-            fontSize: '0.82rem', fontFamily: "'Work Sans', sans-serif",
-            backdropFilter: 'blur(8px)', transition: 'all 0.2s',
-          }}
-          onMouseOver={(e) => { e.currentTarget.style.color = '#D9B873'; e.currentTarget.style.border = '1px solid rgba(217,184,115,0.4)'; }}
-          onMouseOut={(e) => { e.currentTarget.style.color = '#9B9285'; e.currentTarget.style.border = '1px solid rgba(255,255,255,0.12)'; }}
-        >
-          <SkipForward size={14} /> Skip to End
-        </button>
-      </div>
-    );
-  }
+  const presenterInfo = PRESENTER_NOTES[phase] || { label: phase.replace(/_/g, ' '), note: '' };
 
   if (phase === 'end') {
     return (
-      <div className="fade-enter-active" style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#050608', color: '#fff' }}>
+      <div className="fade-enter-active" style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#050608', color: '#fff', position: 'relative' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', marginBottom: '40px' }}>
           <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '3.5rem', color: '#9B9285', fontStyle: 'italic', fontWeight: 300 }}>Ally Remembers.</h2>
           <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '3.5rem', color: '#9B9285', fontStyle: 'italic', fontWeight: 300 }}>Ally Knows You.</h2>
@@ -1401,57 +1627,41 @@ function App() {
         <h1 style={{ fontFamily: 'Work Sans', fontSize: '2rem', color: '#D9B873', textTransform: 'uppercase', letterSpacing: '0.2em', fontWeight: 600 }}>
           Your Ally is there for you.
         </h1>
-        <div style={{ marginTop: '60px', display: 'flex', gap: '24px' }}>
+        <div style={{ marginTop: '50px', display: 'flex', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
           <button
-            onClick={() => { setPhaseIdx(0); setChatIndex(0); setIsPlaying(false); setSpeedMultiplier(1); }}
-            style={{ background: 'none', border: '1px solid rgba(217,184,115,0.5)', color: '#D9B873', padding: '16px 32px', borderRadius: '30px', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.3s' }}
-            onMouseOver={(e) => { e.currentTarget.style.background = '#D9B873'; e.currentTarget.style.color = '#050608'; }}
-            onMouseOut={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#D9B873'; }}
+            onClick={forcePrev}
+            style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', color: '#EDEAE3', padding: '14px 24px', borderRadius: '30px', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
           >
-            <RotateCcw size={20} /> Restart Demonstration
+            <StepBack size={18} /> Previous Step
           </button>
           <button
-            onClick={() => setLiveMode(true)}
-            style={{ background: '#5FAEB0', border: 'none', color: '#050608', padding: '16px 32px', borderRadius: '30px', fontSize: '1rem', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '12px' }}
+            onClick={() => { setPhaseIdx(0); setChatIndex(0); setIsPlaying(false); setSpeedMultiplier(1); }}
+            style={{ background: 'none', border: '1px solid rgba(217,184,115,0.5)', color: '#D9B873', padding: '14px 28px', borderRadius: '30px', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', transition: 'all 0.3s' }}
           >
-            <Send size={20} /> Try Live Conversation
+            <RotateCcw size={18} /> Restart Demonstration
+          </button>
+          <button
+            onClick={() => { setSelectedPatientId('elena-ramirez-001'); setSelectedPatientName('Elena Ramirez'); setIsClinician(false); setAppMode(APP_MODE.LIVE_CHAT); }}
+            style={{ background: '#5FAEB0', border: 'none', color: '#050608', padding: '14px 28px', borderRadius: '30px', fontSize: '0.95rem', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px' }}
+          >
+            <Send size={18} /> Try Live Sandbox Conversation
           </button>
           <button
             onClick={() => setAppMode(APP_MODE.LANDING)}
-            style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', color: '#9B9285', padding: '16px 32px', borderRadius: '30px', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.3s' }}
-            onMouseOver={(e) => { e.currentTarget.style.color = '#EDEAE3'; e.currentTarget.style.border = '1px solid rgba(255,255,255,0.4)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.color = '#9B9285'; e.currentTarget.style.border = '1px solid rgba(255,255,255,0.2)'; }}
+            style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', color: '#9B9285', padding: '14px 28px', borderRadius: '30px', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
           >
-            <ArrowLeft size={20} /> Back to Home
+            <ArrowLeft size={18} /> Back to Home
           </button>
         </div>
-        {liveMode && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#050608', zIndex: 100, display: 'flex' }}>
-            <div style={{ flex: 1, padding: '8px' }}>
-              <VirtualBrain nodes={ELENA_NODES_AFTER_PATEL} edges={ELENA_EDGES_AFTER_PATEL} positions={ELENA_NODE_POSITIONS} highlight={[]} viewBox="0 0 1100 620" showFirewall={false} opacity={1}
-                onNodeClick={(n) => { setDetailKind('node'); setDetailTarget(n); }}
-                onEdgeClick={(e) => { setDetailKind('edge'); setDetailTarget(e); }}
-                onBackgroundClick={() => { setDetailKind(null); setDetailTarget(null); }}
-              />
-            </div>
-            <div style={{ width: '400px', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
-              <div style={{ padding: '8px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontFamily: 'Cormorant Garamond', color: '#D9B873' }}>Live Chat</span>
-                <button onClick={() => setLiveMode(false)} style={{ ...btnStyle, fontSize: '0.8rem' }}>✕ Close</button>
-              </div>
-              <LiveChat patientId="elena-ramirez-001" patientName="Elena Ramirez" />
-            </div>
-          </div>
-        )}
       </div>
     );
   }
 
-  // ── Main layout ──────────────────────────────────────────────────
+  // ── Main Demo Mode Layout (with Presenter Banner M5 & Visible Story Controls M3) ──
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', background: '#050608', color: '#fff' }}>
       {/* Header & Controls */}
-      <div style={{ height: '60px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', zIndex: 10 }}>
+      <div style={{ height: '60px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', zIndex: 10, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <button
             onClick={() => setAppMode(APP_MODE.LANDING)}
@@ -1459,29 +1669,37 @@ function App() {
               background: 'none', border: '1px solid rgba(255,255,255,0.12)',
               color: '#9B9285', padding: '4px 10px', borderRadius: '6px',
               cursor: 'pointer', fontSize: '0.75rem', fontFamily: "'Work Sans', sans-serif",
-              transition: 'all 0.2s',
             }}
-            onMouseOver={(e) => { e.currentTarget.style.color = '#D9B873'; }}
-            onMouseOut={(e) => { e.currentTarget.style.color = '#9B9285'; }}
           >
             Home
           </button>
           <div style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.5rem', color: '#D9B873' }}>Castle Behavioral Health</div>
         </div>
 
-        <div style={{ display: 'flex', gap: '24px', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '6px 16px', borderRadius: '30px' }}>
-          <button onClick={() => setPresenterMode(!presenterMode)} style={{...btnStyle, color: presenterMode ? '#D9B873' : '#9B9285', border: presenterMode ? '1px solid #D9B873' : '1px solid rgba(255,255,255,0.1)', padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem'}} title="Toggle Presenter Mode">
-            {presenterMode ? 'Presenter Mode' : 'Standalone Mode'}
+        <div style={{ display: 'flex', gap: '18px', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '6px 16px', borderRadius: '30px' }}>
+          <button
+            data-testid="presenter-mode-toggle"
+            onClick={() => setPresenterMode(!presenterMode)}
+            style={{
+              ...btnStyle,
+              color: presenterMode ? '#050608' : '#9B9285',
+              background: presenterMode ? '#D9B873' : 'transparent',
+              border: presenterMode ? '1px solid #D9B873' : '1px solid rgba(255,255,255,0.15)',
+              padding: '4px 12px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: presenterMode ? 700 : 400,
+            }}
+            title="Toggle Presenter Teleprompter & Clinical Notes"
+          >
+            {presenterMode ? '🎙 Presenter Mode: ON' : 'Presenter Mode: OFF'}
           </button>
 
           <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)' }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderRight: '1px solid rgba(255,255,255,0.1)', paddingRight: '16px' }}>
-            <span style={{ fontSize: '0.75rem', color: '#9B9285', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Speed ({speedMultiplier}x)</span>
-            <input type="range" min="0.5" max="4" step="0.5" value={speedMultiplier} onChange={(e) => setSpeedMultiplier(parseFloat(e.target.value))} style={{ width: '80px', cursor: 'pointer', accentColor: '#D9B873' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderRight: '1px solid rgba(255,255,255,0.1)', paddingRight: '14px' }}>
+            <span style={{ fontSize: '0.72rem', color: '#9B9285', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Speed ({speedMultiplier}x)</span>
+            <input type="range" min="0.5" max="4" step="0.5" value={speedMultiplier} onChange={(e) => setSpeedMultiplier(parseFloat(e.target.value))} style={{ width: '75px', cursor: 'pointer', accentColor: '#D9B873' }} />
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <button onClick={forcePrev} style={btnStyle} title="Step Back"><StepBack size={18} /></button>
             <button onClick={() => setIsPlaying(!isPlaying)} style={{ ...btnStyle, color: '#fff' }} title={isPlaying ? "Pause" : "Play"}>
               {isPlaying ? <Pause size={20} /> : <Play size={20} />}
@@ -1491,22 +1709,60 @@ function App() {
 
           <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)' }} />
 
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '10px' }}>
             <button onClick={skipPhase} style={btnStyle} title="Skip to Next Phase"><FastForward size={18} /></button>
             <button onClick={() => { setPhaseIdx(0); setChatIndex(0); setIsPlaying(false); setSpeedMultiplier(1); }} style={btnStyle} title="Restart"><RotateCcw size={18} /></button>
           </div>
         </div>
 
-        <div style={{ fontSize: '0.75rem', color: '#9B9285', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-          {PHASES[phaseIdx]?.replace(/_/g, ' ') || ''}
+        <div style={{ fontSize: '0.75rem', color: '#D9B873', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: "'Work Sans', sans-serif" }}>
+          Phase {phaseIdx + 1} / {PHASES.length} • {presenterInfo.label}
         </div>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
-        {phase === 'elena_profile' ? (
-          <div style={{ flex: 1, background: COLORS_DARK.bg, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'scroll', padding: '20px 0' }}>
-            <div style={{ background: COLORS_DARK.bgCard, border: `1px solid ${COLORS_DARK.rule}`, padding: '38px 48px', maxWidth: 740, margin: '0 auto' }}>
-              <div style={{ fontFamily: FONT_SANS, fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: COLORS_DARK.inkFaint, marginBottom: 8 }}>Patient profile</div>
+      {/* Presenter Teleprompter & Speaker Notes Banner (M5 — unmistakable visible effect on toggle) */}
+      {presenterMode && (
+        <div
+          data-testid="presenter-notes-banner"
+          style={{
+            padding: '10px 28px',
+            background: 'linear-gradient(90deg, rgba(217,184,115,0.14) 0%, rgba(95,174,176,0.10) 100%)',
+            borderBottom: '1px solid rgba(217,184,115,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexShrink: 0,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontFamily: "'Work Sans', sans-serif", fontSize: '0.82rem', color: '#EDEAE3' }}>
+            <span style={{ background: '#D9B873', color: '#050608', fontWeight: 700, fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', flexShrink: 0 }}>
+              Speaker Cue
+            </span>
+            <span>{presenterInfo.note}</span>
+          </div>
+          {phase.includes('chat') && (
+            <span style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.72rem', color: '#D9B873', flexShrink: 0 }}>
+              Turn {chatIndex + 1} of {conversation.length}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Phase Body */}
+      <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden', minHeight: 0 }}>
+        {phase === 'transition_daniel' ? (
+          <div className="fade-enter-active" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#050608', color: '#fff', padding: '0 15%' }}>
+            <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '2.8rem', color: '#9B9285', fontStyle: 'italic', fontWeight: 300, marginBottom: '20px', textAlign: 'center' }}>
+              Empathy is easy when the patient is cooperative.
+            </h2>
+            <h1 style={{ fontFamily: 'Work Sans', fontSize: '1.8rem', color: '#EDEAE3', letterSpacing: '0.04em', fontWeight: 300, textAlign: 'center', lineHeight: 1.6, marginBottom: '32px' }}>
+              Let's see what Ally does when the patient is avoiding medical care due to shame and fear.
+            </h1>
+            <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '3.6rem', color: '#D9B873', fontWeight: 600 }}>
+              Meet Daniel.
+            </h2>
+          </div>
+        ) : phase === 'elena_profile' ? (
+          <div style={{ flex: 1, background: COLORS_DARK.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', overflowY: 'auto', padding: '24px' }}>
+            <div style={{ background: COLORS_DARK.bgCard, border: `1px solid ${COLORS_DARK.rule}`, padding: '38px 48px', maxWidth: 740, margin: '0 auto', borderRadius: '10px' }}>
+              <div style={{ fontFamily: FONT_SANS, fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: COLORS_DARK.inkFaint, marginBottom: 8 }}>Patient profile • Case 1 of 2</div>
               <div style={{ fontFamily: FONT_DISPLAY, fontSize: 38, fontWeight: 500, letterSpacing: '-0.015em', color: COLORS_DARK.ink, marginBottom: 4 }}>Elena Ramirez</div>
               <div style={{ fontFamily: FONT_SERIF, fontSize: 14, color: COLORS_DARK.inkSoft, fontStyle: 'italic', marginBottom: 22 }}>age 47</div>
               <div style={{ fontFamily: FONT_SERIF, fontSize: 15, lineHeight: 1.65, color: COLORS_DARK.ink, marginBottom: 22 }}>
@@ -1514,6 +1770,20 @@ function App() {
               </div>
               <div style={{ borderTop: `1px solid ${COLORS_DARK.rule}`, paddingTop: 18, fontFamily: FONT_SANS, fontSize: 13, lineHeight: 1.6, color: COLORS_DARK.inkSoft, fontStyle: 'italic' }}>
                 Elena has been talking to the bot for four months. The bot has had eleven conversations with her. The bot has built a model of her life that is much richer than what any chart contains. What you are about to see is the twelfth conversation.
+              </div>
+            </div>
+          </div>
+        ) : phase === 'daniel_profile' ? (
+          <div style={{ flex: 1, background: COLORS_DARK.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', overflowY: 'auto', padding: '24px' }}>
+            <div style={{ background: COLORS_DARK.bgCard, border: `1px solid ${COLORS_DARK.rule}`, padding: '38px 48px', maxWidth: 740, margin: '0 auto', borderRadius: '10px' }}>
+              <div style={{ fontFamily: FONT_SANS, fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: COLORS_DARK.inkFaint, marginBottom: 8 }}>Patient profile • Case 2 of 2</div>
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 38, fontWeight: 500, letterSpacing: '-0.015em', color: COLORS_DARK.ink, marginBottom: 4 }}>Daniel Ramirez</div>
+              <div style={{ fontFamily: FONT_SERIF, fontSize: 14, color: COLORS_DARK.inkSoft, fontStyle: 'italic', marginBottom: 22 }}>age 24</div>
+              <div style={{ fontFamily: FONT_SERIF, fontSize: 15, lineHeight: 1.65, color: COLORS_DARK.ink, marginBottom: 22 }}>
+                Daniel lives in Modesto and works as a warehouse logistics coordinator. He is Elena's oldest son—estranged from his parents since coming out three years ago, though still quietly connected through his younger sister Sofia. He has been in a two-year relationship with Marco, an older partner who is HIV-negative and on PrEP. Daniel is not on PrEP, has avoided STI/HIV testing for six months despite rising anxiety, and carries deep unresolved tension between his Catholic upbringing and his relationship.
+              </div>
+              <div style={{ borderTop: `1px solid ${COLORS_DARK.rule}`, paddingTop: 18, fontFamily: FONT_SANS, fontSize: 13, lineHeight: 1.6, color: COLORS_DARK.inkSoft, fontStyle: 'italic' }}>
+                Daniel reaches out late at night—11:42 PM—starting with family guilt before circling toward the medical fear he has been avoiding for months.
               </div>
             </div>
           </div>
@@ -1538,7 +1808,7 @@ function App() {
                     {phase === 'elena_next_chat' && 'Conversation #13 • Post-Therapy Follow-up'}
                     {phase === 'daniel_chat' && 'Conversation #10 • Late Night (11:42 PM)'}
                   </span>
-                  <span style={{ color: '#4DB8B8' }}>{conversation.length} Messages • Unabridged</span>
+                  <span style={{ color: '#4DB8B8' }}>{chatIndex + 1} / {conversation.length} Messages</span>
                 </div>
                 <div ref={chatContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
                   {conversation.slice(0, chatIndex + 1).map((msg, i) => (
@@ -1560,7 +1830,7 @@ function App() {
               <div className="fade-enter-active" style={{ padding: '40px', overflowY: 'auto', height: '100%', background: 'rgba(217, 184, 115, 0.05)' }}>
                 <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '2.5rem', color: '#D9B873', marginBottom: '8px' }}>Adversarial Reasoning Layer</h2>
                 <div style={{ marginBottom: '32px', color: '#A8A39A', fontSize: '1rem', lineHeight: 1.6 }}>The Arbiter summons agents to deliberate over the memory graph before generating the clinical handoff.</div>
-                
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <div style={{ background: 'rgba(255,255,255,0.05)', padding: '24px', borderRadius: '12px', borderLeft: '4px solid #5FAEB0' }}>
                     <div style={{ fontSize: '0.85rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px', fontWeight: 600 }}>Proposer Agent</div>
@@ -1626,7 +1896,7 @@ function App() {
                 <div style={{ fontSize: '0.9rem', lineHeight: 1.7, color: '#A8A39A' }}>
                   <p style={{ marginBottom: '16px' }}>Elena and Daniel are mother and son. They are both patients of this platform. They are both patients of Dr. Patel.</p>
                   <p style={{ marginBottom: '16px' }}>Elena does not know Daniel is a patient. Daniel does not know Elena is a patient.</p>
-                  <p style={{ marginBottom: '16px', color: '#C84848', fontWeight: 600 }}>The firewall is absolute. No edges cross. No data leaks.</p>
+                  <p style={{ marginBottom: '16px', color: '#C84848', fontWeight: 600 }}>Per-patient keyed logical isolation is enforced. No edges cross. No data leaks.</p>
                   <p>Dr. Patel knows both. She carries that knowledge. The bot respects it.</p>
                 </div>
               </div>
@@ -1636,27 +1906,80 @@ function App() {
         )}
       </div>
 
-      {/* Progress bar */}
-      <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', position: 'relative', zIndex: 10 }}>
-        <div style={{ height: '100%', background: '#D9B873', width: `${((phaseIdx / PHASES.length) + (phase.includes('chat') ? (chatIndex / conversation.length) * (1/PHASES.length) : 0)) * 100}%`, transition: 'width 0.3s linear' }} />
-      </div>
-
-      {/* Skip to End — always visible during demo */}
-      <button
-        onClick={skipToEnd}
+      {/* Visible Story Navigation Bar & Clickable Progress Strip (M3) */}
+      <div
+        data-testid="demo-progress-strip"
         style={{
-          position: 'fixed', bottom: '24px', right: '24px',
-          background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-          color: '#9B9285', padding: '10px 20px', borderRadius: '24px',
-          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-          fontSize: '0.82rem', fontFamily: "'Work Sans', sans-serif",
-          backdropFilter: 'blur(8px)', transition: 'all 0.2s', zIndex: 20,
+          height: '52px', padding: '0 20px',
+          background: '#0A0C10', borderTop: '1px solid rgba(255,255,255,0.1)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px',
+          zIndex: 15, flexShrink: 0,
         }}
-        onMouseOver={(e) => { e.currentTarget.style.color = '#D9B873'; e.currentTarget.style.border = '1px solid rgba(217,184,115,0.4)'; }}
-        onMouseOut={(e) => { e.currentTarget.style.color = '#9B9285'; e.currentTarget.style.border = '1px solid rgba(255,255,255,0.12)'; }}
       >
-        <SkipForward size={14} /> Skip to End
-      </button>
+        <button
+          data-testid="demo-prev-btn"
+          onClick={forcePrev}
+          disabled={phaseIdx === 0 && chatIndex === 0}
+          style={{
+            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.14)',
+            color: (phaseIdx === 0 && chatIndex === 0) ? '#4A4540' : '#EDEAE3',
+            padding: '7px 14px', borderRadius: '6px',
+            cursor: (phaseIdx === 0 && chatIndex === 0) ? 'not-allowed' : 'pointer',
+            display: 'flex', alignItems: 'center', gap: '6px',
+            fontFamily: "'Work Sans', sans-serif", fontSize: '0.78rem', fontWeight: 600, flexShrink: 0,
+          }}
+        >
+          <StepBack size={14} /> Previous
+        </button>
+
+        {/* Clickable 18-Phase Progress Strip */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '880px' }}>
+          {PHASES.map((pName, idx) => {
+            const active = idx === phaseIdx;
+            const completed = idx < phaseIdx;
+            return (
+              <button
+                key={pName}
+                data-testid={`phase-pill-${idx}`}
+                title={`${idx + 1}. ${PRESENTER_NOTES[pName]?.label || pName}`}
+                onClick={() => { setIsPlaying(false); setPhaseIdx(idx); setChatIndex(0); }}
+                style={{
+                  flex: 1, height: active ? '10px' : '6px', border: 'none', borderRadius: '4px',
+                  background: active ? '#D9B873' : completed ? 'rgba(95,174,176,0.65)' : 'rgba(255,255,255,0.12)',
+                  cursor: 'pointer', padding: 0, transition: 'all 0.2s',
+                }}
+              />
+            );
+          })}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          <button
+            data-testid="demo-next-btn"
+            onClick={forceNext}
+            style={{
+              background: '#D9B873', border: 'none', color: '#050608',
+              padding: '7px 16px', borderRadius: '6px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '6px',
+              fontFamily: "'Work Sans', sans-serif", fontSize: '0.78rem', fontWeight: 700,
+            }}
+          >
+            {phase.includes('chat') && chatIndex < conversation.length - 1 ? 'Next Turn' : 'Next'} <StepForward size={14} />
+          </button>
+          <button
+            data-testid="demo-skip-end-btn"
+            onClick={skipToEnd}
+            style={{
+              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.14)',
+              color: '#9B9285', padding: '7px 12px', borderRadius: '6px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '5px',
+              fontFamily: "'Work Sans', sans-serif", fontSize: '0.74rem',
+            }}
+          >
+            <SkipForward size={13} /> End
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

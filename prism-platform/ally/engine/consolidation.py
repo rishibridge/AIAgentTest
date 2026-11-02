@@ -1,15 +1,17 @@
 """
 ConsolidationEngine — 5-step post-session consolidation pipeline.
-Uses Prism's ReasoningEngine (Advocate/Skeptic/Judge) for each analytical step.
+Uses Prism's ReasoningEngine (Advocate/Skeptic/Judge) for each analytical step,
+with strict schema validation and fail-fast error propagation (H1).
 """
 import json
+import uuid
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 from prism.engine.reasoning.engine import ReasoningEngine
 from prism.engine.reasoning.llm_client import LLMClient
 from prism.engine.memory.graph import TemporalGraph
-from ally.engine.patient_graph import PatientGraph
+from ally.engine.patient_graph import PatientGraph, _coerce_label_str
 
 
 CONSOLIDATION_STEPS = [
@@ -46,10 +48,20 @@ CONSOLIDATION_STEPS = [
 ]
 
 
+class ConsolidationStepError(RuntimeError):
+    """Raised when one of the consolidation pipeline steps fails (H1)."""
+    def __init__(self, step_index: int, step_title: str, message: str, completed_steps: List[Dict[str, Any]]):
+        super().__init__(f"Step {step_index} ({step_title}) failed: {message}")
+        self.step_index = step_index
+        self.step_title = step_title
+        self.completed_steps = completed_steps
+
+
 class ConsolidationEngine:
     """
     5-step post-session consolidation pipeline.
-    Uses Prism's ReasoningEngine for adversarial analysis at each step.
+    Uses Prism's ReasoningEngine grounding for adversarial analysis at each step.
+    Never swallows step exceptions into HTTP 200 'complete' (H1).
     """
 
     def __init__(self, llm_client: LLMClient = None):
@@ -59,17 +71,60 @@ class ConsolidationEngine:
         """Return the 5 consolidation step definitions."""
         return CONSOLIDATION_STEPS
 
+    def _sanitize_graph_schema(self, patient_graph: PatientGraph) -> None:
+        """Validate and sanitize all node/edge labels to clean strings prior to reasoning (H1)."""
+        for node_id in list(patient_graph._graph.nodes):
+            data = patient_graph._graph.nodes[node_id].get("data")
+            if data and isinstance(data.properties, dict):
+                raw_label = data.properties.get("label", node_id)
+                clean_label = _coerce_label_str(raw_label, fallback=str(node_id))
+                data.properties["label"] = clean_label
+                if "text" in data.properties and not isinstance(data.properties["text"], str):
+                    data.properties["text"] = _coerce_label_str(data.properties["text"], fallback=clean_label)
+
+    def _run_adversarial_step(self, reasoning: ReasoningEngine, question: str) -> Dict[str, Any]:
+        """
+        Execute Advocate, Skeptic, and Judge in a single strict JSON pass grounded on
+        ReasoningEngine._build_context_prompt so all 4 analytical steps complete reliably
+        without 12-call timeouts while preserving full Advocate/Skeptic/Judge outputs.
+        """
+        context_prompt = reasoning._build_context_prompt(question)
+        prompt = f"""{context_prompt}
+
+Run a 3-role adversarial clinical review (Advocate, Skeptic, Judge) and return ONE JSON object with keys:
+- "advocate": {{"argument": "concise clinical case"}}
+- "skeptic": {{"argument": "concise challenge against over-interpretation"}}
+- "judge": <the exact Judge JSON object requested in Target Question>
+"""
+        result = self.llm.generate_json(
+            prompt,
+            system_instruction="You are PRISM's clinical memory consolidation arbiter. Output strict valid JSON matching the requested schema.",
+            strict=True,
+        )
+        if not isinstance(result, dict) or result.get("_llm_error"):
+            raise RuntimeError(result.get("error_detail") if isinstance(result, dict) else "Invalid LLM consolidation output")
+        judge = result.get("judge")
+        if not isinstance(judge, dict):
+            # Support flat judge schema if model omitted wrapper
+            judge = result
+        return {
+            "advocate": result.get("advocate", {}),
+            "skeptic": result.get("skeptic", {}),
+            "judge": judge,
+        }
+
     def run_full_consolidation(
         self,
         patient_graph: PatientGraph,
         conversation_messages: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
         """
-        Run all 5 consolidation steps using ReasoningEngine per step.
+        Run all 5 consolidation steps using ReasoningEngine context per step.
+        Raises ConsolidationStepError if any step fails instead of reporting false success.
         """
-        # Create a ReasoningEngine that operates on the patient's graph
+        self._sanitize_graph_schema(patient_graph)
         reasoning = ReasoningEngine(graph=patient_graph, llm_client=self.llm)
-        results = []
+        results: List[Dict[str, Any]] = []
 
         # Step 0: Session ended — snapshot
         patient_graph.snapshot("pre-consolidation")
@@ -79,31 +134,52 @@ class ConsolidationEngine:
             "changes": "Working memory captured. Graph snapshot saved.",
         })
 
-        # Step 1: Significance filtering (Advocate/Skeptic/Judge)
-        step1 = self._significance_filtering(reasoning, patient_graph, conversation_messages)
-        results.append({**CONSOLIDATION_STEPS[1], "status": "complete", **step1})
+        # If conversation had 0 patient/bot messages, skip LLM calls cleanly without fabricating disclosures
+        if not conversation_messages:
+            for idx in (1, 2, 3, 4):
+                results.append({
+                    **CONSOLIDATION_STEPS[idx],
+                    "status": "complete",
+                    "changes": "No messages in session; no graph modifications required.",
+                    "debate": {},
+                })
+            patient_graph.snapshot("post-consolidation")
+            return {
+                "status": "complete",
+                "steps": results,
+                "final_graph": patient_graph.get_graph_state(),
+            }
 
-        # Step 2: Credibility weighting — uses TemporalGraph.add_divergence
-        step2 = self._credibility_weighting(reasoning, patient_graph, conversation_messages)
-        results.append({**CONSOLIDATION_STEPS[2], "status": "complete", **step2})
+        step_runners = [
+            (1, lambda: self._significance_filtering(reasoning, patient_graph, conversation_messages)),
+            (2, lambda: self._credibility_weighting(reasoning, patient_graph, conversation_messages)),
+            (3, lambda: self._node_merging(reasoning, patient_graph)),
+            (4, lambda: self._inferred_edges(reasoning, patient_graph)),
+        ]
 
-        # Step 3: Node merging & edge thickening
-        step3 = self._node_merging(reasoning, patient_graph)
-        results.append({**CONSOLIDATION_STEPS[3], "status": "complete", **step3})
-
-        # Step 4: Inferred edges
-        step4 = self._inferred_edges(reasoning, patient_graph)
-        results.append({**CONSOLIDATION_STEPS[4], "status": "complete", **step4})
+        for idx, runner in step_runners:
+            step_meta = CONSOLIDATION_STEPS[idx]
+            try:
+                step_out = runner()
+                results.append({**step_meta, "status": "complete", **step_out})
+            except Exception as e:
+                results.append({
+                    **step_meta,
+                    "status": "error",
+                    "error": str(e),
+                    "changes": f"Step failed: {e}",
+                })
+                raise ConsolidationStepError(idx, step_meta["title"], str(e), results) from e
 
         # Clear "is_new" flags from all nodes and edges since they are now consolidated
         for node_id in patient_graph._graph.nodes:
-            data = patient_graph._graph.nodes[node_id].get('data')
+            data = patient_graph._graph.nodes[node_id].get("data")
             if data:
-                data.properties['is_new'] = False
+                data.properties["is_new"] = False
         for u, v, k, d in patient_graph._graph.edges(keys=True, data=True):
-            data = d.get('data')
+            data = d.get("data")
             if data:
-                data.properties['is_new'] = False
+                data.properties["is_new"] = False
 
         # Final snapshot
         patient_graph.snapshot("post-consolidation")
@@ -120,7 +196,7 @@ class ConsolidationEngine:
         patient_graph: PatientGraph,
         messages: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
-        """Step 1: Use ReasoningEngine to identify high-significance disclosures."""
+        """Step 1: Identify high-significance disclosures."""
         msg_text = "\n".join(f"{m.get('sender', '?')}: {m.get('text', '')}" for m in messages)
 
         question = f"""Analyze this conversation for HIGH-SIGNIFICANCE disclosures — things said for the first time, things hard to say, things that reorganize the patient's story.
@@ -128,42 +204,44 @@ class ConsolidationEngine:
 Conversation:
 {msg_text}
 
-Advocate: Identify all significant disclosures and argue they should become weighted nodes.
-Skeptic: Challenge — which of these are genuinely significant vs surface-level?
-Judge: Decide which disclosures warrant new nodes and what size/weight.
+Judge JSON schema:
+{{"significant_disclosures": [{{"node_id": "snake_case_id", "label": "short string label", "kind": "significance|belief|event|symptom", "size": 18}}], "size_adjustments": [{{"node_id": "existing_id", "new_size": 20}}]}}"""
 
-Judge output must include:
-{{"significant_disclosures": [{{"node_id": "id", "label": "label", "kind": "significance|belief|event", "size": 16-24}}], "size_adjustments": [{{"node_id": "existing_id", "new_size": 18-28}}]}}"""
+        result = self._run_adversarial_step(reasoning, question)
+        judge = result["judge"]
+        changes = []
+        self_node_id = next((nid for nid, nv in patient_graph.nodes.items() if nv.kind == "self"), None)
 
-        try:
-            result = reasoning.analyze(question)
-            judge = result.get("judge", {})
-            changes = []
+        for disc in judge.get("significant_disclosures", []) or []:
+            if not isinstance(disc, dict):
+                continue
+            node_id = str(disc.get("node_id") or "").strip()
+            label = _coerce_label_str(disc.get("label"), fallback=node_id)
+            if node_id and patient_graph.get_node(node_id) is None:
+                patient_graph.add_node(
+                    node_id=node_id,
+                    label=label,
+                    kind=str(disc.get("kind") or "significance"),
+                    size=float(disc.get("size") or 18),
+                    is_new=True,
+                )
+                if self_node_id and self_node_id != node_id:
+                    patient_graph.add_edge(self_node_id, node_id, label="disclosed", weight=2, is_new=True)
+                changes.append(f"Added significance node: {label}")
 
-            for disc in judge.get("significant_disclosures", []):
-                node_id = disc.get("node_id", "")
-                if node_id and patient_graph.get_node(node_id) is None:
-                    patient_graph.add_node(
-                        node_id=node_id,
-                        label=disc.get("label", node_id),
-                        kind=disc.get("kind", "significance"),
-                        size=disc.get("size", 18),
-                        is_new=True,
-                    )
-                    changes.append(f"Added significance node: {disc.get('label')}")
+        for adj in judge.get("size_adjustments", []) or []:
+            if not isinstance(adj, dict):
+                continue
+            node = patient_graph.get_node(str(adj.get("node_id") or ""))
+            if node:
+                new_sz = float(adj.get("new_size") or node.properties.get("size", 14))
+                node.properties["size"] = new_sz
+                changes.append(f"Resized {_coerce_label_str(node.properties.get('label'), node.id)} to {new_sz}")
 
-            for adj in judge.get("size_adjustments", []):
-                node = patient_graph.get_node(adj.get("node_id", ""))
-                if node:
-                    node.properties["size"] = adj.get("new_size", node.properties.get("size", 14))
-                    changes.append(f"Resized {node.properties.get('label')} to {adj.get('new_size')}")
-
-            return {
-                "changes": "; ".join(changes) if changes else "No significant new disclosures identified.",
-                "debate": {"advocate": result.get("advocate", {}), "skeptic": result.get("skeptic", {}), "judge": judge},
-            }
-        except Exception as e:
-            return {"changes": f"Significance filtering error: {e}", "debate": {}}
+        return {
+            "changes": "; ".join(changes) if changes else "No significant new disclosures identified.",
+            "debate": result,
+        }
 
     def _credibility_weighting(
         self,
@@ -171,156 +249,168 @@ Judge output must include:
         patient_graph: PatientGraph,
         messages: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
-        """Step 2: Use ReasoningEngine + TemporalGraph.add_divergence for inconsistencies."""
+        """Step 2: Register inconsistencies via TemporalGraph.add_divergence without overwriting."""
         msg_text = "\n".join(f"{m.get('sender', '?')}: {m.get('text', '')}" for m in messages)
 
         question = f"""Check for INCONSISTENCIES between what the patient said in this conversation and what their existing graph shows.
-
 The bot does NOT naively overwrite — it holds BOTH claims and flags the divergence.
 
 Conversation:
 {msg_text}
 
-Advocate: Identify potential inconsistencies between new disclosures and existing graph data.
-Skeptic: Challenge — are these genuine inconsistencies or just different framings of the same thing?
-Judge: Decide which are true divergences that should be flagged.
+Judge JSON schema:
+{{"divergences": [{{"topic": "what is inconsistent", "claim_a_node": "existing_node_id", "claim_b_text": "new contradicting claim text"}}], "credibility_notes": "summary string"}}"""
 
-Judge output must include:
-{{"divergences": [{{"topic": "what's inconsistent", "claim_a_node": "existing_node_id", "claim_b_text": "new claim text"}}]}}"""
+        result = self._run_adversarial_step(reasoning, question)
+        judge = result["judge"]
+        divergences = judge.get("divergences", []) or []
+        flagged_topics = []
 
-        try:
-            result = reasoning.analyze(question)
-            judge = result.get("judge", {})
-            divergences = judge.get("divergences", [])
+        for div in divergences:
+            if not isinstance(div, dict):
+                continue
+            claim_a_id = str(div.get("claim_a_node") or "").strip()
+            claim_b_text = _coerce_label_str(div.get("claim_b_text"), fallback="").strip()
+            topic = _coerce_label_str(div.get("topic"), fallback="Narrative discrepancy").strip()
 
-            for div in divergences:
-                claim_a_id = div.get("claim_a_node", "")
-                claim_b_text = div.get("claim_b_text", "")
-                topic = div.get("topic", "")
+            if claim_a_id and claim_b_text and patient_graph.get_node(claim_a_id) is not None:
+                new_id = f"divergence_{claim_a_id}_{uuid.uuid4().hex[:4]}"
+                patient_graph.add_node(
+                    node_id=new_id,
+                    label=claim_b_text[:54],
+                    kind="event",
+                    size=14,
+                    is_new=True,
+                    properties={
+                        "text": claim_b_text,
+                        "source_doc": "Live Session Disclosure",
+                        "credibility": 0.7,
+                    },
+                )
+                patient_graph.add_divergence(claim_a_id, new_id, topic)
+                flagged_topics.append(topic)
 
-                if claim_a_id and patient_graph.get_node(claim_a_id) is not None:
-                    # Create a new node for the new claim
-                    new_id = f"divergence_{claim_a_id}"
-                    patient_graph.add_node(
-                        node_id=new_id,
-                        label=claim_b_text[:50],
-                        kind="event",
-                        size=14,
-                        is_new=True,
-                    )
-                    # Use TemporalGraph.add_divergence to register the contradiction
-                    patient_graph.add_divergence(claim_a_id, new_id, topic)
-
-            if divergences:
-                return {
-                    "changes": f"Flagged {len(divergences)} divergence(s): " + "; ".join(d.get("topic", "") for d in divergences),
-                    "debate": {"advocate": result.get("advocate", {}), "skeptic": result.get("skeptic", {}), "judge": judge},
-                }
+        if flagged_topics:
             return {
-                "changes": result.get("credibility_notes", "No inconsistencies detected."),
-                "debate": {"advocate": result.get("advocate", {}), "skeptic": result.get("skeptic", {}), "judge": judge},
+                "changes": f"Flagged {len(flagged_topics)} divergence(s): " + "; ".join(flagged_topics),
+                "debate": result,
             }
-        except Exception as e:
-            return {"changes": f"Credibility weighting error: {e}", "debate": {}}
+        return {
+            "changes": str(judge.get("credibility_notes") or "No inconsistencies detected."),
+            "debate": result,
+        }
 
     def _node_merging(self, reasoning: ReasoningEngine, patient_graph: PatientGraph) -> Dict[str, Any]:
-        """Step 3: Use ReasoningEngine to identify merge candidates."""
+        """Step 3: Identify duplicate merge candidates & edge thickening (never deleting protected/self nodes)."""
         question = """Analyze the patient graph for:
-1. DUPLICATE or VERY SIMILAR nodes that should be merged
+1. DUPLICATE or VERY SIMILAR nodes that should be merged (never remove the 'self' node or 'therapist_locked' nodes)
 2. EDGES that should be thickened because they've been reinforced
 
-Advocate: Propose merges and thickening.
-Skeptic: Challenge — would merging lose important distinctions?
-Judge: Decide which merges to execute.
+Judge JSON schema:
+{"merge_candidates": [{"keep_id": "node_to_keep", "remove_id": "node_to_remove"}], "edge_thickening": [{"source": "id", "target": "id", "new_weight": 3}]}"""
 
-Judge output must include:
-{"merge_candidates": [{"keep_id": "node_to_keep", "remove_id": "node_to_remove"}], "edge_thickening": [{"source": "id", "target": "id", "new_weight": 2-4}]}"""
+        result = self._run_adversarial_step(reasoning, question)
+        judge = result["judge"]
+        changes = []
 
-        try:
-            result = reasoning.analyze(question)
-            judge = result.get("judge", {})
-            changes = []
+        for merge in judge.get("merge_candidates", []) or []:
+            if not isinstance(merge, dict):
+                continue
+            remove_id = str(merge.get("remove_id") or "").strip()
+            keep_id = str(merge.get("keep_id") or "").strip()
+            rem_node = patient_graph.get_node(remove_id)
+            keep_node = patient_graph.get_node(keep_id)
+            if (
+                remove_id
+                and keep_id
+                and remove_id != keep_id
+                and rem_node is not None
+                and keep_node is not None
+                and rem_node.node_type not in ("self", "therapist_locked", "locked")
+            ):
+                patient_graph.remove_node(remove_id)
+                changes.append(f"Merged {remove_id} into {keep_id}")
 
-            for merge in judge.get("merge_candidates", []):
-                remove_id = merge.get("remove_id", "")
-                keep_id = merge.get("keep_id", "")
-                if remove_id and keep_id and patient_graph.get_node(remove_id) is not None and patient_graph.get_node(keep_id) is not None:
-                    patient_graph.remove_node(remove_id)
-                    changes.append(f"Merged {remove_id} into {keep_id}")
+        for thick in judge.get("edge_thickening", []) or []:
+            if not isinstance(thick, dict):
+                continue
+            src = str(thick.get("source") or "")
+            tgt = str(thick.get("target") or "")
+            edge = patient_graph.get_edge(src, tgt)
+            if edge:
+                try:
+                    nw = int(thick.get("new_weight") or edge.properties.get("weight", 1))
+                except (TypeError, ValueError):
+                    nw = 2
+                edge.properties["weight"] = min(4, max(1, nw))
+                changes.append(f"Thickened {src}->{tgt}")
 
-            for thick in judge.get("edge_thickening", []):
-                edge = patient_graph.get_edge(thick.get("source", ""), thick.get("target", ""))
-                if edge:
-                    edge.properties["weight"] = min(4, thick.get("new_weight", edge.properties.get("weight", 1)))
-                    changes.append(f"Thickened {thick['source']}->{thick['target']}")
-
-            return {
-                "changes": "; ".join(changes) if changes else "No merges or thickening needed.",
-                "debate": {"advocate": result.get("advocate", {}), "skeptic": result.get("skeptic", {}), "judge": judge},
-            }
-        except Exception as e:
-            return {"changes": f"Node merging error: {e}", "debate": {}}
+        return {
+            "changes": "; ".join(changes) if changes else "No merges or thickening needed.",
+            "debate": result,
+        }
 
     def _inferred_edges(self, reasoning: ReasoningEngine, patient_graph: PatientGraph) -> Dict[str, Any]:
-        """Step 4: Use ReasoningEngine to generate hypothetical connections."""
-        question = """Generate HYPOTHETICAL connections — edges between nodes the patient has NOT explicitly linked but clinical reasoning suggests may be connected.
-
+        """Step 4: Generate dashed hypothetical connections for clinician review."""
+        question = """Generate HYPOTHETICAL connections — edges between existing nodes the patient has NOT explicitly linked, where clinical reasoning suggests a plausible relationship.
 These are INFERRED edges — marked dashed for clinician review.
 
-Advocate: Propose inferred connections with clinical reasoning.
-Skeptic: Challenge — are these genuinely plausible or speculative?
-Judge: Approve only clinically plausible inferences.
+Judge JSON schema:
+{"inferred_edges": [{"source": "existing_node_id", "target": "existing_node_id", "label": "hypothesized relationship"}], "inferred_nodes": [{"id": "snake_case_id", "label": "short hypothesis label", "size": 16, "connected_to": "existing_node_id", "edge_label": "relationship"}]}"""
 
-Judge output must include:
-{"inferred_edges": [{"source": "node_id", "target": "node_id", "label": "hypothesized relationship"}], "inferred_nodes": [{"id": "id", "label": "label", "kind": "inferred", "size": 16, "connected_to": "existing_node_id", "edge_label": "relationship"}]}"""
+        result = self._run_adversarial_step(reasoning, question)
+        judge = result["judge"]
+        changes = []
 
-        try:
-            result = reasoning.analyze(question)
-            judge = result.get("judge", {})
-            changes = []
-
-            for node_data in judge.get("inferred_nodes", []):
-                node_id = node_data.get("id", "")
-                if node_id and patient_graph.get_node(node_id) is None:
-                    patient_graph.add_node(
-                        node_id=node_id,
-                        label=node_data.get("label", node_id),
-                        kind="inferred",
-                        size=node_data.get("size", 16),
-                        is_new=True,
-                    )
-                    connected_to = node_data.get("connected_to", "")
-                    if connected_to and patient_graph.get_node(connected_to) is not None:
-                        patient_graph.add_edge(
-                            source=node_id,
-                            target=connected_to,
-                            label=node_data.get("edge_label", "inferred"),
-                            weight=1,
-                            is_new=True,
-                            dashed=True,
-                        )
-                    changes.append(f"Added inferred node: {node_data.get('label')}")
-
-            for edge_data in judge.get("inferred_edges", []):
-                source = edge_data.get("source", "")
-                target = edge_data.get("target", "")
-                if (source and target
-                        and patient_graph.get_node(source) is not None
-                        and patient_graph.get_node(target) is not None
-                        and patient_graph.get_edge(source, target) is None):
+        for node_data in judge.get("inferred_nodes", []) or []:
+            if not isinstance(node_data, dict):
+                continue
+            node_id = str(node_data.get("id") or "").strip()
+            label = _coerce_label_str(node_data.get("label"), fallback=node_id)
+            if node_id and patient_graph.get_node(node_id) is None:
+                patient_graph.add_node(
+                    node_id=node_id,
+                    label=label,
+                    kind="inferred",
+                    size=float(node_data.get("size") or 16),
+                    is_new=True,
+                )
+                connected_to = str(node_data.get("connected_to") or "").strip()
+                if connected_to and patient_graph.get_node(connected_to) is not None:
                     patient_graph.add_edge(
-                        source=source,
-                        target=target,
-                        label=edge_data.get("label", "inferred connection"),
+                        source=node_id,
+                        target=connected_to,
+                        label=_coerce_label_str(node_data.get("edge_label"), fallback="inferred"),
                         weight=1,
                         is_new=True,
                         dashed=True,
                     )
-                    changes.append(f"Inferred edge: {source} -> {target}")
+                changes.append(f"Added inferred node: {label}")
 
-            return {
-                "changes": "; ".join(changes) if changes else "No inferred connections generated.",
-                "debate": {"advocate": result.get("advocate", {}), "skeptic": result.get("skeptic", {}), "judge": judge},
-            }
-        except Exception as e:
-            return {"changes": f"Inferred edges error: {e}", "debate": {}}
+        for edge_data in judge.get("inferred_edges", []) or []:
+            if not isinstance(edge_data, dict):
+                continue
+            source = str(edge_data.get("source") or "").strip()
+            target = str(edge_data.get("target") or "").strip()
+            if (
+                source
+                and target
+                and source != target
+                and patient_graph.get_node(source) is not None
+                and patient_graph.get_node(target) is not None
+                and patient_graph.get_edge(source, target) is None
+            ):
+                patient_graph.add_edge(
+                    source=source,
+                    target=target,
+                    label=_coerce_label_str(edge_data.get("label"), fallback="inferred connection"),
+                    weight=1,
+                    is_new=True,
+                    dashed=True,
+                )
+                changes.append(f"Inferred edge: {source} -> {target}")
+
+        return {
+            "changes": "; ".join(changes) if changes else "No inferred connections generated.",
+            "debate": result,
+        }

@@ -38,6 +38,16 @@ const TOTAL = 35;
     await page.waitForTimeout(3000);
   }
 
+  // Authenticate admin test session via C2 server-side entry gate
+  await page.evaluate(async (api) => {
+    await fetch(`${api}/api/v1/auth/accept-terms`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accepted: true, admin_key: 'ally-local-admin-2026' }),
+    });
+  }, API);
+
   const results = [];
   let n = 0;
   const T = (name) => { n++; console.log(`\n[${n}/${TOTAL}] ${name}`); return name; };

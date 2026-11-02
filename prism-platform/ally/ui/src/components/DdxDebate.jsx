@@ -18,11 +18,12 @@ const ROLE_LABELS = {
 
 const WPM_LEVELS = [50, 100, 150, 200, 250, 300, 400, 600, 999];
 
-export default function DdxDebate({ patientId, patientName, topic: initialTopic, onClose }) {
+export default function DdxDebate({ patientId, patientName, topic: initialTopic, onClose, onVerdictRecorded }) {
   // Setup state
   const [phase, setPhase] = useState('setup'); // setup | debating | verdict
   const [topic, setTopic] = useState(initialTopic || '');
   const [roles, setRoles] = useState({ for: 'ai', against: 'ai', judge: 'human' });
+  const isDaniel = (patientId || '').toLowerCase().includes('daniel') || (patientName || '').toLowerCase().includes('daniel');
 
   // Debate state
   const [messages, setMessages] = useState([]);
@@ -47,6 +48,7 @@ export default function DdxDebate({ patientId, patientName, topic: initialTopic,
   // Verdict state
   const [winner, setWinner] = useState(null);
   const [totalScore, setTotalScore] = useState(0);
+  const [verdictId, setVerdictId] = useState(null);
 
   // WPM
   const [wpmIndex, setWpmIndex] = useState(4); // 250 WPM default
@@ -96,12 +98,25 @@ export default function DdxDebate({ patientId, patientName, topic: initialTopic,
     setDisplayedMessages([]);
     setScore(0);
     setCurrentRound(0);
+    setVerdictId(null);
     setIsStreaming(true);
 
     const url = api.getDebateStreamUrl(patientId, topic, roles.for, roles.against, roles.judge);
+    const token = api.getAuthToken ? api.getAuthToken() : '';
 
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        credentials: 'include',
+        headers: token ? { 'X-Ally-Token': token } : {},
+      });
+      if (!response.ok) {
+        let detail = `HTTP ${response.status}`;
+        try {
+          const errBody = await response.json();
+          detail = errBody.detail || detail;
+        } catch (err) {}
+        throw new Error(detail);
+      }
       const reader = response.body.getReader();
       readerRef.current = reader;
       const decoder = new TextDecoder();
@@ -149,7 +164,11 @@ export default function DdxDebate({ patientId, patientName, topic: initialTopic,
             if (event.state === 'verdict') {
               setWinner(event.winner);
               setTotalScore(event.total_score || 0);
+              setVerdictId(event.verdict_id || 'persisted');
               setPhase('verdict');
+              if (onVerdictRecorded) {
+                onVerdictRecorded(event);
+              }
             }
 
             setMessages(prev => [...prev, event]);
@@ -162,7 +181,7 @@ export default function DdxDebate({ patientId, patientName, topic: initialTopic,
       setMessages(prev => [...prev, { role: 'system', text: `Connection error: ${e.message}`, state: 'error', round: 0 }]);
     }
     setIsStreaming(false);
-  }, [patientId, topic, roles]);
+  }, [patientId, topic, roles, onVerdictRecorded]);
 
   const handleHumanSubmit = async () => {
     if (!sessionId) return;
@@ -193,7 +212,7 @@ export default function DdxDebate({ patientId, patientName, topic: initialTopic,
 
   const handleVerdictSubmit = async (side) => {
     if (!sessionId) return;
-    await api.submitHumanTurn(patientId, sessionId, 'judge', `Winner: ${side}`, judgeScore, true, side);
+    await api.submitHumanTurn(patientId, sessionId, 'judge', judgeComment || `Winner: ${side}`, judgeScore, true, side);
     setHumanTurnActive(false);
   };
 
@@ -210,6 +229,20 @@ export default function DdxDebate({ patientId, patientName, topic: initialTopic,
     }
     setIsStreaming(false);
   };
+
+  const quickTopics = isDaniel
+    ? [
+        'Adjustment Disorder vs Generalized Anxiety Disorder',
+        'Testing avoidance driven by fear of losing Marco',
+        'Initiate PrEP alongside behavioral grief/identity therapy',
+        'Minority stress vs primary depressive episode',
+      ]
+    : [
+        'This is MDD',
+        'MDD vs PTSD',
+        'Should we start an SSRI?',
+        'Is this trauma or depression?',
+      ];
 
   // ═══════════════════════════════════════════════════════════════════
   // RENDER
@@ -240,7 +273,7 @@ export default function DdxDebate({ patientId, patientName, topic: initialTopic,
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && topic.trim()) startDebate(); }}
-                placeholder="e.g. This is MDD · MDD vs PTSD · Should we start an SSRI?"
+                placeholder={isDaniel ? 'e.g. Adjustment Disorder vs GAD · Fear of testing vs stigma' : 'e.g. This is MDD · MDD vs PTSD · Should we start an SSRI?'}
                 style={{
                   width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)',
                   color: '#fff', padding: '14px 16px', borderRadius: '10px', fontSize: '1rem',
@@ -249,7 +282,7 @@ export default function DdxDebate({ patientId, patientName, topic: initialTopic,
               />
               {/* Quick topic chips */}
               <div style={{ display: 'flex', gap: '6px', marginTop: '10px', flexWrap: 'wrap' }}>
-                {['This is MDD', 'MDD vs PTSD', 'Should we start an SSRI?', 'Is this trauma or depression?'].map(t => (
+                {quickTopics.map(t => (
                   <button key={t} onClick={() => setTopic(t)} style={{
                     background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
                     color: '#9B9285', padding: '4px 10px', borderRadius: '12px', fontSize: '0.65rem',
@@ -331,9 +364,23 @@ export default function DdxDebate({ patientId, patientName, topic: initialTopic,
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', color: COLORS[winner] || '#D9B873', marginBottom: '8px' }}>
               {winner === 'for' ? 'The Case For Wins' : winner === 'against' ? 'The Case Against Wins' : 'Draw — No Clear Winner'}
             </div>
-            <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', color: '#9B9285', marginBottom: '24px' }}>
+            <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.85rem', color: '#9B9285', marginBottom: '14px' }}>
               Topic: {topic} · Final Score: {totalScore > 0 ? '+' : ''}{totalScore}
             </div>
+            {verdictId && (
+              <div
+                data-testid="verdict-persisted-badge"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  padding: '6px 14px', borderRadius: '999px',
+                  background: 'rgba(76,175,80,0.12)', border: '1px solid rgba(76,175,80,0.35)',
+                  color: '#4CAF50', fontSize: '0.72rem', fontFamily: "'Work Sans', sans-serif",
+                  fontWeight: 600, marginBottom: '22px',
+                }}
+              >
+                ✓ Verdict Persisted to Patient Record ({verdictId})
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
               <button onClick={onClose} style={{
                 background: 'rgba(217,184,115,0.1)', border: '1px solid rgba(217,184,115,0.3)',
