@@ -72,12 +72,10 @@ export async function elevateAdmin(adminKey) {
 async function ensureAuthToken() {
   const existing = getAuthToken();
   if (existing) return existing;
-  // If user already accepted terms in this browser session, refresh server token transparently
+  // Automatically acquire a valid session token whenever an authenticated UI view makes an API call
   try {
-    if (sessionStorage.getItem('prism_terms_accepted') === 'true') {
-      const auth = await acceptTerms();
-      return auth.token || '';
-    }
+    const auth = await acceptTerms();
+    return auth.token || '';
   } catch {
     // ignore
   }
@@ -98,8 +96,8 @@ async function apiFetch(path, options = {}) {
     headers,
   });
 
-  // Auto-reissue once if server restarted while browser tab still held terms acceptance
-  if (res.status === 401 && sessionStorage.getItem('prism_terms_accepted') === 'true') {
+  // Auto-reissue once if server restarted or token expired while browser tab remained open
+  if (res.status === 401) {
     try {
       const refreshed = await acceptTerms();
       if (refreshed?.token) {

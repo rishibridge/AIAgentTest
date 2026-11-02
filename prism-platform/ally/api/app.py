@@ -421,4 +421,11 @@ if os.path.isdir(ui_dist):
         candidate = os.path.abspath(os.path.join(ui_dist, full_path))
         if candidate.startswith(ui_dist) and os.path.isfile(candidate):
             return FileResponse(candidate)
-        return FileResponse(os.path.join(ui_dist, "index.html"))
+        return FileResponse(
+            os.path.join(ui_dist, "index.html"),
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )

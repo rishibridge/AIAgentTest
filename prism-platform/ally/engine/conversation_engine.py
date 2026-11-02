@@ -364,17 +364,40 @@ class ConversationEngine:
                     config=next_config,
                 )
 
-            # Extract final text response (with guaranteed mode="NONE" text fallback if needed)
-            text = (response.text or "").strip() if response else ""
+            # Extract final text response (with guaranteed mode="NONE" and plain-text fallback if needed)
+            text = self._extract_response_text(response)
             if not text and tool_calls_made:
-                final_resp = self.llm.client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=contents,
-                    config=config_force_text,
-                )
-                text = (final_resp.text or "").strip() if final_resp else ""
+                try:
+                    final_resp = self.llm.client.models.generate_content(
+                        model='gemini-2.5-flash',
+                        contents=contents,
+                        config=config_force_text,
+                    )
+                    text = self._extract_response_text(final_resp)
+                except Exception as inner_e:
+                    print(f"ConversationEngine force-text retry warning: {inner_e}")
+
             if not text:
-                text = "I hear you. Tell me more."
+                tool_summary = ""
+                if tool_calls_made:
+                    tool_lines = [
+                        f"- {tc['tool']}({tc.get('args', {})}) -> {tc.get('result', '')}"
+                        for tc in tool_calls_made
+                    ]
+                    tool_summary = "\n\nGRAPH TOOL UPDATES JUST RECORDED THIS TURN:\n" + "\n".join(tool_lines)
+                plain_prompt = (
+                    f"Patient message:\n{patient_message}{tool_summary}\n\n"
+                    "Write Ally's direct spoken reply to the patient now (2 to 4 warm, specific sentences grounded in the patient's memory graph and the turn priority checklist above; no markdown formatting):"
+                )
+                text = (self.llm.generate(
+                    plain_prompt,
+                    system_instruction=system_prompt,
+                    model="gemini-2.5-flash",
+                    temperature=0.4,
+                ) or "").strip()
+
+            if not text:
+                text = "I hear how much you're carrying right now. How has this been affecting you day to day?"
 
             usage_tokens = None
             if response is not None and getattr(response, "usage_metadata", None) is not None:
@@ -394,14 +417,52 @@ class ConversationEngine:
             print(f"ConversationEngine function calling error: {e}")
             import traceback
             traceback.print_exc()
+            fallback_text = ""
+            try:
+                plain_prompt = (
+                    f"Patient message:\n{patient_message}\n\n"
+                    "Write Ally's direct spoken reply to the patient now (2 to 4 warm, specific sentences grounded in the patient's memory graph and the turn priority checklist above; no markdown formatting):"
+                )
+                fallback_text = (self.llm.generate(
+                    plain_prompt,
+                    system_instruction=system_prompt,
+                    model="gemini-2.5-flash",
+                    temperature=0.4,
+                ) or "").strip()
+            except Exception:
+                fallback_text = ""
             return {
-                "text": "I'm here with you. Can you tell me a bit more about what's on your mind?",
-                "significance": False,
-                "highlight": [],
-                "tool_calls": [],
-                "node_updates": [],
-                "edge_updates": [],
+                "text": fallback_text or "I'm here with you. Can you tell me a bit more about what's on your mind?",
+                "significance": significance,
+                "highlight": list(set(highlight_nodes)),
+                "tool_calls": tool_calls_made,
+                "node_updates": [tc for tc in tool_calls_made if tc["tool"] == "add_node"],
+                "edge_updates": [tc for tc in tool_calls_made if tc["tool"] == "add_edge"],
             }
+
+    def _extract_response_text(self, resp: Any) -> str:
+        """Safely extract spoken text from a Gemini response object even if non-text parts are present."""
+        if resp is None:
+            return ""
+        try:
+            direct = (resp.text or "").strip()
+            if direct:
+                return direct
+        except Exception:
+            pass
+        try:
+            chunks = []
+            for cand in getattr(resp, "candidates", None) or []:
+                content = getattr(cand, "content", None)
+                for part in getattr(content, "parts", None) or []:
+                    if getattr(part, "thought", False):
+                        continue
+                    part_text = getattr(part, "text", None)
+                    if part_text and isinstance(part_text, str):
+                        chunks.append(part_text.strip())
+            return " ".join(c for c in chunks if c).strip()
+        except Exception:
+            return ""
 
     def _get_connected_neighborhood(self, patient_graph: PatientGraph, seed_node_ids: List[str]) -> Dict[str, Any]:
         """Return 1-hop and 2-hop connected nodes/edges around touched nodes plus active clinician/safety context."""
