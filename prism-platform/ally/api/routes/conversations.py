@@ -135,12 +135,13 @@ def send_message(patient_id: str, conv_id: str, req: SendMessageRequest):
         patient_graph=pg,
         conversation_history=conv.messages,
         patient_message=req.text,
+        conversation_id=conv_id,
     )
 
     added_node_ids = [
-        tc["args"].get("node_id", "")
+        tc["result"].get("node_id") or tc["args"].get("node_id", "")
         for tc in bot_response.get("tool_calls", [])
-        if tc["tool"] == "add_node" and tc["result"].get("status") == "created"
+        if tc["tool"] == "add_node" and tc["result"].get("status") in ("created", "updated")
     ]
 
     model_name = bot_response.get("model", "gemini-2.5-flash")

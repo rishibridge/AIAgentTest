@@ -527,6 +527,15 @@ const TOTAL = 35;
   // RESULTS
   // ══════════════════════════════════════════════════════════════
 
+  // Reset patient back to clean seed state after safety suite completes
+  await page.evaluate(async ({ pid, api }) => {
+    await fetch(`${api}/api/v1/patients/${pid}/graph/reset`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }, { pid: PID, api: API }).catch(() => {});
+
   await browser.close();
 
   const passes = results.filter(r => r.s === 'PASS').length;

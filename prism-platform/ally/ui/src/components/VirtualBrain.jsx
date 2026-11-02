@@ -68,6 +68,33 @@ const zoomBtnStyle = {
 // ── gradient palette for radial fills ────────────────────────────────
 const GRAD_COLORS = [C.teal, C.tealSoft, C.gold, C.goldSoft, C.rust, C.brick, C.inkSoft, C.locked];
 
+// Wrap long single-line labels at word boundaries without truncating any characters
+function wrapSvgLabelLines(rawLabel, maxLineChars = 36) {
+  const explicitLines = String(rawLabel || '').split('\n');
+  const wrapped = [];
+  for (const rawLine of explicitLines) {
+    const trimmed = rawLine.trim();
+    if (trimmed.length <= maxLineChars || !trimmed.includes(' ')) {
+      wrapped.push(trimmed);
+      continue;
+    }
+    const words = trimmed.split(/\s+/);
+    let current = '';
+    for (const w of words) {
+      if (!current) {
+        current = w;
+      } else if (current.length + 1 + w.length <= maxLineChars) {
+        current += ` ${w}`;
+      } else {
+        wrapped.push(current);
+        current = w;
+      }
+    }
+    if (current) wrapped.push(current);
+  }
+  return wrapped.length ? wrapped : [''];
+}
+
 // ── main graph component ─────────────────────────────────────────────
 export default function InteractiveGraph({
   nodes, edges, positions,
@@ -400,7 +427,7 @@ export default function InteractiveGraph({
                     fontWeight={node.kind === 'self' || node.kind === 'significance' || node.is_new ? 600 : 400}
                     style={{ pointerEvents: 'none' }}
                   >
-                    {String(node.label || node.id).split('\n').map((line, j) => (
+                    {wrapSvgLabelLines(node.label || node.id).map((line, j) => (
                       <tspan key={j} x="0" dy={j === 0 ? 0 : Math.max(11, node.size * 0.34)}>
                         {j > 0 ? ` ${line}` : line}{j === 0 && node.is_new ? ' ✦' : ''}
                       </tspan>

@@ -1,5 +1,5 @@
 """Consolidation API routes — trigger, sweep, and monitor the 5-step pipeline."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -57,33 +57,65 @@ def list_unconsolidated_conversations(patient_id: str):
 
 
 @router.post("")
-def trigger_consolidation(patient_id: str, req: ConsolidateRequest = None):
+async def trigger_consolidation(patient_id: str, request: Request, req: ConsolidateRequest = None):
     """Run the full 5-step consolidation pipeline. Only marks 'consolidated' after all 5 steps succeed (H1)."""
     pg = _store["firewall"].get_patient_graph(patient_id)
     if not pg:
         raise HTTPException(404, "Patient not found")
 
+    consolidation_engine = _store["consolidation_engine"]
     conv_id = req.conversation_id if req else None
     conv = None
+
     if conv_id:
         conv = pg.get_conversation(conv_id)
+        if conv is None:
+            # 0-message session that was already pruned by /end -> run fast no-session path cleanly
+            result = consolidation_engine.run_full_consolidation(pg, [])
+            result["conversation_id"] = conv_id
+            result["conversation_status"] = "consolidated"
+            _save(patient_id)
+            return result
     else:
         for c in reversed(pg.conversations):
             if c.status == "ended":
                 conv = c
                 break
-        if not conv and pg.conversations:
-            conv = pg.conversations[-1]
+        if not conv:
+            for c in reversed(pg.conversations):
+                if c.status == "active":
+                    conv = c
+                    break
+        if not conv:
+            # All existing sessions are already consolidated -> fast no-session consolidation path
+            latest_id = pg.conversations[-1].id if pg.conversations else None
+            result = consolidation_engine.run_full_consolidation(pg, [])
+            result["conversation_id"] = latest_id
+            result["conversation_status"] = "consolidated"
+            _save(patient_id)
+            return result
 
-    if not conv:
-        raise HTTPException(400, "No conversation to consolidate")
+    if len(conv.messages) == 0:
+        # Prune 0-message session and run fast no-session consolidation
+        target_cid = conv.id
+        pg.conversations = [c for c in pg.conversations if c.id != target_cid]
+        pg.snapshots = [s for s in pg.snapshots if s.label != f"pre-session-{target_cid[:8]}"]
+        result = consolidation_engine.run_full_consolidation(pg, [])
+        result["conversation_id"] = target_cid
+        result["conversation_status"] = "consolidated"
+        _save(patient_id)
+        return result
 
-    consolidation_engine = _store["consolidation_engine"]
+    if conv.status == "active":
+        conv.status = "ended"
+
     messages = [{"sender": m.sender, "text": m.text} for m in conv.messages]
 
     try:
         result = consolidation_engine.run_full_consolidation(pg, messages)
     except ConsolidationStepError as e:
+        conv.status = "ended"
+        _save(patient_id)
         return JSONResponse(
             status_code=502,
             content={
@@ -96,6 +128,8 @@ def trigger_consolidation(patient_id: str, req: ConsolidateRequest = None):
             },
         )
     except Exception as e:
+        conv.status = "ended"
+        _save(patient_id)
         return JSONResponse(
             status_code=502,
             content={
@@ -107,9 +141,25 @@ def trigger_consolidation(patient_id: str, req: ConsolidateRequest = None):
             },
         )
 
-    # Mark consolidated ONLY after all 5 steps succeeded (H1)
+    # Do not mark consolidated if the client connection dropped before receiving the response
+    if await request.is_disconnected():
+        conv.status = "ended"
+        _save(patient_id)
+        return JSONResponse(
+            status_code=499,
+            content={
+                "status": "error",
+                "detail": "Client disconnected before consolidation completed.",
+                "conversation_id": conv.id,
+                "conversation_status": conv.status,
+            },
+        )
+
+    # Mark consolidated ONLY after all 5 steps succeeded and client is connected (H1)
     conv.status = "consolidated"
     pg.graph_version += 1
+    result["conversation_id"] = conv.id
+    result["conversation_status"] = conv.status
     _save(patient_id)
     return result
 

@@ -37,11 +37,8 @@ def _slugify_claim(text: str) -> str:
     return "_".join(words) if words else "claim"
 
 
-def _format_display_label(text: str, max_len: int = 56) -> str:
-    cleaned = " ".join(str(text).split())
-    if len(cleaned) <= max_len:
-        return cleaned
-    return cleaned[: max_len - 3].rstrip() + "..."
+def _format_display_label(text: str) -> str:
+    return " ".join(str(text).split())
 
 
 class DocumentExtractor:
@@ -103,7 +100,7 @@ class DocumentExtractor:
                 nodes_added += 1
 
                 if self_node_id and self_node_id != node_id:
-                    edge_label = f"doc: {source_name[:22]}"
+                    edge_label = f"doc: {source_name}"
                     self.graph.add_edge(
                         source=self_node_id,
                         target=node_id,

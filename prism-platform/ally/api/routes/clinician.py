@@ -247,7 +247,7 @@ Return a valid JSON object matching this exact schema:
 
         pg.add_node(
             node_id=node_id,
-            label=label[:56],
+            label=label,
             kind=kind,
             size=15,
             is_new=True,
@@ -257,7 +257,7 @@ Return a valid JSON object matching this exact schema:
                 "credibility": 0.95,
             },
         )
-        added_nodes.append({"id": node_id, "label": label[:56], "kind": kind})
+        added_nodes.append({"id": node_id, "label": label, "kind": kind})
 
         if self_node_id and self_node_id != node_id:
             pg.add_edge(
@@ -280,12 +280,12 @@ Return a valid JSON object matching this exact schema:
             pg.add_edge(
                 source=src,
                 target=tgt,
-                label=elabel[:40],
+                label=elabel,
                 weight=2,
                 is_new=True,
                 clinician=True,
             )
-            added_edges.append({"source": src, "target": tgt, "label": elabel[:40]})
+            added_edges.append({"source": src, "target": tgt, "label": elabel})
 
     for ce in (parsed.get("confirmed_edges") or []):
         if isinstance(ce, dict):

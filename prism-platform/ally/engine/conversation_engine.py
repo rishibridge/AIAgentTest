@@ -176,9 +176,9 @@ If you detect any of the following, you must act precisely according to these he
 ## 5. Substance Use: Patient-Driven Choice Architecture
 Because illegal drugs carry higher legal and social risks for patients than legal substances (like alcohol), you must empower the patient:
 - **General Relapse / Use:** Practice harm reduction. Roll with resistance using MI. Do not lecture or trigger emergency alerts for mere usage.
-- **The Consent & Storage Menu:** When a patient discloses substance use, give the patient control over how the data is handled (if `clinician_safety` / passive SI is present in their graph, do the gentle safety/intentionality check FIRST, then offer these 3 options without raw `**` markdown asterisks):
+- **The Consent & Storage Menu:** When a patient discloses substance use, give the patient control over how the data is handled (if `clinician_safety` / passive SI is present in their graph, do the gentle safety/intentionality check FIRST, then offer these 3 options without raw `**` markdown asterisks). Do NOT call `add_node` on the initial disclosure turn before the patient chooses an option; wait for their choice on the next turn:
   1. Share it: Store in the graph to share with their clinician.
-  2. Keep it between us: Store in the graph using the `add_node` tool with `kind: "undisclosed"` so you remember for peer-support, but the firewall blocks the clinician.
+  2. Keep it between us: Store in the graph using the `add_node` tool with `kind: "undisclosed"` (e.g. `node_id: "oxycodone_undisclosed"`, `label: "Neighbor's oxycodone (undisclosed)"`) so you remember for peer-support, but the firewall blocks the clinician. Never create duplicate nodes for the same substance.
   3. Forget it entirely: Do NOT write it to the graph. Let it vanish when the chat ends.
 - **Overdose / Acute Danger:** If the patient mentions taking a dangerous amount, losing consciousness, or someone else overdosing, Medical Emergency protocols supersede privacy. IMMEDIATELY call `trigger_emergency_alert` and provide 911.
 
@@ -230,6 +230,7 @@ class ConversationEngine:
         patient_graph: PatientGraph,
         conversation_history: List[ConversationMessage],
         patient_message: str,
+        conversation_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate a bot response using Gemini function calling.
@@ -258,7 +259,7 @@ class ConversationEngine:
         # Try function calling path
         if self.llm.client and types is not None:
             out = self._generate_with_tools(
-                patient_graph, full_system, contents, patient_message
+                patient_graph, full_system, contents, patient_message, conversation_id=conversation_id
             )
         else:
             # Fallback to JSON mode (mock/no-api)
@@ -291,6 +292,7 @@ class ConversationEngine:
         system_prompt: str,
         contents: list,
         patient_message: str,
+        conversation_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Generate response using Gemini function calling."""
         config = types.GenerateContentConfig(
@@ -328,25 +330,64 @@ class ConversationEngine:
                 # Add model's response to conversation
                 contents.append(response.candidates[0].content)
 
-                # Execute each function call
+                has_emergency_in_batch = any(fc.name == "trigger_emergency_alert" for fc in response.function_calls)
+                conv_has_existing_alert = bool(
+                    conversation_id and self._find_existing_emergency_alert(patient_graph, conversation_id=conversation_id)
+                )
+                emergency_executed_this_round = False
+
+                # Execute each function call (suppressing companion add_node calls during an emergency event)
                 function_responses = []
                 for fc in response.function_calls:
-                    result = self._execute_tool(patient_graph, fc.name, fc.args)
+                    fc_args = dict(fc.args) if fc.args else {}
+                    if has_emergency_in_batch and fc.name != "trigger_emergency_alert":
+                        function_responses.append(
+                            types.Part.from_function_response(
+                                name=fc.name,
+                                response={"result": {"status": "merged_into_emergency_alert"}},
+                            )
+                        )
+                        continue
+                    if has_emergency_in_batch and fc.name == "trigger_emergency_alert" and emergency_executed_this_round:
+                        function_responses.append(
+                            types.Part.from_function_response(
+                                name=fc.name,
+                                response={"result": {"status": "already_sent_in_turn"}},
+                            )
+                        )
+                        continue
+                    if conv_has_existing_alert and fc.name in ("add_node", "add_edge"):
+                        function_responses.append(
+                            types.Part.from_function_response(
+                                name=fc.name,
+                                response={"result": {"status": "merged_into_emergency_alert"}},
+                            )
+                        )
+                        continue
+
+                    if fc.name == "trigger_emergency_alert":
+                        emergency_executed_this_round = True
+
+                    result = self._execute_tool(
+                        patient_graph, fc.name, fc_args, conversation_id=conversation_id
+                    )
                     tool_calls_made.append({
                         "tool": fc.name,
-                        "args": dict(fc.args) if fc.args else {},
+                        "args": fc_args,
                         "result": result,
                     })
 
                     # Track significance and highlights
                     if fc.name == "flag_significance":
                         significance = True
-                        if fc.args.get("node_id"):
-                            highlight_nodes.append(fc.args["node_id"])
+                        if fc_args.get("node_id"):
+                            highlight_nodes.append(fc_args["node_id"])
                     elif fc.name in ("add_node", "add_edge", "thicken_edge"):
                         for key in ("node_id", "source", "target"):
-                            if fc.args.get(key):
-                                highlight_nodes.append(fc.args[key])
+                            if fc_args.get(key):
+                                highlight_nodes.append(fc_args[key])
+                    elif fc.name == "trigger_emergency_alert" and result.get("alert_id"):
+                        highlight_nodes.append(result["alert_id"])
 
                     function_responses.append(
                         types.Part.from_function_response(
@@ -355,9 +396,13 @@ class ConversationEngine:
                         )
                     )
 
-                # Send tool results back to model (on final round, set mode="NONE" so model MUST output spoken text)
+                # Send tool results back to model (after emergency alert or on final round, force spoken text mode="NONE")
                 contents.append(types.Content(role="tool", parts=function_responses))
-                next_config = config_force_text if round_count >= max_rounds else config
+                next_config = (
+                    config_force_text
+                    if (round_count >= max_rounds or has_emergency_in_batch or emergency_executed_this_round)
+                    else config
+                )
                 response = self.llm.client.models.generate_content(
                     model='gemini-2.5-flash',
                     contents=contents,
@@ -516,29 +561,183 @@ class ConversationEngine:
             "instruction": instruction,
         }
 
-    def _execute_tool(self, patient_graph: PatientGraph, tool_name: str, args: dict) -> dict:
+    def _classify_emergency_category(self, reason: str) -> str:
+        low = (reason or "").lower()
+        if any(k in low for k in ("chest pain", "heart attack", "shortness of breath", "arm numbness", "can't breathe", "inability to breathe")):
+            return "medical_emergency"
+        if any(k in low for k in ("overdose", "15 tramadol", "15 pills", "too many pills", "blurry vision")):
+            return "overdose"
+        if any(k in low for k in ("dr. patel", "patel", "knife", "hurt her", "hurting her", "violent", "office")):
+            return "violent_ideation"
+        if any(k in low for k in ("maria", "choking", "throat", "partner", "domestic")):
+            return "partner_violence"
+        if any(k in low for k in ("sofia", "daughter", "12 years old", "child", "mark on her face")):
+            return "child_abuse"
+        if any(k in low for k in ("raul", "bank card", "money", "elder", "dependent", "grabbed her arm")):
+            return "elder_abuse"
+        if any(k in low for k in ("sexual", "assault", "consent", "intoxicated", "rainn", "trapped")):
+            return "sexual_assault"
+        if any(k in low for k in ("suicid", "saving tramadol", "saving up", "kill", "end my life", "plan")):
+            return "suicidal_intent"
+        return "general_emergency"
+
+    def _find_existing_emergency_alert(
+        self,
+        patient_graph: PatientGraph,
+        conversation_id: Optional[str] = None,
+        category: Optional[str] = None,
+    ) -> Optional[str]:
+        for nid in list(patient_graph._graph.nodes):
+            data = patient_graph._graph.nodes[nid].get("data")
+            props = data.properties if data and isinstance(data.properties, dict) else {}
+            if nid.startswith("emergency_alert_") or props.get("alert_type") == "emergency":
+                if conversation_id and props.get("conversation_id") == conversation_id:
+                    return nid
+                if category and category != "general_emergency" and props.get("crisis_category") == category:
+                    return nid
+        return None
+
+    def _extract_substance_stem(self, text: str) -> Optional[str]:
+        low = re.sub(r"[^a-z0-9]+", " ", (text or "").lower())
+        tokens = set(low.split())
+        if tokens & {"oxycodone", "oxy", "percocet", "hydrocodone", "vicodin"}:
+            return "oxycodone"
+        if tokens & {"marijuana", "weed", "cannabis", "thc"}:
+            return "marijuana"
+        if tokens & {"benzo", "benzos", "benzodiazepine", "benzodiazepines", "xanax", "ativan", "klonopin"}:
+            return "benzodiazepines"
+        if tokens & {"meth", "methamphetamine", "crystal"}:
+            return "methamphetamine"
+        if tokens & {"cocaine", "fentanyl", "heroin"}:
+            return next(iter(tokens & {"cocaine", "fentanyl", "heroin"}))
+        return None
+
+    def _find_matching_existing_node(
+        self,
+        patient_graph: PatientGraph,
+        node_id: str,
+        label: str,
+        kind: str,
+    ) -> Optional[str]:
+        if node_id and patient_graph.get_node(node_id) is not None:
+            return node_id
+
+        norm_id = re.sub(r"[^a-z0-9]+", "_", (node_id or "").lower()).strip("_")
+        norm_label = re.sub(r"[^a-z0-9]+", "_", (label or "").lower()).strip("_")
+        substance_stem = self._extract_substance_stem(f"{node_id} {label}")
+
+        def _strip_affixes(s: str) -> str:
+            tokens = [
+                t for t in s.split("_")
+                if t and t not in {"undisclosed", "private", "secret", "use", "usage", "taking", "neighbor", "neighbors", "s", "node", "history"}
+            ]
+            return "_".join(tokens)
+
+        core_id = _strip_affixes(norm_id)
+        core_label = _strip_affixes(norm_label)
+
+        for existing_id, existing_view in patient_graph.nodes.items():
+            if existing_view.kind in ("self", "therapist_locked", "locked"):
+                continue
+            ex_norm_id = re.sub(r"[^a-z0-9]+", "_", existing_id.lower()).strip("_")
+            ex_norm_lbl = re.sub(r"[^a-z0-9]+", "_", (existing_view.label or "").lower()).strip("_")
+            if norm_id and (ex_norm_id == norm_id or ex_norm_lbl == norm_id):
+                return existing_id
+            if norm_label and (ex_norm_lbl == norm_label or ex_norm_id == norm_label):
+                return existing_id
+            if core_id and len(core_id) >= 4 and (_strip_affixes(ex_norm_id) == core_id or _strip_affixes(ex_norm_lbl) == core_id):
+                return existing_id
+            if core_label and len(core_label) >= 4 and (_strip_affixes(ex_norm_id) == core_label or _strip_affixes(ex_norm_lbl) == core_label):
+                return existing_id
+            if substance_stem and existing_view.kind in ("undisclosed", "medication", "event", "clinical", "symptom", "avoidance"):
+                ex_stem = self._extract_substance_stem(f"{existing_id} {existing_view.label}")
+                if ex_stem == substance_stem:
+                    return existing_id
+        return None
+
+    def _execute_tool(
+        self,
+        patient_graph: PatientGraph,
+        tool_name: str,
+        args: dict,
+        conversation_id: Optional[str] = None,
+    ) -> dict:
         """Execute a graph tool call and return the result enriched with connected graph memory."""
         try:
             if tool_name == "add_node":
-                node_id = args.get("node_id", "")
-                if node_id and patient_graph.get_node(node_id) is None:
+                node_id = str(args.get("node_id") or "").strip()
+                raw_label = str(args.get("label") or node_id).strip()
+                kind = str(args.get("kind") or "event").strip()
+                size = args.get("size", 16)
+
+                # Humanize snake_case labels if the LLM passed an identifier as the display label
+                if "_" in raw_label and " " not in raw_label:
+                    clean_label = raw_label.replace("_", " ")
+                else:
+                    clean_label = raw_label
+
+                matched_id = self._find_matching_existing_node(patient_graph, node_id, clean_label, kind)
+                if matched_id is not None:
+                    existing_node = patient_graph.get_node(matched_id)
+                    existing_pos = patient_graph._positions.get(matched_id, (0.0, 0.0))
+                    existing_props = dict(existing_node.properties) if existing_node and existing_node.properties else {}
+                    existing_kind = existing_props.get("kind", "event")
+                    existing_size = existing_props.get("size", 16)
+
+                    # Upgrade kind to 'undisclosed' if requested, or preserve existing undisclosed status
+                    final_kind = "undisclosed" if "undisclosed" in (kind, existing_kind) else kind
+                    final_label = clean_label if (kind == "undisclosed" or len(clean_label) > len(existing_props.get("label", ""))) else existing_props.get("label", clean_label)
+                    final_id = matched_id
+
+                    # If upgrading a newly created session node to a canonical *_undisclosed ID, rename cleanly in-place
+                    if (
+                        kind == "undisclosed"
+                        and matched_id != node_id
+                        and "undisclosed" in node_id
+                        and existing_props.get("is_new")
+                    ):
+                        patient_graph.remove_node(matched_id)
+                        final_id = node_id
+
+                    patient_graph.add_node(
+                        node_id=final_id,
+                        label=final_label,
+                        kind=final_kind,
+                        size=max(float(existing_size or 16), float(size or 16)),
+                        x=existing_pos[0],
+                        y=existing_pos[1],
+                        is_new=existing_props.get("is_new", True),
+                        properties=existing_props,
+                    )
+                    return {
+                        "status": "updated",
+                        "node_id": final_id,
+                        "connected_graph_context": self._get_connected_neighborhood(patient_graph, [final_id]),
+                    }
+
+                if node_id:
                     patient_graph.add_node(
                         node_id=node_id,
-                        label=args.get("label", node_id),
-                        kind=args.get("kind", "event"),
-                        size=args.get("size", 16),
+                        label=clean_label,
+                        kind=kind,
+                        size=size,
                         is_new=True,
                     )
+                    self_node_id = next((nid for nid, nv in patient_graph.nodes.items() if nv.kind == "self"), None)
+                    if self_node_id and self_node_id != node_id and patient_graph.get_edge(self_node_id, node_id) is None:
+                        patient_graph.add_edge(
+                            source=self_node_id,
+                            target=node_id,
+                            label="disclosed" if kind != "undisclosed" else "private disclosure",
+                            weight=2,
+                            is_new=True,
+                        )
                     return {
                         "status": "created",
                         "node_id": node_id,
                         "connected_graph_context": self._get_connected_neighborhood(patient_graph, [node_id]),
                     }
-                return {
-                    "status": "exists",
-                    "node_id": node_id,
-                    "connected_graph_context": self._get_connected_neighborhood(patient_graph, [node_id]),
-                }
+                return {"status": "error", "message": "missing node_id"}
 
             elif tool_name == "add_edge":
                 source = args.get("source", "")
@@ -580,13 +779,13 @@ class ConversationEngine:
 
             elif tool_name == "flag_divergence":
                 existing_id = args.get("existing_node_id", "")
-                new_claim = args.get("new_claim", "")
+                new_claim = " ".join(str(args.get("new_claim", "")).split())
                 topic = args.get("topic", "")
                 if existing_id and patient_graph.get_node(existing_id) is not None:
                     div_node_id = f"div_{existing_id}_{len(patient_graph._divergences)}"
                     patient_graph.add_node(
                         node_id=div_node_id,
-                        label=new_claim[:50],
+                        label=new_claim,
                         kind="event",
                         size=14,
                         is_new=True,
@@ -619,31 +818,76 @@ class ConversationEngine:
                 return {"status": "error", "message": "missing source or target"}
 
             elif tool_name == "trigger_emergency_alert":
-                reason = args.get("reason", "")
+                reason = " ".join(str(args.get("reason", "")).split())
                 severity = args.get("severity", "high")
-                # Store alert on patient graph as a clinician_safety node
-                alert_id = f"emergency_alert_{len(patient_graph.nodes)}"
-                patient_graph.add_node(
-                    node_id=alert_id,
-                    label=f"EMERGENCY: {reason[:50]}",
-                    kind="clinician_safety",
-                    size=22,
-                    is_new=True,
+                category = self._classify_emergency_category(reason)
+                full_label = f"EMERGENCY: {reason}"
+
+                existing_alert_id = self._find_existing_emergency_alert(
+                    patient_graph, conversation_id=conversation_id, category=category
                 )
-                # Store structured alert data on the node
-                alert_node = patient_graph.get_node(alert_id)
-                if alert_node:
-                    alert_node.properties["alert_type"] = "emergency"
-                    alert_node.properties["severity"] = severity
-                    alert_node.properties["reason"] = reason
-                    alert_node.properties["timestamp"] = datetime.utcnow().isoformat()
+                if existing_alert_id:
+                    alert_id = existing_alert_id
+                    existing_pos = patient_graph._positions.get(alert_id, (0.0, 0.0))
+                    existing_node = patient_graph.get_node(alert_id)
+                    existing_props = dict(existing_node.properties) if existing_node and existing_node.properties else {}
+                    # Keep the longer or latest complete reason without minting a second/third node
+                    best_reason = reason if len(reason) >= len(str(existing_props.get("reason", ""))) else str(existing_props.get("reason", reason))
+                    patient_graph.add_node(
+                        node_id=alert_id,
+                        label=f"EMERGENCY: {best_reason}",
+                        kind="clinician_safety",
+                        size=22,
+                        x=existing_pos[0],
+                        y=existing_pos[1],
+                        is_new=True,
+                        properties={
+                            **existing_props,
+                            "alert_type": "emergency",
+                            "crisis_category": category,
+                            "conversation_id": conversation_id or existing_props.get("conversation_id"),
+                            "severity": severity,
+                            "reason": best_reason,
+                            "text": f"EMERGENCY: {best_reason}",
+                            "timestamp": datetime.utcnow().isoformat(),
+                        },
+                    )
+                else:
+                    alert_id = f"emergency_alert_{len(patient_graph.nodes)}"
+                    patient_graph.add_node(
+                        node_id=alert_id,
+                        label=full_label,
+                        kind="clinician_safety",
+                        size=22,
+                        is_new=True,
+                        properties={
+                            "alert_type": "emergency",
+                            "crisis_category": category,
+                            "conversation_id": conversation_id,
+                            "severity": severity,
+                            "reason": reason,
+                            "text": full_label,
+                            "timestamp": datetime.utcnow().isoformat(),
+                        },
+                    )
+                    self_node_id = next((nid for nid, nv in patient_graph.nodes.items() if nv.kind == "self"), None)
+                    if self_node_id and self_node_id != alert_id and patient_graph.get_edge(self_node_id, alert_id) is None:
+                        patient_graph.add_edge(
+                            source=self_node_id,
+                            target=alert_id,
+                            label="emergency alert",
+                            weight=3,
+                            is_new=True,
+                            clinician=True,
+                        )
+
                 # Update risk assessment on the patient graph
                 patient_graph.risk_assessment = {
                     "level": "High" if severity == "high" else "Critical",
                     "details": reason,
                 }
                 # Log for server-side visibility
-                print(f"!!! EMERGENCY ALERT FIRED !!! Reason: {reason}, Severity: {severity}")
+                print(f"!!! EMERGENCY ALERT FIRED !!! AlertID: {alert_id}, Category: {category}, Reason: {reason}, Severity: {severity}")
                 return {
                     "status": "alert_sent",
                     "reason": reason,
@@ -834,7 +1078,7 @@ Respond as the Castle Behavioral Health Companion. Return JSON:
                 miss_node_id = f"memory_miss_{len(patient_graph._divergences) + 1}"
                 patient_graph.add_node(
                     node_id=miss_node_id,
-                    label=f"Harness memory miss: {reply_text[:48]}",
+                    label=f"Harness memory miss: {' '.join(reply_text.split())}",
                     kind="inferred",
                     size=14,
                     is_new=True,
@@ -852,7 +1096,7 @@ Respond as the Castle Behavioral Health Companion. Return JSON:
             miss_node_id = f"memory_miss_{len(patient_graph._divergences) + 1}"
             patient_graph.add_node(
                 node_id=miss_node_id,
-                label=f"Harness memory miss: {reply_text[:48]}",
+                label=f"Harness memory miss: {' '.join(reply_text.split())}",
                 kind="inferred",
                 size=14,
                 is_new=True,

@@ -19,8 +19,23 @@ except ImportError:
     genai = None
 
 
+def _try_parse_json(candidate: str) -> Optional[Any]:
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError:
+        pass
+    # Repair trailing commas before } or ]
+    repaired = re.sub(r",\s*([}\]])", r"\1", candidate)
+    try:
+        return json.loads(repaired)
+    except json.JSONDecodeError:
+        return None
+
+
 def _extract_json_object(raw: str) -> Optional[Any]:
-    """Attempt strict JSON decode, then balanced brace/bracket substring decode."""
+    """Attempt strict JSON decode, trailing-comma repair, then balanced brace/bracket substring decode."""
+    if not raw:
+        return None
     cleaned = raw.strip()
     if cleaned.startswith("```json"):
         cleaned = cleaned[7:]
@@ -30,19 +45,25 @@ def _extract_json_object(raw: str) -> Optional[Any]:
         cleaned = cleaned[:-3]
     cleaned = cleaned.strip()
 
-    try:
-        return json.loads(cleaned)
-    except json.JSONDecodeError:
-        pass
+    parsed = _try_parse_json(cleaned)
+    if parsed is not None:
+        return parsed
 
     # Try extracting outermost JSON object {...}
     first_brace = cleaned.find("{")
     last_brace = cleaned.rfind("}")
     if first_brace != -1 and last_brace > first_brace:
-        try:
-            return json.loads(cleaned[first_brace : last_brace + 1])
-        except json.JSONDecodeError:
-            pass
+        parsed = _try_parse_json(cleaned[first_brace : last_brace + 1])
+        if parsed is not None:
+            return parsed
+
+    # Try extracting outermost JSON array [...]
+    first_bracket = cleaned.find("[")
+    last_bracket = cleaned.rfind("]")
+    if first_bracket != -1 and last_bracket > first_bracket:
+        parsed = _try_parse_json(cleaned[first_bracket : last_bracket + 1])
+        if parsed is not None:
+            return parsed
     return None
 
 
@@ -67,6 +88,7 @@ class LLMClient:
         file_path: Optional[str] = None,
         model: str = "gemini-2.5-flash",
         response_mime_type: Optional[str] = None,
+        temperature: float = 0.2,
     ) -> str:
         if self.mock or not self.client:
             return self._mock_generate(prompt)
@@ -80,10 +102,12 @@ class LLMClient:
 
             cfg_kwargs: Dict[str, Any] = {
                 "system_instruction": system_instruction,
-                "temperature": 0.2,
+                "temperature": temperature,
             }
             if response_mime_type:
                 cfg_kwargs["response_mime_type"] = response_mime_type
+                if types is not None and hasattr(types, "ThinkingConfig") and "2.5" in (model or ""):
+                    cfg_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
 
             response = self.client.models.generate_content(
                 model=model,
@@ -121,21 +145,26 @@ class LLMClient:
             + "\n\nCRITICAL INSTRUCTION: Output ONLY a valid JSON object. Do not include markdown codeblocks or any other text before or after the JSON."
         )
 
-        response_text = self.generate(
-            json_prompt,
-            system_instruction,
-            file_path=file_path,
-            model=model,
-            response_mime_type="application/json",
-        )
+        for attempt in range(2):
+            response_text = self.generate(
+                json_prompt,
+                system_instruction,
+                file_path=file_path,
+                model=model,
+                response_mime_type="application/json",
+            )
 
-        parsed = _extract_json_object(response_text)
-        if isinstance(parsed, dict):
-            if strict and parsed.get("_llm_error"):
-                raise RuntimeError(parsed.get("error_detail") or parsed.get("text") or "LLM generation failed")
-            return parsed
-        if isinstance(parsed, list):
-            return {"claims": parsed}
+            parsed = _extract_json_object(response_text)
+            if isinstance(parsed, dict) and not parsed.get("_llm_error"):
+                return parsed
+            if isinstance(parsed, list):
+                return {"claims": parsed}
+            if attempt == 0:
+                continue
+            if isinstance(parsed, dict) and parsed.get("_llm_error"):
+                if strict:
+                    raise RuntimeError(parsed.get("error_detail") or parsed.get("text") or "LLM generation failed")
+                return parsed
 
         print(f"Failed to decode JSON: {response_text[:300]}")
         if strict:
