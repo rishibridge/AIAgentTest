@@ -226,68 +226,167 @@ const PREFIX = URL.includes('run.app') ? 'gcp_nu' : 'local_nu';
       `nodes=${postTurnsGraph.node_count}, edges=${postTurnsGraph.edge_count}, shinePills=${shineCount}, radialPositioned=${nonZeroRadialNodes}/${postTurnsGraph.node_count}, noRawLlmError=${noRawLlmError}`
     );
 
-    // TC-NU-07: End & Consolidate Session #1 -> Verify Scanning Ritual HUD + Consolidation Complete Card + 5 Rich Step Cards + Replay Ritual
+    // TC-NU-07A: Phase 1 Post-Session Animation — Live Hippocampal Scan SVG, Synaptic Photon Particles, CSS Keyframes & Stage Progression
     const endConsolidateBtn = page.locator('[data-testid="end-consolidate-btn"]');
     await endConsolidateBtn.click();
 
-    // Capture the live scanning ritual state while consolidation is in flight
-    let scanningHudSeen = false;
-    let dynamicPatientHeaderSeen = false;
+    let scanningAudit = {
+      hudSeen: false,
+      dynamicHeader: false,
+      scanRipplesCount: 0,
+      photonAnimCount: 0,
+      hasSpinKeyframes: false,
+      stageText: '',
+    };
     try {
-      await page.waitForSelector('[data-testid="consolidation-ritual-panel"]', { timeout: 5000 });
+      await page.waitForSelector('[data-testid="consolidation-ritual-panel"]', { timeout: 6000 });
       await page.waitForTimeout(1400);
-      const panelText = await page.locator('[data-testid="consolidation-ritual-panel"]').innerText();
-      dynamicPatientHeaderSeen = panelText.toUpperCase().includes(testName.toUpperCase()) && !panelText.includes('Daniel Ramirez');
-      scanningHudSeen = (await page.locator('[data-testid="ritual-scanning-hud"]').count()) >= 1;
+      scanningAudit = await page.evaluate((expectedName) => {
+        const panel = document.querySelector('[data-testid="consolidation-ritual-panel"]');
+        const hud = document.querySelector('[data-testid="ritual-scanning-hud"]');
+        const panelText = panel ? panel.innerText : '';
+        const hudText = hud ? hud.innerText : '';
+        // Count concentric Hippocampal scan ripple circles (stroke-dasharray="8 6")
+        const ripples = document.querySelectorAll('svg circle[stroke-dasharray="8 6"]');
+        // Count animated synaptic photon <animate attributeName="cx"> elements
+        const photonAnims = document.querySelectorAll('svg circle animate[attributeName="cx"]');
+        // Verify @keyframes spin exists in loaded stylesheets
+        let spinFound = false;
+        for (const sheet of Array.from(document.styleSheets)) {
+          try {
+            for (const rule of Array.from(sheet.cssRules || [])) {
+              if (rule.name === 'spin' || (rule.cssText && rule.cssText.includes('@keyframes spin'))) {
+                spinFound = true;
+              }
+            }
+          } catch {
+            // ignore cross-origin sheets
+          }
+        }
+        return {
+          hudSeen: Boolean(hud),
+          dynamicHeader: panelText.toUpperCase().includes(expectedName.toUpperCase()) && !panelText.includes('Daniel Ramirez'),
+          scanRipplesCount: ripples.length,
+          photonAnimCount: photonAnims.length,
+          hasSpinKeyframes: spinFound,
+          stageText: hudText.replace(/\s+/g, ' ').trim(),
+        };
+      }, testName);
       await page.screenshot({ path: `${ARTIFACT_DIR}/${PREFIX}_04b_consolidation_scanning_ritual.png` });
     } catch {
-      // If fast completion, we still verify post-consolidation ritual below
+      // ignore if consolidation finished before sampling
     }
 
-    await page.waitForSelector('[data-testid="consolidation-complete-card"]', { timeout: 90000 });
-    await page.waitForTimeout(800);
+    record(
+      'TC-NU-07A',
+      'Post-Session Ritual Phase 1: Hippocampal Scan Ripples, Synaptic Photon Particles, @keyframes spin & Dynamic Patient Header',
+      scanningAudit.hudSeen &&
+        scanningAudit.dynamicHeader &&
+        scanningAudit.scanRipplesCount >= 3 &&
+        scanningAudit.photonAnimCount >= 2 &&
+        scanningAudit.hasSpinKeyframes,
+      `hudSeen=${scanningAudit.hudSeen}, dynamicHeader=${scanningAudit.dynamicHeader}, ripples=${scanningAudit.scanRipplesCount}, photonParticles=${scanningAudit.photonAnimCount}, spinKeyframes=${scanningAudit.hasSpinKeyframes}`
+    );
 
-    // Open Advocate/Skeptic reasoning on Step 2 (index 1: Significance filtering) before taking screenshot
+    // TC-NU-07B: Phase 2 Post-Session Animation — Cortical Crystallization HUD, Delta Summary & Short-Term -> Long-Term Flag Graduation
+    await page.waitForSelector('[data-testid="consolidation-complete-card"]', { timeout: 90000 });
+    await page.waitForTimeout(500);
+
+    const deltaSummary = page.locator('[data-testid="consolidation-delta-summary"]');
+    const integrationPill = page.locator('[data-testid="integration-summary-pill"]');
+    const pillInitialText = (await integrationPill.count()) === 1 ? await integrationPill.innerText() : '';
+
+    const postConsolGraphAudit = await page.evaluate(async ({ apiBase, tok, pid }) => {
+      const r = await fetch(`${apiBase}/api/v1/patients/${pid}/graph`, {
+        headers: { 'X-Ally-Token': tok },
+      });
+      const g = await r.json();
+      const nodes = g.nodes || [];
+      const anyStillShortTermNew = nodes.some(n => n.is_new === true);
+      const consolidatedNewCount = nodes.filter(n => n.consolidated_new === true).length;
+      return {
+        totalNodes: nodes.length,
+        anyStillShortTermNew,
+        consolidatedNewCount,
+      };
+    }, { apiBase: API, tok: token, pid: createdPatientId });
+
+    record(
+      'TC-NU-07B',
+      'Post-Session Ritual Phase 2: Cortical Crystallization Active HUD, Hippocampal-to-Cortical Delta Summary & Short-Term is_new Graduation',
+      (await deltaSummary.count()) === 1 &&
+        (await integrationPill.count()) === 1 &&
+        pillInitialText.toUpperCase().includes('CORTICAL CRYSTALLIZATION ACTIVE') &&
+        postConsolGraphAudit.anyStillShortTermNew === false &&
+        postConsolGraphAudit.totalNodes >= 4,
+      `deltaSummary=${await deltaSummary.count()}, pillActive=${pillInitialText.toUpperCase().includes('CORTICAL CRYSTALLIZATION ACTIVE')}, lingeringShortTermIsNew=${postConsolGraphAudit.anyStillShortTermNew}, consolidatedNewNodes=${postConsolGraphAudit.consolidatedNewCount}`
+    );
+
+    // TC-NU-07C: Phase 3 Post-Session Panel — All 5 Step Cards Populated & Expandable Advocate/Skeptic Reasoning
+    const stepChangesCounts = [];
+    for (let s = 0; s < 5; s++) {
+      stepChangesCounts.push(await page.locator(`[data-testid="step-changes-${s}"]`).count());
+    }
+    const all5StepsPopulated = stepChangesCounts.every(c => c === 1);
+
     const debateToggle1 = page.locator('[data-testid="step-debate-toggle-1"]');
     if ((await debateToggle1.count()) === 1) {
       await debateToggle1.click();
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(250);
     }
+    const debateBody1 = page.locator('[data-testid="step-debate-body-1"]');
+    const debate1Text = (await debateBody1.count()) === 1 ? await debateBody1.innerText() : '';
+    const hasAdvocateAndSkeptic = debate1Text.toUpperCase().includes('ADVOCATE:') && debate1Text.toUpperCase().includes('SKEPTIC:');
 
     await page.screenshot({ path: `${ARTIFACT_DIR}/${PREFIX}_05_consolidation_complete.png` });
 
-    const nextSessionBtn = page.locator('[data-testid="start-next-session-btn"]');
-    const consolFeedbackBtn = page.locator('[data-testid="consolidation-feedback-btn"]');
-    const deltaSummary = page.locator('[data-testid="consolidation-delta-summary"]');
-    const integrationPill = page.locator('[data-testid="integration-summary-pill"]');
-    const replayBtn = page.locator('[data-testid="replay-ritual-btn"]');
-    const step0Changes = page.locator('[data-testid="step-changes-0"]');
-    const step4Changes = page.locator('[data-testid="step-changes-4"]');
-    const debateBody1 = page.locator('[data-testid="step-debate-body-1"]');
+    record(
+      'TC-NU-07C',
+      'Post-Session Ritual Phase 3: All 5 Step Cards Non-Empty (0..4) + Expandable Advocate/Skeptic Debate Reasoning',
+      all5StepsPopulated && (await debateBody1.count()) === 1 && hasAdvocateAndSkeptic,
+      `stepChanges=[${stepChangesCounts.join(',')}], debateBody1=${await debateBody1.count()}, hasAdvocateAndSkeptic=${hasAdvocateAndSkeptic}`
+    );
 
-    // Trigger Replay Ritual button to verify re-triggering cortical crystallization
-    if ((await replayBtn.count()) === 1) {
-      await replayBtn.click();
-      await page.waitForTimeout(300);
-    }
-
-    const ritualChecksPass =
-      scanningHudSeen &&
-      dynamicPatientHeaderSeen &&
-      (await nextSessionBtn.count()) === 1 &&
-      (await consolFeedbackBtn.count()) === 1 &&
-      (await deltaSummary.count()) === 1 &&
-      (await integrationPill.count()) === 1 &&
-      (await replayBtn.count()) === 1 &&
-      (await step0Changes.count()) === 1 &&
-      (await step4Changes.count()) === 1 &&
-      (await debateBody1.count()) === 1;
+    // TC-NU-07D: Interactive Step-Card-to-Graph Highlighting
+    const stepCard0 = page.locator('[data-testid="consolidation-step-card-0"]');
+    await stepCard0.click();
+    await page.waitForTimeout(250);
+    const step0SelectedStyle = await stepCard0.evaluate(el => el.style.background);
+    const isStep0Selected = step0SelectedStyle.includes('95, 174, 176');
+    // Click again to deselect
+    await stepCard0.click();
+    await page.waitForTimeout(200);
 
     record(
-      'TC-NU-07',
-      'Session #1 Memory Integration Ritual (Scanning HUD + Cortical Crystallization + 5 Rich Step Cards + Advocate/Skeptic Debate + Replay Ritual)',
-      ritualChecksPass,
-      `scanningHud=${scanningHudSeen}, dynamicHeader=${dynamicPatientHeaderSeen}, deltaSummary=${await deltaSummary.count()}, integrationPill=${await integrationPill.count()}, step0Changes=${await step0Changes.count()}, step4Changes=${await step4Changes.count()}, debateBody1=${await debateBody1.count()}`
+      'TC-NU-07D',
+      'Post-Session Interactive Step-to-Graph Highlighting (Click Step Card Highlights Touched Graph Nodes)',
+      isStep0Selected,
+      `step0SelectedBackground=${step0SelectedStyle}`
+    );
+
+    // TC-NU-07E: Replay Ritual Controls (Wait for 4.5s Finale to Settle -> Re-Trigger via Canvas & Panel Replay Buttons)
+    await page.waitForTimeout(4200);
+    const settledPillText = await integrationPill.innerText();
+    const settledToEncoded = settledPillText.toUpperCase().includes('SHORT-TERM → LONG-TERM MEMORY ENCODED');
+
+    const replayBtn = page.locator('[data-testid="replay-ritual-btn"]');
+    const panelReplayBtn = page.locator('[data-testid="panel-replay-ritual-btn"]');
+    await replayBtn.click();
+    await page.waitForTimeout(300);
+    const retriggeredPillText = await integrationPill.innerText();
+    const retriggeredActive = retriggeredPillText.toUpperCase().includes('CORTICAL CRYSTALLIZATION ACTIVE');
+
+    await panelReplayBtn.click();
+    await page.waitForTimeout(250);
+
+    const nextSessionBtn = page.locator('[data-testid="start-next-session-btn"]');
+    const consolFeedbackBtn = page.locator('[data-testid="consolidation-feedback-btn"]');
+
+    record(
+      'TC-NU-07E',
+      'Post-Session Replay Ritual Controls (Idle Settlement + Canvas & Panel Replay Buttons Re-Trigger Crystallization)',
+      settledToEncoded && retriggeredActive && (await nextSessionBtn.count()) === 1 && (await consolFeedbackBtn.count()) === 1,
+      `settledToEncoded=${settledToEncoded}, retriggeredActive=${retriggeredActive}, nextSessionBtn=${await nextSessionBtn.count()}, feedbackBtn=${await consolFeedbackBtn.count()}`
     );
 
     // TC-NU-08: Click "Start Next Session (See What Ally Remembers)" -> Verify Session #2 "Welcome back, Alex" Continuity Greeting
