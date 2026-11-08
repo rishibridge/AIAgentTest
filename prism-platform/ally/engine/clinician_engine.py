@@ -124,13 +124,7 @@ Generate your clinical consultation response. Remember to respond in the JSON fo
                 except Exception:
                     result = {"text": raw_text}
                 print(f"[ClinicianEngine] Fallback result keys: {list(result.keys())}")
-
-            text_val = str(result.get("text") or "")
-            if result.get("_llm_error") or "LLM generation failed" in text_val or "_llm_error" in text_val or not text_val.strip():
-                return self._build_graph_grounded_clinician_fallback(
-                    patient_graph, clinician_message, is_ddx_arena=is_ddx_arena
-                )
-
+            
             response = {
                 "text": result.get("text", result.get("response", str(result))),
                 "flags": result.get("flags", []),
@@ -148,87 +142,14 @@ Generate your clinical consultation response. Remember to respond in the JSON fo
             return response
         except Exception as e:
             print(f"ClinicianEngine error: {e}")
-            return self._build_graph_grounded_clinician_fallback(
-                patient_graph, clinician_message, is_ddx_arena=("[DDX ARENA" in (clinician_message or ""))
-            )
-
-    def _build_graph_grounded_clinician_fallback(
-        self,
-        patient_graph: PatientGraph,
-        clinician_message: str,
-        is_ddx_arena: bool = False,
-    ) -> Dict[str, Any]:
-        """Deterministic graph-grounded clinical synthesis when upstream LLM quota is unavailable."""
-        authorized_nodes = [
-            (nid, n)
-            for nid, n in patient_graph.nodes.items()
-            if n.kind not in ("undisclosed", "locked", "therapist_locked", "self")
-        ]
-        msg_low = (clinician_message or "").lower()
-        matched_lines: List[str] = []
-        ref_ids: List[str] = []
-
-        for nid, n in authorized_nodes:
-            full_txt = str(n.properties.get("text") or n.label or nid).replace("\n", " ").strip()
-            lbl_low = full_txt.lower()
-            if any(tok in lbl_low for tok in msg_low.split() if len(tok) >= 4) or any(
-                k in msg_low and any(m in lbl_low for m in ("wine", "alcohol", "drink", "glasses", "ast"))
-                for k in ("alcohol", "substance", "drink", "wine")
-            ):
-                matched_lines.append(f"{full_txt} (node: {nid})")
-                ref_ids.append(nid)
-
-        if not matched_lines:
-            for nid, n in authorized_nodes[:6]:
-                full_txt = str(n.properties.get("text") or n.label or nid).replace("\n", " ").strip()
-                matched_lines.append(f"{full_txt} (node: {nid})")
-                ref_ids.append(nid)
-
-        summary_findings = "; ".join(matched_lines[:5]) if matched_lines else f"Authorized clinical graph for {patient_graph.patient.name} reviewed."
-        if is_ddx_arena:
-            text_out = (
-                f"Clinical Differential Synthesis for {patient_graph.patient.name}: "
-                f"Grounded in the patient's authorized longitudinal graph ({summary_findings}), "
-                f"both acute stressor-driven adjustment patterns and persistent symptom trajectories warrant structured clinical monitoring."
-            )
             return {
-                "text": text_out,
+                "text": "An error occurred generating the clinical response. Please try again.",
                 "flags": [],
                 "node_updates": [],
                 "edge_updates": [],
-                "referenced_nodes": ref_ids[:6],
-                "recommendations": [
-                    {"type": "assessment", "description": "Correlate patient-reported symptom timeline with objective clinical findings."}
-                ],
-                "debate": {
-                    "advocate": {
-                        "position": "Primary presentation aligns with stressor-linked clinical findings in the longitudinal graph.",
-                        "evidence": matched_lines[:3],
-                    },
-                    "skeptic": {
-                        "critique": "Alternative differential diagnoses and physiological contributors must be ruled out.",
-                        "counter_evidence": matched_lines[1:4] or matched_lines[:2],
-                    },
-                    "judge": {
-                        "verdict": text_out,
-                        "confidence": 0.86,
-                    },
-                },
+                "referenced_nodes": [],
+                "recommendations": [],
             }
-
-        return {
-            "text": (
-                f"Based on {patient_graph.patient.name}'s authorized clinical graph, the record documents: "
-                f"{summary_findings}. Recommend continuing targeted clinical follow-up and monitoring adherence."
-            ),
-            "flags": [],
-            "node_updates": [],
-            "edge_updates": [],
-            "referenced_nodes": ref_ids[:6],
-            "recommendations": [
-                {"type": "follow_up", "description": "Review documented findings and longitudinal adherence at next clinical encounter."}
-            ],
-        }
 
     def generate_handoff_summary(
         self,

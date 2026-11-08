@@ -185,54 +185,6 @@ Run a 4-step adversarial clinical consolidation (Advocate, Skeptic, Judge for ea
             }
         return normalized
 
-    def _build_graph_grounded_consolidation_fallback(
-        self,
-        patient_graph: PatientGraph,
-        messages: List[Dict[str, Any]],
-    ) -> Dict[str, Dict[str, Any]]:
-        """
-        Deterministic graph-grounded 4-step structure when the LLM JSON formatter
-        returns malformed syntax, ensuring live-session consolidation completes in <5s.
-        """
-        non_self = [
-            (nid, nv)
-            for nid, nv in patient_graph.nodes.items()
-            if nv.kind != "self"
-        ]
-        size_adjustments = [
-            {"node_id": nid, "new_size": 20}
-            for nid, nv in non_self[:2]
-        ]
-        inferred_edges = []
-        if len(non_self) >= 2:
-            inferred_edges.append({
-                "source": non_self[0][0],
-                "target": non_self[1][0],
-                "label": "co-occurring session theme",
-            })
-        return {
-            "step1": {
-                "advocate": {"argument": "Session disclosures captured in working memory graph."},
-                "skeptic": {"argument": "Validated against over-weighting routine conversational turns."},
-                "judge": {"significant_disclosures": [], "size_adjustments": size_adjustments},
-            },
-            "step2": {
-                "advocate": {"argument": "Evaluated session statements against existing longitudinal nodes."},
-                "skeptic": {"argument": "Distinguished new context from narrative contradiction."},
-                "judge": {"divergences": [], "credibility_notes": "Session disclosures consistent with longitudinal patient graph."},
-            },
-            "step3": {
-                "advocate": {"argument": "Checked for duplicate concepts and reinforced edges."},
-                "skeptic": {"argument": "Preserved distinct clinical and personal context nodes."},
-                "judge": {"merge_candidates": [], "edge_thickening": []},
-            },
-            "step4": {
-                "advocate": {"argument": "Identified plausible longitudinal links across session disclosures."},
-                "skeptic": {"argument": "Marked hypothesized connections as dashed for clinician review."},
-                "judge": {"inferred_edges": inferred_edges, "inferred_nodes": []},
-            },
-        }
-
     def _run_adversarial_step(self, reasoning: ReasoningEngine, question: str) -> Dict[str, Any]:
         """
         Execute Advocate, Skeptic, and Judge in a single strict JSON pass grounded on
@@ -306,8 +258,8 @@ Run a 3-role adversarial clinical review (Advocate, Skeptic, Judge) and return O
             try:
                 precomputed = self._run_unified_consolidation_llm(reasoning, conversation_messages)
             except Exception as e:
-                print(f"[ConsolidationEngine] Unified pass warning, using deterministic graph-grounded fallback: {e}")
-                precomputed = self._build_graph_grounded_consolidation_fallback(patient_graph, conversation_messages)
+                print(f"[ConsolidationEngine] Unified pass warning, falling back to per-step: {e}")
+                precomputed = None
 
         step_runners = [
             (1, lambda: self._significance_filtering(reasoning, patient_graph, conversation_messages, precomputed.get("step1") if precomputed else None)),

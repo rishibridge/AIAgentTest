@@ -125,71 +125,6 @@ def _slugify(text: str) -> str:
     return "_".join(tokens) if tokens else f"visit_{uuid.uuid4().hex[:6]}"
 
 
-def _build_transcript_grounded_post_visit_fallback(pg, transcript: str) -> Dict[str, Any]:
-    """Deterministic transcript-grounded SOAP, CPT/ICD-10, and graph extraction fallback when LLM quota is unavailable."""
-    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", (transcript or "").strip()) if s.strip()]
-    subj_parts = [s for s in sentences if not s.lower().startswith("plan:")]
-    plan_parts = [s for s in sentences if "plan:" in s.lower() or "continue" in s.lower() or "follow-up" in s.lower()]
-    subj = " ".join(subj_parts) if subj_parts else transcript.strip()
-    obj = (
-        "Alert, oriented x4, cooperative during clinical encounter. "
-        + ("Denied suicidal ideation, intent, or plan." if "denied suicidal" in transcript.lower() else "Engaged in structured clinical review.")
-    )
-    assess = f"Longitudinal clinical follow-up for {pg.patient.name}: {sentences[0] if sentences else transcript.strip()[:120]}"
-    plan = " ".join(plan_parts) if plan_parts else "Continue evidence-based psychotherapy, medication adherence monitoring, and scheduled clinical follow-up."
-
-    t_low = transcript.lower()
-    cpt_codes = [
-        {
-            "code": "90834" if "45-minute" in t_low or "psychotherapy" in t_low else "99214",
-            "description": "Psychotherapy, 45 minutes with patient" if "45-minute" in t_low or "psychotherapy" in t_low else "Outpatient E&M visit, moderate complexity",
-            "rationale": f"Grounded directly in visit transcript: {sentences[0][:80] if sentences else 'clinical encounter'}",
-        }
-    ]
-    icd10_codes = []
-    if any(k in t_low for k in ("wine", "alcohol", "drinking", "glasses")):
-        icd10_codes.append({
-            "code": "F10.10",
-            "description": "Alcohol use, uncomplicated, in early reduction",
-            "rationale": "Patient-reported reduction in nightly wine intake documented in visit transcript",
-        })
-    if any(k in t_low for k in ("guilt", "anxiety", "breathing", "stress", "yelling")):
-        icd10_codes.append({
-            "code": "F43.23",
-            "description": "Adjustment disorder with mixed anxiety and depressed mood",
-            "rationale": "Interpersonal/family stressor and emotion regulation focus documented in session",
-        })
-    if not icd10_codes:
-        icd10_codes.append({
-            "code": "Z71.9",
-            "description": "Counseling, unspecified",
-            "rationale": "Outpatient clinical follow-up documented in visit transcript",
-        })
-
-    first_finding = sentences[1] if len(sentences) > 1 else (sentences[0] if sentences else "Post-visit clinical update")
-    clean_lbl = re.sub(r"^Clinician\s*\([^)]*\):\s*", "", first_finding).strip()[:48]
-    return {
-        "soap": {
-            "subjective": subj,
-            "objective": obj,
-            "assessment": assess,
-            "plan": plan,
-        },
-        "cpt_codes": cpt_codes,
-        "icd10_codes": icd10_codes,
-        "new_nodes": [
-            {
-                "id": f"visit_{_slugify(clean_lbl)}",
-                "label": clean_lbl,
-                "kind": "agreed",
-                "text": first_finding,
-            }
-        ],
-        "new_edges": [],
-        "confirmed_edges": [],
-    }
-
-
 @router.post("/post_visit")
 def handle_post_visit(patient_id: str, req: PostVisitRequest):
     """
@@ -251,8 +186,7 @@ Return a valid JSON object matching this exact schema:
             strict=True,
         )
     except Exception as e:
-        print(f"[PostVisitScribe] LLM fallback triggered ({type(e).__name__}: {e})")
-        parsed = _build_transcript_grounded_post_visit_fallback(pg, req.transcript)
+        raise HTTPException(502, f"Post-visit clinical scribe synthesis failed: {e}")
     latency_ms = int((time.perf_counter() - t0) * 1000)
 
     soap = parsed.get("soap") if isinstance(parsed.get("soap"), dict) else {}
