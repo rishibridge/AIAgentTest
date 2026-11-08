@@ -326,10 +326,11 @@ def load_all(data_dir: str = DEFAULT_DATA_DIR) -> Optional[PatientFirewall]:
     if not os.path.isdir(data_dir):
         return None
 
+    _NON_PATIENT_JSON_FILES = {"tester_acknowledgements.json", "user_feedback.json"}
     patient_ids = [
         f.rsplit(".json", 1)[0]
         for f in os.listdir(data_dir)
-        if f.endswith(".json") and not f.startswith(".")
+        if f.endswith(".json") and not f.startswith(".") and f not in _NON_PATIENT_JSON_FILES
     ]
 
     if not patient_ids:
@@ -352,8 +353,216 @@ def load_all(data_dir: str = DEFAULT_DATA_DIR) -> Optional[PatientFirewall]:
     firewall = PatientFirewall()
 
     for patient_id in sorted(set(patient_ids)):
-        pg = load_patient(patient_id, data_dir)
-        if pg is not None:
-            firewall.register_patient(pg)
+        try:
+            pg = load_patient(patient_id, data_dir)
+            if pg is not None:
+                firewall.register_patient(pg)
+        except Exception as e:
+            print(f"[WARN] Skipping non-patient or corrupted file {patient_id}: {e}")
 
     return firewall if firewall.graphs else None
+
+
+# ── Email-Hash Decoupling, Tester Acknowledgements & User Feedback ──
+
+def hash_user_email(email: str) -> str:
+    """Compute a deterministic salted SHA-256 hash of a normalized email address."""
+    norm = (email or "").strip().lower()
+    master = os.environ.get("ALLY_MASTER_SECRET", "ally-per-patient-isolation-master-key-v1")
+    salt = f"ally-email-hash-salt-v1:{master}".encode("utf-8")
+    return hashlib.pbkdf2_hmac("sha256", norm.encode("utf-8"), salt, 25_000).hex()
+
+
+def hash_user_password(password: str, email_hash: str) -> str:
+    """Compute a salted PBKDF2-HMAC-SHA256 password hash bound to the user's email_hash."""
+    raw = (password or "").strip()
+    master = os.environ.get("ALLY_MASTER_SECRET", "ally-per-patient-isolation-master-key-v1")
+    salt = f"ally-password-salt-v1:{email_hash}:{master}".encode("utf-8")
+    return hashlib.pbkdf2_hmac("sha256", raw.encode("utf-8"), salt, 50_000).hex()
+
+
+def save_tester_acknowledgement(record: Dict[str, Any], data_dir: str = DEFAULT_DATA_DIR) -> Dict[str, Any]:
+    """
+    Persist a decoupled 18+ plain-English demo acknowledgement (containing plaintext email)
+    in a separate audit table/file completely decoupled from any patient graph JSON.
+    """
+    _ensure_dir(data_dir)
+    ack_file = os.path.join(data_dir, "tester_acknowledgements.json")
+    existing = []
+    if os.path.isfile(ack_file):
+        try:
+            with open(ack_file, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+                if isinstance(loaded, list):
+                    existing = loaded
+        except Exception:
+            existing = []
+
+    existing.append(record)
+    with open(ack_file, "w", encoding="utf-8") as f:
+        json.dump(existing, f, indent=2, ensure_ascii=False)
+
+    db_file = _sqlite_path(data_dir)
+    conn = sqlite3.connect(db_file, timeout=10.0)
+    try:
+        with conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS tester_acknowledgements (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    acknowledged INTEGER NOT NULL,
+                    statement TEXT NOT NULL,
+                    timestamp TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO tester_acknowledgements (id, name, email, acknowledged, statement, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(record.get("id", "")),
+                    str(record.get("name", "")),
+                    str(record.get("email", "")),
+                    1 if record.get("acknowledged") else 0,
+                    str(record.get("statement", "")),
+                    str(record.get("timestamp", "")),
+                ),
+            )
+    finally:
+        conn.close()
+    return record
+
+
+def list_tester_acknowledgements(data_dir: str = DEFAULT_DATA_DIR) -> list:
+    """Return all decoupled tester acknowledgements from JSON or SQLite."""
+    ack_file = os.path.join(data_dir, "tester_acknowledgements.json")
+    if os.path.isfile(ack_file):
+        try:
+            with open(ack_file, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+                if isinstance(loaded, list):
+                    return loaded
+        except Exception:
+            pass
+    db_file = _sqlite_path(data_dir)
+    if not os.path.isfile(db_file):
+        return []
+    conn = sqlite3.connect(db_file, timeout=10.0)
+    try:
+        cur = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='tester_acknowledgements'"
+        )
+        if not cur.fetchone():
+            return []
+        rows = conn.execute(
+            "SELECT id, name, email, acknowledged, statement, timestamp FROM tester_acknowledgements ORDER BY timestamp DESC"
+        ).fetchall()
+        return [
+            {
+                "id": r[0],
+                "name": r[1],
+                "email": r[2],
+                "acknowledged": bool(r[3]),
+                "statement": r[4],
+                "timestamp": r[5],
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()
+
+
+def save_user_feedback(record: Dict[str, Any], data_dir: str = DEFAULT_DATA_DIR) -> Dict[str, Any]:
+    """Persist a user feedback submission in user_feedback.json and SQLite."""
+    _ensure_dir(data_dir)
+    fb_file = os.path.join(data_dir, "user_feedback.json")
+    existing = []
+    if os.path.isfile(fb_file):
+        try:
+            with open(fb_file, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+                if isinstance(loaded, list):
+                    existing = loaded
+        except Exception:
+            existing = []
+
+    existing.append(record)
+    with open(fb_file, "w", encoding="utf-8") as f:
+        json.dump(existing, f, indent=2, ensure_ascii=False)
+
+    db_file = _sqlite_path(data_dir)
+    conn = sqlite3.connect(db_file, timeout=10.0)
+    try:
+        with conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_feedback (
+                    id TEXT PRIMARY KEY,
+                    rating INTEGER NOT NULL,
+                    comment TEXT NOT NULL,
+                    email TEXT,
+                    patient_id TEXT,
+                    timestamp TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO user_feedback (id, rating, comment, email, patient_id, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(record.get("id", "")),
+                    int(record.get("rating", 5)),
+                    str(record.get("comment", "")),
+                    str(record.get("email", "")),
+                    str(record.get("patient_id", "")),
+                    str(record.get("timestamp", "")),
+                ),
+            )
+    finally:
+        conn.close()
+    return record
+
+
+def list_user_feedback(data_dir: str = DEFAULT_DATA_DIR) -> list:
+    """Return all user feedback submissions from JSON or SQLite."""
+    fb_file = os.path.join(data_dir, "user_feedback.json")
+    if os.path.isfile(fb_file):
+        try:
+            with open(fb_file, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+                if isinstance(loaded, list):
+                    return loaded
+        except Exception:
+            pass
+    db_file = _sqlite_path(data_dir)
+    if not os.path.isfile(db_file):
+        return []
+    conn = sqlite3.connect(db_file, timeout=10.0)
+    try:
+        cur = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='user_feedback'"
+        )
+        if not cur.fetchone():
+            return []
+        rows = conn.execute(
+            "SELECT id, rating, comment, email, patient_id, timestamp FROM user_feedback ORDER BY timestamp DESC"
+        ).fetchall()
+        return [
+            {
+                "id": r[0],
+                "rating": int(r[1]),
+                "comment": r[2],
+                "email": r[3],
+                "patient_id": r[4],
+                "timestamp": r[5],
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()

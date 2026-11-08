@@ -31,7 +31,15 @@ from ally.engine.conversation_engine import ConversationEngine
 from ally.engine.consolidation import ConsolidationEngine
 from ally.engine.handoff_generator import HandoffGenerator
 from ally.engine.clinician_engine import ClinicianEngine
-from ally.engine.persistence import save_patient, save_all, load_all, DEFAULT_DATA_DIR
+from ally.engine.persistence import (
+    save_patient,
+    save_all,
+    load_all,
+    save_user_feedback,
+    list_user_feedback,
+    list_tester_acknowledgements,
+    DEFAULT_DATA_DIR,
+)
 
 from ally.api.routes import patients, conversations, graphs, consolidation, handoffs, clinician, debate
 
@@ -66,7 +74,7 @@ app.add_middleware(
     allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Ally-Token", "X-Ally-Admin-Key"],
+    allow_headers=["Content-Type", "Authorization", "X-Ally-Token", "X-Ally-Admin-Key", "X-Unlocked-Patients"],
 )
 
 
@@ -373,6 +381,52 @@ def api_root():
 def health():
     """Public health probe — redacted so zero patient IDs or family links are published (M6)."""
     return {"status": "healthy"}
+
+
+class FeedbackSubmissionRequest(BaseModel):
+    rating: int = 5
+    comment: str
+    email: Optional[str] = ""
+    patient_id: Optional[str] = ""
+
+
+@app.post("/api/v1/feedback")
+def submit_feedback(req: FeedbackSubmissionRequest):
+    """Persist user feedback on Ally onboarding & session experience."""
+    from datetime import datetime
+    clean_comment = (req.comment or "").strip()
+    if not clean_comment:
+        raise HTTPException(400, "Feedback text is required.")
+    rating = max(1, min(5, int(req.rating or 5)))
+    data_dir = store.get("data_dir") or DEFAULT_DATA_DIR
+    record = save_user_feedback(
+        {
+            "id": f"fb_{uuid.uuid4().hex[:10]}",
+            "rating": rating,
+            "comment": clean_comment[:2000],
+            "email": (req.email or "").strip()[:120],
+            "patient_id": (req.patient_id or "").strip()[:64],
+            "timestamp": datetime.utcnow().isoformat(),
+        },
+        data_dir=data_dir,
+    )
+    return {"status": "saved", "feedback": record}
+
+
+@app.get("/api/v1/feedback")
+def get_feedback():
+    """List submitted user feedback records."""
+    data_dir = store.get("data_dir") or DEFAULT_DATA_DIR
+    items = list_user_feedback(data_dir=data_dir)
+    return {"count": len(items), "feedback": items}
+
+
+@app.get("/api/v1/phi-acknowledgements")
+def get_phi_acknowledgements():
+    """List decoupled 18+ plain-English demo acknowledgement records."""
+    data_dir = store.get("data_dir") or DEFAULT_DATA_DIR
+    items = list_tester_acknowledgements(data_dir=data_dir)
+    return {"count": len(items), "acknowledgements": items}
 
 
 @app.on_event("startup")

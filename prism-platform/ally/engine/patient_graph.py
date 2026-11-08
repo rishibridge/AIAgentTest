@@ -133,6 +133,9 @@ class Patient(BaseModel):
     anonymous: bool = False
     excluded_content: List[str] = Field(default_factory=list)
     locked_nodes: List[str] = Field(default_factory=list)
+    is_custom_private: bool = False
+    email_hash: str = ""
+    password_hash: str = ""
 
 
 # ── View wrappers (bridge Prism's Node/Edge to Ally's display format) ──
@@ -421,23 +424,36 @@ class PatientGraph(TemporalGraph):
 
     # ── Auto-positioning ────────────────────────────────────────────
     def _auto_position(self, node_id: str) -> Tuple[float, float]:
-        """Place new node near the centroid of existing nodes with some jitter."""
+        """Place new node in a clean golden-angle radial constellation around the central self node."""
         if not self._positions:
             return (550.0, 310.0)
-        xs = [p[0] for p in self._positions.values()]
-        ys = [p[1] for p in self._positions.values()]
-        cx = sum(xs) / len(xs)
-        cy = sum(ys) / len(ys)
-        angle = random.uniform(0, 2 * math.pi)
-        radius = random.uniform(60, 150)
-        x = max(50, min(1050, cx + radius * math.cos(angle)))
-        y = max(50, min(570, cy + radius * math.sin(angle)))
+        self_pos = None
+        for nid in self._graph.nodes:
+            data = self._graph.nodes[nid].get("data")
+            if data and getattr(data, "node_type", "") == "self" and nid in self._positions:
+                self_pos = self._positions[nid]
+                break
+        if self_pos:
+            cx, cy = self_pos
+        else:
+            xs = [p[0] for p in self._positions.values()]
+            ys = [p[1] for p in self._positions.values()]
+            cx = sum(xs) / len(xs)
+            cy = sum(ys) / len(ys)
+
+        idx = max(1, len(self._positions))
+        golden_angle = 2.399963229728653  # 137.507764 degrees in radians
+        angle = idx * golden_angle
+        ring = (idx - 1) // 7
+        radius = 155.0 + ring * 72.0
+        x = round(max(80.0, min(1020.0, cx + radius * math.cos(angle))), 1)
+        y = round(max(70.0, min(550.0, cy + radius * math.sin(angle))), 1)
         return (x, y)
 
     # ── Serialization ───────────────────────────────────────────────
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "patient": self.patient.model_dump(),
+            "patient": self.patient.model_dump(exclude={"password_hash"}),
             "graph_version": self.graph_version,
             "graph": self.get_graph_state(),
             "conversations": [c.model_dump() for c in self.conversations],

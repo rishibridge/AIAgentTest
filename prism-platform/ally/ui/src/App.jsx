@@ -480,12 +480,436 @@ function LandingPage({ onDemoMode, onChatMode, onProviderMode }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+ * NEW USER ONBOARDING & RETURNING USER SIGN-IN MODAL
+ * ═══════════════════════════════════════════════════════════════════ */
+function NewUserModal({ onClose, onSuccess, initialTab = 'new' }) {
+  const [activeTab, setActiveTab] = useState(initialTab); // 'new' | 'returning'
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState(() => api.getLastUserEmail());
+  const [password, setPassword] = useState('');
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  const canSubmitNew = name.trim().length > 0 && email.trim().includes('@') && password.trim().length >= 4 && acknowledged && !submitting;
+  const canSubmitResume = email.trim().includes('@') && password.trim().length >= 4 && !submitting;
+
+  const handleNewSubmit = async (e) => {
+    e.preventDefault();
+    if (!canSubmitNew) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await api.onboardNewUser({
+        name: name.trim(),
+        email: email.trim(),
+        password: password.trim(),
+        demo_terms_acknowledged: acknowledged,
+      });
+      onSuccess(res.id, res.name);
+    } catch (err) {
+      setError(err.message || 'Unable to create profile.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResumeSubmit = async (e) => {
+    e.preventDefault();
+    if (!canSubmitResume) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await api.resumeUser({
+        email: email.trim(),
+        password: password.trim(),
+      });
+      onSuccess(res.id, res.name);
+    } catch (err) {
+      setError(err.message || 'Unable to sign in with that email and password.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      data-testid="new-user-modal"
+      style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9500,
+        background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: '520px', background: '#0B0D12',
+          border: '1px solid rgba(217,184,115,0.32)', borderRadius: '16px',
+          padding: '28px', boxShadow: '0 24px 80px rgba(0,0,0,0.75)', color: '#EDEAE3',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+          <div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.75rem', fontWeight: 600, color: '#D9B873' }}>
+              Talk to Ally
+            </div>
+            <div style={{ fontFamily: "'Lora', serif", fontSize: '0.84rem', fontStyle: 'italic', color: '#9B9285' }}>
+              {activeTab === 'new'
+                ? 'Start from a 1-node blank slate ("You") and watch your memory map grow in real time.'
+                : 'Sign in with your email and password to pick up right where you left off.'}
+            </div>
+          </div>
+          <button
+            data-testid="close-new-user-modal"
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', color: '#9B9285', fontSize: '1.2rem', cursor: 'pointer', padding: '4px 8px' }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Mode Tabs */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <button
+            type="button"
+            data-testid="tab-new-user"
+            onClick={() => { setActiveTab('new'); setError(null); }}
+            style={{
+              flex: 1, padding: '9px 12px', borderRadius: '7px', border: 'none', cursor: 'pointer',
+              background: activeTab === 'new' ? 'rgba(217,184,115,0.18)' : 'transparent',
+              color: activeTab === 'new' ? '#D9B873' : '#9B9285',
+              fontFamily: "'Work Sans', sans-serif", fontSize: '0.78rem', fontWeight: 600,
+            }}
+          >
+            New User (Session #1)
+          </button>
+          <button
+            type="button"
+            data-testid="tab-returning-user"
+            onClick={() => { setActiveTab('returning'); setError(null); }}
+            style={{
+              flex: 1, padding: '9px 12px', borderRadius: '7px', border: 'none', cursor: 'pointer',
+              background: activeTab === 'returning' ? 'rgba(95,174,176,0.18)' : 'transparent',
+              color: activeTab === 'returning' ? '#5FAEB0' : '#9B9285',
+              fontFamily: "'Work Sans', sans-serif", fontSize: '0.78rem', fontWeight: 600,
+            }}
+          >
+            Returning User (Sign In)
+          </button>
+        </div>
+
+        {error && (
+          <div data-testid="new-user-error" style={{ marginBottom: '14px', padding: '10px 12px', background: 'rgba(232,93,93,0.12)', border: '1px solid rgba(232,93,93,0.4)', borderRadius: '8px', color: '#FF6B6B', fontSize: '0.8rem', fontFamily: "'Work Sans', sans-serif" }}>
+            {error}
+          </div>
+        )}
+
+        {activeTab === 'new' ? (
+          <form onSubmit={handleNewSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontFamily: "'Work Sans', sans-serif", fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9B9285', marginBottom: '6px' }}>
+                First Name or Nickname
+              </label>
+              <input
+                data-testid="new-user-name-input"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., Alex"
+                style={{ width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#EDEAE3', fontSize: '0.9rem', fontFamily: "'Work Sans', sans-serif", outline: 'none' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontFamily: "'Work Sans', sans-serif", fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9B9285', marginBottom: '6px' }}>
+                Email Address (Used to Resume Your Conversation Later)
+              </label>
+              <input
+                data-testid="new-user-email-input"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="alex@example.com"
+                style={{ width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#EDEAE3', fontSize: '0.9rem', fontFamily: "'Work Sans', sans-serif", outline: 'none' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontFamily: "'Work Sans', sans-serif", fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9B9285', marginBottom: '6px' }}>
+                Create Password (4+ Characters)
+              </label>
+              <input
+                data-testid="new-user-password-input"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                style={{ width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#EDEAE3', fontSize: '0.9rem', fontFamily: "'Work Sans', sans-serif", outline: 'none' }}
+              />
+            </div>
+
+            <label
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px 14px',
+                background: 'rgba(217,184,115,0.06)', border: '1px solid rgba(217,184,115,0.22)',
+                borderRadius: '10px', cursor: 'pointer', fontSize: '0.78rem', lineHeight: 1.5, color: '#D6D1C7',
+                fontFamily: "'Work Sans', sans-serif",
+              }}
+            >
+              <input
+                data-testid="new-user-terms-checkbox"
+                type="checkbox"
+                checked={acknowledged}
+                onChange={(e) => setAcknowledged(e.target.checked)}
+                style={{ marginTop: '3px', accentColor: '#D9B873', cursor: 'pointer' }}
+              />
+              <span>
+                I am <strong>18+</strong> and understand this is an <strong>unmonitored product demo, not medical care</strong>. What I type is saved on demo servers so Ally can remember me across sessions and our team can review conversations to improve Ally. I will use <strong>fictional details</strong> rather than sharing real medical or personal secrets, and I understand nothing entered here is confidential or protected.
+              </span>
+            </label>
+
+            <button
+              data-testid="new-user-submit-btn"
+              type="submit"
+              disabled={!canSubmitNew}
+              style={{
+                marginTop: '4px', width: '100%', padding: '13px 18px', borderRadius: '9px', border: 'none',
+                background: canSubmitNew ? 'linear-gradient(135deg, #D9B873, #C4A35A)' : 'rgba(255,255,255,0.08)',
+                color: canSubmitNew ? '#050608' : '#6B6560', fontWeight: 700, fontSize: '0.88rem',
+                fontFamily: "'Work Sans', sans-serif", textTransform: 'uppercase', letterSpacing: '0.08em',
+                cursor: canSubmitNew ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {submitting ? 'Setting Up Session #1...' : 'Start Talking to Ally →'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleResumeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontFamily: "'Work Sans', sans-serif", fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9B9285', marginBottom: '6px' }}>
+                Email Address
+              </label>
+              <input
+                data-testid="resume-user-email-input"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="alex@example.com"
+                style={{ width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#EDEAE3', fontSize: '0.9rem', fontFamily: "'Work Sans', sans-serif", outline: 'none' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontFamily: "'Work Sans', sans-serif", fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9B9285', marginBottom: '6px' }}>
+                Password
+              </label>
+              <input
+                data-testid="resume-user-password-input"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                style={{ width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#EDEAE3', fontSize: '0.9rem', fontFamily: "'Work Sans', sans-serif", outline: 'none' }}
+              />
+            </div>
+
+            <button
+              data-testid="resume-user-submit-btn"
+              type="submit"
+              disabled={!canSubmitResume}
+              style={{
+                marginTop: '6px', width: '100%', padding: '13px 18px', borderRadius: '9px', border: 'none',
+                background: canSubmitResume ? '#5FAEB0' : 'rgba(255,255,255,0.08)',
+                color: canSubmitResume ? '#050608' : '#6B6560', fontWeight: 700, fontSize: '0.88rem',
+                fontFamily: "'Work Sans', sans-serif", textTransform: 'uppercase', letterSpacing: '0.08em',
+                cursor: canSubmitResume ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {submitting ? 'Resuming Session...' : 'Resume Conversation with Ally →'}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * USER FEEDBACK MODAL — Accessible from Picker, Live Chat & Consolidation
+ * ═══════════════════════════════════════════════════════════════════ */
+function FeedbackModal({ onClose, patientId = '' }) {
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [email, setEmail] = useState(() => api.getLastUserEmail());
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!comment.trim() || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await api.submitFeedback({
+        rating,
+        comment: comment.trim(),
+        email: email.trim(),
+        patient_id: patientId || '',
+      });
+      setSubmitted(true);
+    } catch (err) {
+      setError(err.message || 'Unable to submit feedback.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      data-testid="feedback-modal"
+      style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9600,
+        background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: '480px', background: '#0B0D12',
+          border: '1px solid rgba(95,174,176,0.35)', borderRadius: '16px',
+          padding: '26px', boxShadow: '0 24px 80px rgba(0,0,0,0.75)', color: '#EDEAE3',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+          <div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.65rem', fontWeight: 600, color: '#5FAEB0' }}>
+              Share Feedback on Ally
+            </div>
+            <div style={{ fontFamily: "'Lora', serif", fontSize: '0.82rem', fontStyle: 'italic', color: '#9B9285' }}>
+              How natural did Ally feel, and what should we improve?
+            </div>
+          </div>
+          <button
+            data-testid="close-feedback-modal"
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', color: '#9B9285', fontSize: '1.2rem', cursor: 'pointer', padding: '4px 8px' }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {submitted ? (
+          <div data-testid="feedback-success-msg" style={{ padding: '20px 0', textAlign: 'center' }}>
+            <div style={{ fontSize: '1.6rem', marginBottom: '8px', color: '#D9B873' }}>✦</div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.4rem', color: '#EDEAE3', marginBottom: '6px' }}>
+              Thank you for your feedback
+            </div>
+            <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.84rem', color: '#9B9285', marginBottom: '18px' }}>
+              Your notes have been saved to help our team refine Ally.
+            </div>
+            <button
+              onClick={onClose}
+              style={{ padding: '10px 22px', borderRadius: '8px', border: 'none', background: '#5FAEB0', color: '#050608', fontWeight: 700, cursor: 'pointer', fontFamily: "'Work Sans', sans-serif", fontSize: '0.82rem' }}
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {error && (
+              <div style={{ padding: '9px 12px', background: 'rgba(232,93,93,0.12)', border: '1px solid rgba(232,93,93,0.4)', borderRadius: '8px', color: '#FF6B6B', fontSize: '0.78rem' }}>
+                {error}
+              </div>
+            )}
+            <div>
+              <label style={{ display: 'block', fontFamily: "'Work Sans', sans-serif", fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9B9285', marginBottom: '8px' }}>
+                Overall Experience (1–5)
+              </label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {[1, 2, 3, 4, 5].map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    data-testid={`feedback-rating-${num}`}
+                    onClick={() => setRating(num)}
+                    style={{
+                      flex: 1, padding: '9px 0', borderRadius: '8px', cursor: 'pointer',
+                      background: rating >= num ? 'rgba(217,184,115,0.2)' : 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${rating >= num ? '#D9B873' : 'rgba(255,255,255,0.1)'}`,
+                      color: rating >= num ? '#D9B873' : '#9B9285',
+                      fontFamily: "'Work Sans', sans-serif", fontWeight: 700, fontSize: '0.88rem',
+                    }}
+                  >
+                    {num} ★
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontFamily: "'Work Sans', sans-serif", fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9B9285', marginBottom: '6px' }}>
+                Your Thoughts or Suggestions
+              </label>
+              <textarea
+                data-testid="feedback-comment-input"
+                rows={4}
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Did Ally listen well? Did the memory graph capture what mattered?"
+                style={{ width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#EDEAE3', fontSize: '0.88rem', fontFamily: "'Work Sans', sans-serif", outline: 'none', resize: 'vertical' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontFamily: "'Work Sans', sans-serif", fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9B9285', marginBottom: '6px' }}>
+                Email (Optional)
+              </label>
+              <input
+                data-testid="feedback-email-input"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="alex@example.com"
+                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#EDEAE3', fontSize: '0.86rem', fontFamily: "'Work Sans', sans-serif", outline: 'none' }}
+              />
+            </div>
+
+            <button
+              data-testid="submit-feedback-btn"
+              type="submit"
+              disabled={!comment.trim() || submitting}
+              style={{
+                marginTop: '4px', width: '100%', padding: '12px 18px', borderRadius: '9px', border: 'none',
+                background: comment.trim() ? '#5FAEB0' : 'rgba(255,255,255,0.08)',
+                color: comment.trim() ? '#050608' : '#6B6560', fontWeight: 700, fontSize: '0.86rem',
+                fontFamily: "'Work Sans', sans-serif", textTransform: 'uppercase', letterSpacing: '0.08em',
+                cursor: comment.trim() ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {submitting ? 'Saving Feedback...' : 'Submit Feedback'}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
  * PATIENT PICKER COMPONENT
  * ═══════════════════════════════════════════════════════════════════ */
 function PatientPicker({ onSelectPatient, onBack, isClinician, onToggleClinician }) {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showNewUserModal, setShowNewUserModal] = useState(false);
+  const [newUserModalTab, setNewUserModalTab] = useState('new');
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -530,22 +954,39 @@ function PatientPicker({ onSelectPatient, onBack, isClinician, onToggleClinician
           </div>
         </div>
 
-        {/* Clinician View Toggle */}
-        <button
-          onClick={onToggleClinician}
-          style={{
-            background: isClinician ? 'rgba(217,184,115,0.15)' : 'rgba(255,255,255,0.05)',
-            border: isClinician ? '1px solid rgba(217,184,115,0.4)' : '1px solid rgba(255,255,255,0.12)',
-            color: isClinician ? '#D9B873' : '#9B9285',
-            padding: '8px 20px', borderRadius: '24px', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: '8px',
-            fontSize: '0.82rem', fontFamily: "'Work Sans', sans-serif",
-            fontWeight: 500, transition: 'all 0.3s ease',
-          }}
-        >
-          <Stethoscope size={15} />
-          {isClinician ? 'Clinician View' : 'Patient View'}
-        </button>
+        {/* Feedback & Clinician View Toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            data-testid="open-feedback-btn"
+            onClick={() => setShowFeedbackModal(true)}
+            style={{
+              background: 'rgba(95,174,176,0.08)',
+              border: '1px solid rgba(95,174,176,0.3)',
+              color: '#5FAEB0',
+              padding: '8px 16px', borderRadius: '24px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '6px',
+              fontSize: '0.8rem', fontFamily: "'Work Sans', sans-serif",
+              fontWeight: 500, transition: 'all 0.2s ease',
+            }}
+          >
+            💬 Give Feedback
+          </button>
+          <button
+            onClick={onToggleClinician}
+            style={{
+              background: isClinician ? 'rgba(217,184,115,0.15)' : 'rgba(255,255,255,0.05)',
+              border: isClinician ? '1px solid rgba(217,184,115,0.4)' : '1px solid rgba(255,255,255,0.12)',
+              color: isClinician ? '#D9B873' : '#9B9285',
+              padding: '8px 20px', borderRadius: '24px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '8px',
+              fontSize: '0.82rem', fontFamily: "'Work Sans', sans-serif",
+              fontWeight: 500, transition: 'all 0.3s ease',
+            }}
+          >
+            <Stethoscope size={15} />
+            {isClinician ? 'Clinician View' : 'Patient View'}
+          </button>
+        </div>
       </div>
 
       {/* Content */}
@@ -647,7 +1088,7 @@ function PatientPicker({ onSelectPatient, onBack, isClinician, onToggleClinician
                   fontFamily: "'Lora', serif", fontSize: '0.82rem',
                   color: '#9B9285', fontStyle: 'italic', marginBottom: '16px',
                 }}>
-                  {age !== '—' ? `Age ${age}` : 'Age not recorded'}
+                  {patient.is_custom_private ? 'Your Saved Profile • Resume' : (age !== '—' && age !== 0 ? `Age ${age}` : 'Age not recorded')}
                 </div>
 
                 <div style={{ display: 'flex', gap: '16px' }}>
@@ -677,8 +1118,95 @@ function PatientPicker({ onSelectPatient, onBack, isClinician, onToggleClinician
               </button>
             );
           })}
+
+          {/* Try Ally as a New User Card (Blank Slate • Session #1) */}
+          <button
+            data-testid="try-ally-new-user-card"
+            onClick={() => { setNewUserModalTab('new'); setShowNewUserModal(true); }}
+            style={{
+              width: '280px', padding: '28px 24px',
+              background: 'rgba(217,184,115,0.05)',
+              border: '1px solid rgba(217,184,115,0.32)',
+              borderRadius: '14px', backdropFilter: 'blur(12px)',
+              cursor: 'pointer', textAlign: 'left',
+              transition: 'all 0.3s ease', position: 'relative',
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.border = '1px solid rgba(217,184,115,0.65)';
+              e.currentTarget.style.background = 'rgba(217,184,115,0.09)';
+              e.currentTarget.style.transform = 'translateY(-3px)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.border = '1px solid rgba(217,184,115,0.32)';
+              e.currentTarget.style.background = 'rgba(217,184,115,0.05)';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            <div style={{
+              width: '48px', height: '48px', borderRadius: '50%',
+              background: 'rgba(217,184,115,0.14)',
+              border: '1.5px solid rgba(217,184,115,0.4)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginBottom: '16px',
+            }}>
+              <MessageCircle size={20} color="#D9B873" />
+            </div>
+
+            <div style={{
+              fontFamily: "'Cormorant Garamond', serif", fontSize: '1.35rem',
+              fontWeight: 600, color: '#D9B873', marginBottom: '6px',
+            }}>
+              Try Ally as a New User
+            </div>
+
+            <div style={{
+              fontFamily: "'Lora', serif", fontSize: '0.82rem',
+              color: '#9B9285', fontStyle: 'italic', marginBottom: '16px',
+            }}>
+              Blank Slate • Session #1
+            </div>
+
+            <div style={{ display: 'flex', gap: '16px' }}>
+              <div style={{
+                padding: '6px 12px', background: 'rgba(217,184,115,0.08)',
+                borderRadius: '6px', border: '1px solid rgba(217,184,115,0.2)',
+              }}>
+                <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.65rem', color: '#D9B873', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Nodes</div>
+                <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1.1rem', color: '#EDEAE3', fontWeight: 600 }}>1</div>
+              </div>
+              <div style={{
+                padding: '6px 12px', background: 'rgba(95,174,176,0.08)',
+                borderRadius: '6px', border: '1px solid rgba(95,174,176,0.15)',
+              }}>
+                <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '0.65rem', color: '#5FAEB0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Edges</div>
+                <div style={{ fontFamily: "'Work Sans', sans-serif", fontSize: '1.1rem', color: '#EDEAE3', fontWeight: 600 }}>0</div>
+              </div>
+            </div>
+
+            <div style={{
+              marginTop: '16px', fontFamily: "'Work Sans', sans-serif",
+              fontSize: '0.72rem', color: '#D9B873',
+              textTransform: 'uppercase', letterSpacing: '0.1em',
+            }}>
+              Start Session #1 or Sign In →
+            </div>
+          </button>
         </div>
       </div>
+
+      {showNewUserModal && (
+        <NewUserModal
+          initialTab={newUserModalTab}
+          onClose={() => setShowNewUserModal(false)}
+          onSuccess={(id, name) => {
+            setShowNewUserModal(false);
+            onSelectPatient(id, name);
+          }}
+        />
+      )}
+      {showFeedbackModal && (
+        <FeedbackModal onClose={() => setShowFeedbackModal(false)} />
+      )}
     </div>
   );
 }
@@ -792,6 +1320,9 @@ function LiveChat({ patientId, patientName, onGraphUpdate, onConvIdReady, nodeLa
       }
       convIdRef.current = res.conversation_id;
       setConvId(res.conversation_id);
+      if (res.opening_message?.text) {
+        setMessages([{ sender: 'bot', text: res.opening_message.text, seeded: true }]);
+      }
       if (onConvIdReady) onConvIdReady(res.conversation_id);
     }).catch(console.error);
 
@@ -866,7 +1397,7 @@ function LiveChat({ patientId, patientName, onGraphUpdate, onConvIdReady, nodeLa
               )}
               {msg.toolCalls && msg.toolCalls.length > 0 && !msg.toolCalls.some(tc => tc.tool === 'trigger_emergency_alert') && (
                 <div data-testid="memory-updated-badge" style={{ marginTop: '8px', padding: '8px 10px', background: 'rgba(217,184,115,0.08)', borderRadius: '6px', border: '1px solid rgba(217,184,115,0.15)', fontSize: '0.7rem', color: '#D9B873' }}>
-                  <div style={{ fontWeight: 600, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Memory Updated</div>
+                  <div data-testid="shine-memory-pill" style={{ fontWeight: 600, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>✦ Memory Updated • Added to memory map</div>
                   {msg.toolCalls.map((tc, j) => (
                     <div key={j} style={{ color: '#B5AEA3', marginBottom: '2px' }}>
                       {tc.tool === 'add_node' && `+ Remembered: ${humanizeGraphRef(tc.args?.label || tc.args?.node_id, nodeLabelMap)}`}
@@ -923,6 +1454,7 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
   const [isAdmin, setIsAdmin] = useState(() => api.getAuthRole() === 'admin');
   const [statusNotice, setStatusNotice] = useState(null);
   const [chatResetNonce, setChatResetNonce] = useState(0);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   const nodeLabelMap = useMemo(() => {
     const map = {};
@@ -973,9 +1505,11 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
       }
 
       const newPositions = { ...prev.positions };
-      nodes.forEach(n => {
-        if (!newPositions[n.id]) {
-          newPositions[n.id] = { x: 200 + Math.random() * 700, y: 100 + Math.random() * 400 };
+      (currentGraph.nodes || []).forEach(rawNode => {
+        if (typeof rawNode.x === 'number' && typeof rawNode.y === 'number' && (rawNode.x !== 0 || rawNode.y !== 0)) {
+          newPositions[rawNode.id] = { x: rawNode.x, y: rawNode.y };
+        } else if (!newPositions[rawNode.id]) {
+          newPositions[rawNode.id] = { x: 200 + Math.random() * 700, y: 100 + Math.random() * 400 };
         }
       });
       return { nodes, edges, positions: newPositions };
@@ -1132,6 +1666,19 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
             <span style={{ fontSize: '0.7rem', color: '#D9B873', fontFamily: "'Work Sans', sans-serif" }}>{statusNotice}</span>
           )}
           <button
+            data-testid="live-feedback-btn"
+            onClick={() => setShowFeedbackModal(true)}
+            style={{
+              background: 'rgba(95,174,176,0.08)',
+              border: '1px solid rgba(95,174,176,0.3)',
+              color: '#5FAEB0', padding: '6px 10px', borderRadius: '6px',
+              cursor: 'pointer', fontSize: '0.72rem', fontFamily: "'Work Sans', sans-serif",
+              display: 'flex', alignItems: 'center', gap: '5px',
+            }}
+          >
+            💬 Give Feedback
+          </button>
+          <button
             data-testid="live-admin-btn"
             onClick={handleUnlockAdmin}
             style={{
@@ -1287,12 +1834,46 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
           ) : sessionEnded && consolidationResult ? (
             <div data-testid="consolidation-complete-card" className="fade-enter-active" style={{ padding: '32px', overflowY: 'auto', height: '100%', display: 'flex', flexDirection: 'column' }}>
               <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '2rem', color: '#5FAEB0', marginBottom: '8px' }}>Consolidation Complete</h2>
-              <div style={{ fontSize: '0.8rem', color: '#9B9285', marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              <div style={{ fontSize: '0.8rem', color: '#9B9285', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                 {patientName} • Long-term Memory Updated
               </div>
-              <p style={{ color: '#EDEAE3', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '24px' }}>
+              <p style={{ color: '#EDEAE3', fontSize: '0.92rem', lineHeight: 1.6, marginBottom: '18px' }}>
                 The session has been processed through all 5 Advocate/Skeptic/Judge steps and persisted to the longitudinal store.
               </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
+                <button
+                  data-testid="start-next-session-btn"
+                  onClick={() => {
+                    setSessionEnded(false);
+                    setConsolidationResult(null);
+                    setConsolidationError(null);
+                    setConvId(null);
+                    setChatResetNonce(n => n + 1);
+                    refreshGraph();
+                  }}
+                  style={{
+                    width: '100%', padding: '12px 16px', borderRadius: '8px', border: 'none',
+                    background: 'linear-gradient(135deg, #D9B873, #C4A35A)', color: '#050608',
+                    fontWeight: 700, fontSize: '0.82rem', fontFamily: "'Work Sans', sans-serif",
+                    textTransform: 'uppercase', letterSpacing: '0.06em', cursor: 'pointer',
+                  }}
+                >
+                  ▶ Start Next Session (See What Ally Remembers)
+                </button>
+                <button
+                  data-testid="consolidation-feedback-btn"
+                  onClick={() => setShowFeedbackModal(true)}
+                  style={{
+                    width: '100%', padding: '10px 16px', borderRadius: '8px',
+                    background: 'rgba(95,174,176,0.1)', border: '1px solid rgba(95,174,176,0.35)',
+                    color: '#5FAEB0', fontWeight: 600, fontSize: '0.8rem',
+                    fontFamily: "'Work Sans', sans-serif", cursor: 'pointer',
+                  }}
+                >
+                  💬 Give Feedback on Your Session
+                </button>
+              </div>
 
               {consolidationResult.steps && consolidationResult.steps.map((step, i) => (
                 <div key={i} style={{ marginBottom: '20px', padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', borderLeft: '2px solid rgba(255,255,255,0.1)' }}>
@@ -1348,6 +1929,12 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
           )}
         </div>
       </div>
+      {showFeedbackModal && (
+        <FeedbackModal
+          patientId={patientId}
+          onClose={() => setShowFeedbackModal(false)}
+        />
+      )}
     </div>
   );
 }

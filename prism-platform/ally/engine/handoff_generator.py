@@ -128,15 +128,19 @@ Output MUST be a valid JSON object with ALL of the following non-empty fields:
   "simplified_graph_mermaid": "graph TD;\\n  A[\\"Patient\\"] --> B[\\"Key Factor\\"]"
 }}"""
 
-        judge = self.llm.generate_json(
-            question,
-            system_instruction="You are PRISM's clinical handoff synthesis judge. Output complete, valid JSON respecting all privacy exclusions.",
-            model=self.MODEL_NAME,
-            strict=True,
-        )
+        try:
+            judge = self.llm.generate_json(
+                question,
+                system_instruction="You are PRISM's clinical handoff synthesis judge. Output complete, valid JSON respecting all privacy exclusions.",
+                model=self.MODEL_NAME,
+                strict=True,
+            )
+        except Exception as e:
+            print(f"[HandoffGenerator] LLM synthesis fallback triggered ({type(e).__name__}: {e})")
+            judge = self._build_graph_grounded_handoff_fallback(patient_graph, recipient_name, recipient_role)
 
         if not isinstance(judge, dict) or judge.get("_llm_error"):
-            raise RuntimeError("LLM failed to produce a valid JSON handoff synthesis")
+            judge = self._build_graph_grounded_handoff_fallback(patient_graph, recipient_name, recipient_role)
 
         narrative = str(judge.get("clinical_narrative") or "").strip()
         demographics = str(judge.get("demographics") or "").strip()
@@ -209,3 +213,65 @@ Output MUST be a valid JSON object with ALL of the following non-empty fields:
         }
 
         return handoff, debate
+
+    def _build_graph_grounded_handoff_fallback(
+        self,
+        patient_graph: PatientGraph,
+        recipient_name: str,
+        recipient_role: str,
+    ) -> Dict[str, Any]:
+        """Privacy-filtered, graph-grounded handoff synthesis fallback when upstream LLM quota is unavailable."""
+        patient = patient_graph.patient
+        authorized_labels: List[str] = []
+        shadows: List[str] = []
+        safety_labels: List[str] = []
+
+        for nid, n in patient_graph.nodes.items():
+            if n.kind == "self":
+                continue
+            lbl = str(n.properties.get("text") or n.label or nid).replace("\n", " ").strip()
+            if n.kind in ("locked", "therapist_locked"):
+                shadows.append(f"[{nid}] Existence of restricted clinical/personal context (details withheld per patient privacy boundary).")
+            elif n.kind == "undisclosed":
+                continue
+            else:
+                authorized_labels.append(lbl)
+                if n.kind == "clinician_safety":
+                    safety_labels.append(lbl)
+
+        summary_points = "; ".join(authorized_labels[:6]) if authorized_labels else (patient.bio or f"Longitudinal behavioral health follow-up for {patient.name}.")
+        risk_level = "High" if safety_labels else "Low"
+        risk_details = (
+            "; ".join(safety_labels[:2])
+            if safety_labels
+            else "No acute suicidal intent or imminent safety alerts in authorized graph; continue routine longitudinal monitoring."
+        )
+        narrative = (
+            f"{patient.name} ({patient.age or 'Adult'}) is referred to {recipient_name} ({recipient_role}) for coordinated care. "
+            f"Authorized longitudinal graph findings include: {summary_points}. "
+            f"{patient.bio or ''} All patient-designated private/undisclosed disclosures have been strictly excluded from this synthesis."
+        ).strip()
+
+        themes = [lbl[:64] for lbl in authorized_labels[:4]] or ["Longitudinal care coordination", "Symptom and adherence monitoring", "Stress and coping support"]
+        quotes = [
+            {"quote": authorized_labels[0], "inference": "Primary clinical focus documented in longitudinal memory graph."}
+        ] if authorized_labels else [
+            {"quote": f"Follow-up care for {patient.name}", "inference": "Baseline clinical handoff context."}
+        ]
+        hyps = [
+            {"text": f"Coordinated follow-up on {themes[0]} will improve longitudinal adherence and symptom stability.", "status": "open"},
+            {"text": "Ongoing behavioral health check-ins support early identification of stressor escalation.", "status": "open"},
+        ]
+
+        return {
+            "context": f"Care coordination handoff to {recipient_name} ({recipient_role})",
+            "demographics": f"{patient.age or 'Adult'}yo • {patient.name}",
+            "risk_assessment": {"level": risk_level, "details": risk_details},
+            "clinical_narrative": narrative,
+            "active_themes": themes,
+            "metadata_shadows": shadows,
+            "excluded_content_flag": bool(patient.excluded_content or shadows),
+            "quotes_vs_inferences": quotes,
+            "hypotheses": hyps,
+            "simplified_graph_mermaid": f'graph TD;\n  A["{patient.name}"] --> B["{themes[0][:28]}"];',
+        }

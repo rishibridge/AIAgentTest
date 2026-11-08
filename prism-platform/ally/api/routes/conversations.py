@@ -33,17 +33,21 @@ def _parse_iso(ts: str) -> Optional[datetime]:
         return None
 
 
+def _has_user_messages(conv) -> bool:
+    return any(m.sender != "bot" for m in (conv.messages or []))
+
+
 def _prune_abandoned_zero_message_sessions(pg, max_age_seconds: int = 120) -> int:
     """
-    Remove zero-message 'active' conversations older than max_age_seconds (M2).
-    When max_age_seconds == 0, prunes all prior zero-message active sessions immediately.
+    Remove zero-user-message 'active' conversations older than max_age_seconds (M2).
+    When max_age_seconds == 0, prunes all prior zero-user-message active sessions immediately.
     """
     now = datetime.utcnow()
     kept = []
     removed_ids = set()
 
     for c in pg.conversations:
-        if c.status == "active" and len(c.messages) == 0:
+        if c.status == "active" and not _has_user_messages(c):
             started = _parse_iso(c.started_at)
             if max_age_seconds <= 0 or started is None or (now - started) > timedelta(seconds=max_age_seconds):
                 removed_ids.add(c.id[:8])
@@ -72,12 +76,50 @@ def start_conversation(patient_id: str, req: StartConversationRequest = None):
     conv = pg.start_conversation(label=label)
     pg.snapshot(f"pre-session-{conv.id[:8]}")
 
+    opening_payload = None
+    if getattr(pg.patient, "is_custom_private", False):
+        from ally.engine.patient_graph import ConversationMessage
+
+        first_name = (pg.patient.name or "there").split()[0]
+        non_self_labels = [
+            n.label.replace("\n", " ").strip()
+            for n in pg.nodes.values()
+            if n.kind != "self" and n.label
+        ]
+        if not non_self_labels:
+            opening_text = f"Hi {first_name} — I'm Ally. Tell me a little about yourself, or whatever's on your mind today."
+        else:
+            top = non_self_labels[:3]
+            if len(top) == 1:
+                summary_str = top[0]
+            elif len(top) == 2:
+                summary_str = f"{top[0]} and {top[1]}"
+            else:
+                summary_str = f"{top[0]}, {top[1]}, and {top[2]}"
+            opening_text = (
+                f"Welcome back, {first_name}. Last time we talked, we mapped {summary_str}. "
+                f"How have things been going since we last spoke?"
+            )
+        opening_msg = ConversationMessage(
+            sender="bot",
+            text=opening_text,
+            model="ally-seed",
+            model_version="ally-v1.1",
+            context_tokens=64,
+            latency_ms=10,
+        )
+        conv.messages.append(opening_msg)
+        opening_payload = opening_msg.model_dump()
+
     conv_engine = _store["conversation_engine"]
     conv_engine.start_session(pg)
 
     _save_delta(patient_id)
 
-    return {"conversation_id": conv.id, "status": "active", "started_at": conv.started_at}
+    resp = {"conversation_id": conv.id, "status": "active", "started_at": conv.started_at}
+    if opening_payload:
+        resp["opening_message"] = opening_payload
+    return resp
 
 
 @router.get("")
@@ -191,7 +233,7 @@ def end_conversation(patient_id: str, conv_id: str):
     if not conv:
         raise HTTPException(404, "Conversation not found")
 
-    if len(conv.messages) == 0:
+    if not _has_user_messages(conv):
         pg.conversations = [c for c in pg.conversations if c.id != conv_id]
         pg.snapshots = [s for s in pg.snapshots if s.label != f"pre-session-{conv_id[:8]}"]
         _save_delta(patient_id)
@@ -214,7 +256,7 @@ def abandon_conversation(patient_id: str, conv_id: str):
     if not conv:
         return {"status": "already_closed"}
 
-    if len(conv.messages) == 0:
+    if not _has_user_messages(conv):
         pg.conversations = [c for c in pg.conversations if c.id != conv_id]
         pg.snapshots = [s for s in pg.snapshots if s.label != f"pre-session-{conv_id[:8]}"]
         _save_delta(patient_id)

@@ -21,13 +21,13 @@ except ImportError:
 
 def _try_parse_json(candidate: str) -> Optional[Any]:
     try:
-        return json.loads(candidate)
+        return json.loads(candidate, strict=False)
     except json.JSONDecodeError:
         pass
     # Repair trailing commas before } or ]
     repaired = re.sub(r",\s*([}\]])", r"\1", candidate)
     try:
-        return json.loads(repaired)
+        return json.loads(repaired, strict=False)
     except json.JSONDecodeError:
         return None
 

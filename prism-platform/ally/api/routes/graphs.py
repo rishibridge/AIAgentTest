@@ -149,7 +149,7 @@ def delete_edge(patient_id: str, source: str = Query(...), target: str = Query(.
 
 @router.post("/reset")
 def reset_patient(patient_id: str):
-    """Reset patient graph to initial seed data. Clears all live conversations, handoffs, and snapshots back to seed."""
+    """Reset patient graph to initial seed data (or 1-node blank slate for custom onboarding users)."""
     pg = _store["firewall"].get_patient_graph(patient_id)
     if not pg:
         raise HTTPException(404, "Patient not found")
@@ -157,13 +157,29 @@ def reset_patient(patient_id: str):
     patient_name = pg.patient.name
     from ally.seed import seed_elena_and_daniel
     from ally.engine.firewall import PatientFirewall
+    from ally.engine.patient_graph import PatientGraph
+    import re
 
     temp_fw = PatientFirewall()
     seed_elena_and_daniel(temp_fw)
 
     fresh_pg = temp_fw.get_patient_graph(patient_id)
     if not fresh_pg:
-        raise HTTPException(500, f"Could not re-seed patient '{patient_id}'")
+        if getattr(pg.patient, "is_custom_private", False):
+            fresh_pg = PatientGraph(pg.patient)
+            first_name = (patient_name or "User").split()[0]
+            self_id = re.sub(r"[^a-z0-9]+", "_", first_name.lower()).strip("_") or "self"
+            fresh_pg.add_node(
+                node_id=self_id,
+                label=first_name,
+                kind="self",
+                size=30,
+                x=550.0,
+                y=310.0,
+            )
+            fresh_pg.graph_version = 1
+        else:
+            raise HTTPException(500, f"Could not re-seed patient '{patient_id}'")
 
     _store["firewall"].graphs[patient_id] = fresh_pg
     _save(patient_id)

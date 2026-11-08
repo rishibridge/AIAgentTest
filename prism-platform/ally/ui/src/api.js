@@ -7,6 +7,40 @@ const API_BASE = window.location.origin.includes('localhost:5173')
 
 const TOKEN_STORAGE_KEY = 'ally_auth_token';
 const ROLE_STORAGE_KEY = 'ally_auth_role';
+const UNLOCKED_PATIENTS_KEY = 'ally_unlocked_patients';
+const LAST_USER_EMAIL_KEY = 'ally_last_user_email';
+
+export function getUnlockedPatientIds() {
+  try {
+    const raw = localStorage.getItem(UNLOCKED_PATIENTS_KEY) || '';
+    return raw.split(',').map((s) => s.trim()).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+export function rememberUnlockedPatient(patientId, email = '') {
+  try {
+    if (patientId) {
+      const existing = new Set(getUnlockedPatientIds());
+      existing.add(patientId);
+      localStorage.setItem(UNLOCKED_PATIENTS_KEY, Array.from(existing).join(','));
+    }
+    if (email) {
+      localStorage.setItem(LAST_USER_EMAIL_KEY, email.trim().toLowerCase());
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function getLastUserEmail() {
+  try {
+    return localStorage.getItem(LAST_USER_EMAIL_KEY) || '';
+  } catch {
+    return '';
+  }
+}
 
 export function getAuthToken() {
   try {
@@ -84,9 +118,11 @@ async function ensureAuthToken() {
 
 async function apiFetch(path, options = {}) {
   const token = await ensureAuthToken();
+  const unlocked = getUnlockedPatientIds();
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { 'X-Ally-Token': token } : {}),
+    ...(unlocked.length > 0 ? { 'X-Unlocked-Patients': unlocked.join(',') } : {}),
     ...(options.headers || {}),
   };
 
@@ -126,6 +162,36 @@ export const createPatient = (data) => apiFetch('/api/v1/patients', {
   method: 'POST', body: JSON.stringify(data),
 });
 export const deletePatient = (id) => apiFetch(`/api/v1/patients/${id}`, { method: 'DELETE' });
+
+export async function onboardNewUser({ name, email, password, demo_terms_acknowledged }) {
+  const data = await apiFetch('/api/v1/patients/onboard', {
+    method: 'POST',
+    body: JSON.stringify({ name, email, password, demo_terms_acknowledged }),
+  });
+  if (data?.id) {
+    rememberUnlockedPatient(data.id, email);
+  }
+  return data;
+}
+
+export async function resumeUser({ email, password }) {
+  const data = await apiFetch('/api/v1/patients/resume', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+  if (data?.id) {
+    rememberUnlockedPatient(data.id, email);
+  }
+  return data;
+}
+
+export const submitFeedback = ({ rating, comment, email = '', patient_id = '' }) =>
+  apiFetch('/api/v1/feedback', {
+    method: 'POST',
+    body: JSON.stringify({ rating, comment, email, patient_id }),
+  });
+
+export const getFeedback = () => apiFetch('/api/v1/feedback');
 
 // ── Clinician Messages & Scribe ─────────────────────────────────────
 export const sendClinicianMessage = (patientId, text) =>

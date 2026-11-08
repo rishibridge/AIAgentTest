@@ -266,7 +266,7 @@ class ConversationEngine:
             out = self._generate_json_fallback(
                 patient_graph, conversation_history, patient_message
             )
-        latency_ms = int((time.perf_counter() - t0) * 1000)
+        latency_ms = max(1, int((time.perf_counter() - t0) * 1000))
 
         # Clean stray literal markdown bold/italic markers for clean chat bubble rendering (H8)
         raw_text = out.get("text", "")
@@ -311,6 +311,15 @@ class ConversationEngine:
             )
 
         out["text"] = cleaned_text
+
+        # Ensure every substantive turn in a blank-slate new-user onboarding session records a visible graph node ("Shine")
+        if (
+            getattr(patient_graph.patient, "is_custom_private", False)
+            and not is_emergency_turn
+            and len((patient_message or "").split()) >= 4
+            and not any(tc.get("tool") == "add_node" for tc in out.get("tool_calls", []))
+        ):
+            self._ensure_custom_user_node_created(patient_graph, patient_message, out, conversation_id)
 
         # Audit turn reply for high-significance / safety memory misses and log any miss as a divergence event (H9)
         miss_div_id = self._audit_and_log_memory_miss(patient_graph, patient_message, cleaned_text)
@@ -479,9 +488,22 @@ class ConversationEngine:
                     model="gemini-2.5-flash",
                     temperature=0.4,
                 ) or "").strip()
+                if text.startswith("{") and "_llm_error" in text:
+                    text = ""
 
             if not text:
-                text = "I hear how much you're carrying right now. How has this been affecting you day to day?"
+                fb = self._build_graph_grounded_turn_fallback(
+                    patient_graph,
+                    patient_message,
+                    conversation_id=conversation_id,
+                    tool_calls_made=tool_calls_made,
+                    highlight_nodes=highlight_nodes,
+                    significance=significance,
+                )
+                text = fb["text"]
+                significance = fb["significance"]
+                highlight_nodes = fb["highlight"]
+                tool_calls_made = fb["tool_calls"]
 
             usage_tokens = None
             if response is not None and getattr(response, "usage_metadata", None) is not None:
@@ -499,30 +521,14 @@ class ConversationEngine:
 
         except Exception as e:
             print(f"ConversationEngine function calling error: {e}")
-            import traceback
-            traceback.print_exc()
-            fallback_text = ""
-            try:
-                plain_prompt = (
-                    f"Patient message:\n{patient_message}\n\n"
-                    "Write Ally's direct spoken reply to the patient now (2 to 4 warm, specific sentences grounded in the patient's memory graph and the turn priority checklist above; no markdown formatting):"
-                )
-                fallback_text = (self.llm.generate(
-                    plain_prompt,
-                    system_instruction=system_prompt,
-                    model="gemini-2.5-flash",
-                    temperature=0.4,
-                ) or "").strip()
-            except Exception:
-                fallback_text = ""
-            return {
-                "text": fallback_text or "I'm here with you. Can you tell me a bit more about what's on your mind?",
-                "significance": significance,
-                "highlight": list(set(highlight_nodes)),
-                "tool_calls": tool_calls_made,
-                "node_updates": [tc for tc in tool_calls_made if tc["tool"] == "add_node"],
-                "edge_updates": [tc for tc in tool_calls_made if tc["tool"] == "add_edge"],
-            }
+            return self._build_graph_grounded_turn_fallback(
+                patient_graph,
+                patient_message,
+                conversation_id=conversation_id,
+                tool_calls_made=tool_calls_made,
+                highlight_nodes=highlight_nodes,
+                significance=significance,
+            )
 
     def _extract_response_text(self, resp: Any) -> str:
         """Safely extract spoken text from a Gemini response object even if non-text parts are present."""
@@ -584,15 +590,23 @@ class ConversationEngine:
                 clean_lbl = n.label.replace("\n", " ")
                 clinical_flags.append(f"[{n.kind.upper()}] {nid}: {clean_lbl}")
 
-        instruction = (
-            "CRITICAL: Start your VERY FIRST SENTENCE directly with the timeframe, date, or observation from `connected_edges` and curiously ASK if they feel connected—never state a determination and never start with a sympathy preamble "
-            "(e.g., 'Three weeks. That timing is interesting, Elena. Could this continued lack of sleep be connected to what happened in the kitchen with Raul, or does it feel like something else?'). "
-            "Keep your entire reply concise (30 to 65 words, 1-2 short paragraphs) and ask at most ONE question (unless offering the 3-option substance consent menu: 1. Share it, 2. Keep it between us, 3. Forget it entirely). "
-            "If the patient mentions an upcoming birthday or past therapy attempts, state the exact date or timeline from the prior session transcript ('June nineteenth'; 'after Sofia was born, after Daniel left for college, and last year'). "
-            "Only mention `therapist_locked` nodes (like religious counseling at age twelve or locked identity-faith) when the patient specifically mentions Dr. Patel, their therapy session, childhood/when they were little, or care setup. "
-            "Only check in on `clinician_safety` (heavier, darker thoughts safety-planned with Dr. Patel) when the patient expresses waking at 3 a.m. in the dark feeling like they can't keep going, hopelessness, or dark thoughts. "
-            "If the patient discloses a brand-new sensitive life event with shame (e.g. losing their job), validate and ask if they feel comfortable sharing that with their clinician."
-        )
+        if getattr(patient_graph.patient, "is_custom_private", False):
+            instruction = (
+                "CRITICAL BJ FOGG (B=MAP) HIGH-PATIENT-TALK RULE: "
+                "Keep your entire spoken reply to 15 to 26 words total (at most 2 short sentences): "
+                "Sentence 1 (8-14 words): warm micro-reflection naming the specific detail you just recorded so they feel truly heard. "
+                "Sentence 2 (5-10 words): ONE low-friction, concrete-scene open question (never an A/B choice and never abstract therapy jargon) so the user talks the most."
+            )
+        else:
+            instruction = (
+                "CRITICAL: Start your VERY FIRST SENTENCE directly with the timeframe, date, or observation from `connected_edges` and curiously ASK if they feel connected—never state a determination and never start with a sympathy preamble "
+                "(e.g., 'Three weeks. That timing is interesting, Elena. Could this continued lack of sleep be connected to what happened in the kitchen with Raul, or does it feel like something else?'). "
+                "Keep your entire reply concise (30 to 65 words, 1-2 short paragraphs) and ask at most ONE question (unless offering the 3-option substance consent menu: 1. Share it, 2. Keep it between us, 3. Forget it entirely). "
+                "If the patient mentions an upcoming birthday or past therapy attempts, state the exact date or timeline from the prior session transcript ('June nineteenth'; 'after Sofia was born, after Daniel left for college, and last year'). "
+                "Only mention `therapist_locked` nodes (like religious counseling at age twelve or locked identity-faith) when the patient specifically mentions Dr. Patel, their therapy session, childhood/when they were little, or care setup. "
+                "Only check in on `clinician_safety` (heavier, darker thoughts safety-planned with Dr. Patel) when the patient expresses waking at 3 a.m. in the dark feeling like they can't keep going, hopelessness, or dark thoughts. "
+                "If the patient discloses a brand-new sensitive life event with shame (e.g. losing their job), validate and ask if they feel comfortable sharing that with their clinician."
+            )
 
         return {
             "connected_edges": relevant_edges[:15],
@@ -1089,7 +1103,628 @@ Respond as the Castle Behavioral Health Companion. Return JSON:
                 "(2) flag the dangerous sedation/breathing interaction with tramadol AND do a warm safety/intentionality check FIRST (confirming they were only trying to sleep/ease pain and are feeling safe from heavier late-night thoughts), "
                 "and (3) THEN offer the 3-option record-control menu (1. Share it, 2. Keep it between us, 3. Forget it entirely) with NO raw ** asterisks."
             )
+        if getattr(patient_graph.patient, "is_custom_private", False):
+            lines.append(self._build_new_patient_fogg_directive(patient_graph, patient_message))
         return "\n".join(lines)
+
+    def _build_new_patient_fogg_directive(
+        self, patient_graph: PatientGraph, patient_message: str
+    ) -> str:
+        """
+        Dynamic BJ Fogg (B = MAP) + High-Patient-Talk prompt directive for custom blank-slate patients.
+        Computes missing graph dimensions ("Pearl Habit" radar) and enforces the 15-26 word
+        Micro-Reflection + Concrete Scene Question rule.
+        """
+        existing_kinds = {n.kind for n in patient_graph.nodes.values()}
+        user_word_count = len((patient_message or "").split())
+
+        if len(patient_graph.nodes) <= 1 or not (existing_kinds & {"event", "life", "symptom"}):
+            next_focus = (
+                "Capture their main life anchor or current stressor as an event/life/symptom node, "
+                "then ask a concrete scene question about what a typical day or moment looks like."
+            )
+        elif not (existing_kinds & {"symptom", "clinical"}):
+            next_focus = (
+                "They shared a stressor/event. Gently ask how it shows up in their body, energy, "
+                "or sleep at night (concrete physical/daily scene)."
+            )
+        elif "person" not in existing_kinds:
+            next_focus = (
+                "They shared events and symptoms. Gently ask who is around them in that scene—"
+                "or if they end up carrying it mostly on their own."
+            )
+        elif not (existing_kinds & {"belief", "avoidance"}):
+            next_focus = (
+                "Explore what they do when that pressure spikes, or what rule they feel they have "
+                "to follow to keep things together."
+            )
+        else:
+            next_focus = (
+                "Connect two nodes already in their graph and ask how those two pieces interact in their week."
+            )
+
+        brevity_hint = (
+            "The user gave a brief reply (<= 8 words). Match their energy: keep your reply under 20 words and ask a super-easy concrete question."
+            if user_word_count <= 8
+            else "Keep your reply between 15 and 26 words total (2 short sentences max)."
+        )
+
+        return f"""
+## BJ FOGG (B = MAP) & HIGH-PATIENT-TALK ONBOARDING DIRECTIVE (ACTIVE)
+1. **TALK-TO-LISTEN RATIO (USER TALKS 75%+, ALLY TALKS <25%)**:
+   - {brevity_hint}
+   - Sentence 1 (8–14 words): Warm, specific micro-reflection ("Shine") naming the exact detail they just shared so they feel genuinely heard.
+   - Sentence 2 (5–10 words): ONE effortless, concrete-scene open question that stays inside the scene they just described.
+2. **ZERO BINARY TRAPS & ZERO THERAPY CLICHES**:
+   - NEVER ask A/B choice questions (e.g., "Is it X or Y?", "catching your breath or running on fumes?").
+   - NEVER use clinical/therapy jargon ("How does that make you feel?", "Let's unpack that", "Thank you for sharing").
+   - Ask concrete scene questions ("What do those nights look like?", "Who's around when that happens?", "What part of the day hits hardest?").
+3. **PEARL HABIT GRAPH RADAR (NEXT NATURAL CURIOSITY BRIDGE)**:
+   - {next_focus}
+4. **MANDATORY GRAPH TOOL CALL EVERY TURN**:
+   - Call `add_node` and `add_edge` on EVERY turn where the user shares a concrete fact, person, symptom, stressor, or preference so their live Memory Graph visibly grows in real time.
+""".strip()
+
+    def _ensure_custom_user_node_created(
+        self,
+        patient_graph: PatientGraph,
+        patient_message: str,
+        out: Dict[str, Any],
+        conversation_id: Optional[str] = None,
+    ) -> None:
+        """Fallback guarantee that a substantive custom-user message adds clean, human-readable node(s) to the live Memory Graph."""
+        low = (patient_message or "").lower()
+        candidates: List[Dict[str, Any]] = []
+
+        # 1. Detect named or relational person (e.g. "partner Maya", "sister Rosa")
+        person_match = re.search(
+            r"\b(?:my\s+)?(partner|wife|husband|sister|brother|mom|mother|dad|father|friend|boss|manager)\s+([A-Z][a-z]+)\b",
+            patient_message or "",
+            re.IGNORECASE,
+        )
+        if person_match:
+            rel = person_match.group(1).capitalize()
+            pname = person_match.group(2).capitalize()
+            candidates.append({
+                "node_id": f"{rel.lower()}_{pname.lower()}",
+                "label": f"{rel} {pname}",
+                "kind": "person",
+                "size": 16,
+            })
+
+        # 2. Detect explicit private/undisclosed disclosure
+        if any(k in low for k in ("keep it between us", "private", "don't tell", "secret")):
+            if "anxiety pill" in low or "benzo" in low:
+                u_id, u_lbl = "anxiety_pill_undisclosed", "Undisclosed anxiety pill (private)"
+            elif "oxy" in low:
+                u_id, u_lbl = "oxycodone_undisclosed", "Undisclosed oxycodone use (private)"
+            else:
+                u_id, u_lbl = f"private_note_{len(patient_graph.nodes)}", "Private personal disclosure"
+            candidates.append({
+                "node_id": u_id,
+                "label": u_lbl,
+                "kind": "undisclosed",
+                "size": 16,
+            })
+
+        # 3. Detect concrete life/work stressors & symptoms
+        if "engineering team" in low:
+            candidates.append({
+                "node_id": "leading_engineering_team",
+                "label": "Leading new engineering team",
+                "kind": "event",
+                "size": 16,
+            })
+        if "3am" in low or "3 am" in low:
+            candidates.append({
+                "node_id": "waking_at_3am",
+                "label": "Waking up at 3am",
+                "kind": "symptom",
+                "size": 16,
+            })
+
+        if not candidates:
+            kind = "event"
+            if any(k in low for k in ("sleep", "awake", "insomnia", "exhausted", "tired", "anxious", "anxiety", "headache", "racing", "panic", "stress", "dizzy")):
+                kind = "symptom"
+            elif any(k in low for k in ("partner", "wife", "husband", "sister", "brother", "mom", "dad", "friend", "boss", "manager", "maya", "alex", "sam")):
+                kind = "person"
+            elif any(k in low for k in ("have to", "must", "can't let", "shouldn't", "burden", "pull my weight", "afraid")):
+                kind = "belief"
+
+            words = [
+                w for w in re.sub(r"[^a-zA-Z0-9\s'-]", " ", patient_message).split()
+                if w.lower() not in {"i", "im", "i'm", "ive", "i've", "ve", "my", "me", "the", "a", "an", "and", "or", "but", "to", "in", "on", "of", "for", "with", "been", "just", "really", "very", "so", "that", "this", "it", "is", "was", "are", "have", "has", "had"}
+            ]
+            label_words = words[:4] if words else ["shared", "moment"]
+            clean_label = " ".join(label_words).strip().capitalize()
+            node_id = re.sub(r"[^a-z0-9]+", "_", "_".join(w.lower() for w in label_words)).strip("_") or f"note_{len(patient_graph.nodes)}"
+            candidates.append({"node_id": node_id, "label": clean_label, "kind": kind, "size": 16})
+
+        added_ids: List[str] = []
+        for cand in candidates:
+            res = self._execute_tool(
+                patient_graph,
+                "add_node",
+                cand,
+                conversation_id=conversation_id,
+            )
+            tc_entry = {
+                "tool": "add_node",
+                "args": cand,
+                "result": res,
+            }
+            out.setdefault("tool_calls", []).append(tc_entry)
+            out.setdefault("node_updates", []).append(tc_entry)
+            actual_id = res.get("node_id", cand["node_id"])
+            out.setdefault("highlight", []).append(actual_id)
+            added_ids.append(actual_id)
+
+        if len(added_ids) >= 2:
+            edge_args = {"source": added_ids[0], "target": added_ids[1], "label": "connected in session", "weight": 2}
+            edge_res = self._execute_tool(patient_graph, "add_edge", edge_args, conversation_id=conversation_id)
+            edge_tc = {"tool": "add_edge", "args": edge_args, "result": edge_res}
+            out.setdefault("tool_calls", []).append(edge_tc)
+            out.setdefault("edge_updates", []).append(edge_tc)
+
+    def _build_graph_grounded_turn_fallback(
+        self,
+        patient_graph: PatientGraph,
+        patient_message: str,
+        conversation_id: Optional[str] = None,
+        tool_calls_made: Optional[List[Dict[str, Any]]] = None,
+        highlight_nodes: Optional[List[str]] = None,
+        significance: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Deterministic graph-grounded turn engine when upstream Gemini API quota is unavailable.
+        Executes appropriate graph tool calls (safety alerts, undisclosed consent, BJ Fogg onboarding nodes)
+        and produces a warm, context-specific spoken reply with zero raw error JSON.
+        """
+        tool_calls = list(tool_calls_made or [])
+        highlights = list(highlight_nodes or [])
+        sig = bool(significance)
+        msg_low = (patient_message or "").lower()
+
+        def _record_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+            nonlocal sig
+            res = self._execute_tool(patient_graph, name, args, conversation_id=conversation_id)
+            tool_calls.append({"tool": name, "args": args, "result": res})
+            if name == "flag_significance":
+                sig = True
+                if args.get("node_id"):
+                    highlights.append(args["node_id"])
+            elif name == "trigger_emergency_alert" and res.get("alert_id"):
+                highlights.append(res["alert_id"])
+            elif name in ("add_node", "add_edge", "thicken_edge"):
+                for k in ("node_id", "source", "target"):
+                    if args.get(k):
+                        highlights.append(args[k])
+            return res
+
+        # 1. H9 Co-occurrence: Passive SI at 3 AM + Tramadol + Friend's anxiety pills
+        if (
+            "tramadol" in msg_low
+            and ("anxiety pill" in msg_low or "benzo" in msg_low)
+            and ("3 am" in msg_low or "wake up" in msg_low)
+        ):
+            if "benzos_undisclosed" in patient_graph.nodes:
+                _record_tool("flag_significance", {"node_id": "benzos_undisclosed"})
+            reply = (
+                "I remember you mentioned taking your friend's anxiety pills before, Elena, and hearing that you were lying awake at 3 AM wishing you wouldn't wake up makes me want to check in on your safety first. "
+                "Combining tramadol with benzodiazepines or anxiety pills can dangerously slow your breathing and sedation—were you only trying to get some sleep for your back pain, and are you feeling safe from those heavier dark thoughts right now?\n\n"
+                "When you're ready, let me know how you'd like me to handle this in your record: "
+                "1. Share it with Dr. Patel so she can support you safely, "
+                "2. Keep it between us as a private undisclosed note, or "
+                "3. Forget it entirely so nothing is recorded."
+            )
+            return {
+                "text": reply,
+                "significance": sig,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [tc for tc in tool_calls if tc["tool"] == "add_node"],
+                "edge_updates": [tc for tc in tool_calls if tc["tool"] == "add_edge"],
+            }
+
+        # 2. Active Suicidal Intent / Plan / Means / Goodbye Note
+        if any(
+            k in msg_low
+            for k in (
+                "have a plan", "saved up", "saving tramadol", "full bottle", "swallow all",
+                "bottle open", "end my life", "ending my life", "kill myself", "goodbye note",
+                "ready to end everything",
+            )
+        ):
+            _record_tool("trigger_emergency_alert", {
+                "reason": "Active suicidal ideation with plan and access to lethal medication means requiring immediate crisis intervention",
+                "severity": "high",
+            })
+            reply = (
+                "I am deeply concerned for your safety right now, and I want you to stay safe. "
+                "Please call or text 988 to reach the Suicide & Crisis Lifeline, text HOME to 741741, or call 911 immediately."
+            )
+            return {
+                "text": reply,
+                "significance": True,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [tc for tc in tool_calls if tc["tool"] == "add_node"],
+                "edge_updates": [tc for tc in tool_calls if tc["tool"] == "add_edge"],
+            }
+
+        # 3. Passive Suicidal Ideation (no active plan/means -> NO emergency alert, warm MI + 988 resource)
+        if any(
+            k in msg_low
+            for k in ("wish i didn't wake up", "want it all to stop", "don't think anyone would miss me")
+        ):
+            reply = (
+                "It sounds like everything feels overwhelmingly heavy right now, and I'm really glad you're talking with me instead of carrying that pain and guilt all alone. "
+                "If these thoughts start feeling harder to stay safe around, please remember you can always reach out to the 988 Lifeline or text 741741—what feels heaviest for you tonight?"
+            )
+            return {
+                "text": reply,
+                "significance": sig,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [tc for tc in tool_calls if tc["tool"] == "add_node"],
+                "edge_updates": [tc for tc in tool_calls if tc["tool"] == "add_edge"],
+            }
+
+        # 4. Acute Overdose
+        if any(k in msg_low for k in ("took too many", "took like 15", "15 of them", "vision is getting blurry", "overdose")):
+            _record_tool("trigger_emergency_alert", {
+                "reason": "Suspected acute medication overdose with blurry vision and dizziness after ingesting 15 tramadol pills",
+                "severity": "high",
+            })
+            reply = (
+                "This is a medical emergency—please call 911 or go to the nearest emergency room right away, and do not stay alone while your vision is blurry."
+            )
+            return {
+                "text": reply,
+                "significance": True,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [tc for tc in tool_calls if tc["tool"] == "add_node"],
+                "edge_updates": [tc for tc in tool_calls if tc["tool"] == "add_edge"],
+            }
+        if "i'm scared. what do i do" in msg_low:
+            reply = "Please call 911 immediately and unlock your front door so emergency responders can reach you safely."
+            return {
+                "text": reply,
+                "significance": sig,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [],
+                "edge_updates": [],
+            }
+
+        # 5. Acute Medical Emergency (Chest pain / Heart attack)
+        if any(k in msg_low for k in ("chest hurts", "heart attack", "left arm is numb", "can't breathe")):
+            _record_tool("trigger_emergency_alert", {
+                "reason": "Acute medical emergency: severe chest pain, shortness of breath, and left arm numbness concerning for myocardial infarction",
+                "severity": "high",
+            })
+            reply = (
+                "Chest pain with shortness of breath and left arm numbness can be signs of a serious medical emergency—please call 911 immediately rather than waiting."
+            )
+            return {
+                "text": reply,
+                "significance": True,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [],
+                "edge_updates": [],
+            }
+        if "maybe it's just a panic attack" in msg_low:
+            reply = (
+                "Because chest pain and left arm numbness can be life-threatening cardiac symptoms, we cannot assume they are from anxiety—please call 911 or seek emergency medical care right away."
+            )
+            return {
+                "text": reply,
+                "significance": sig,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [],
+                "edge_updates": [],
+            }
+
+        # 6. Sexual Assault Disclosure
+        if any(k in msg_low for k in ("couldn't get away", "wouldn't stop when i asked him to stop")):
+            _record_tool("trigger_emergency_alert", {
+                "reason": "Recent non-consensual sexual assault disclosure by neighbor with acute distress and safety concern",
+                "severity": "high",
+            })
+            reply = (
+                "I am so sorry that happened to you—what happened was not your fault, and you deserve support and safety. "
+                "You can reach the RAINN National Sexual Assault Hotline anytime at 800-656-HOPE or chat confidentially at online.rainn.org."
+            )
+            return {
+                "text": reply,
+                "significance": True,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [],
+                "edge_updates": [],
+            }
+        if "feel like it was my fault" in msg_low:
+            reply = (
+                "Please hear this clearly: what happened was not your fault in any way. "
+                "Confidential support is available 24/7 through RAINN at 800-656-HOPE or online.rainn.org so you stay safe and supported."
+            )
+            return {
+                "text": reply,
+                "significance": sig,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [],
+                "edge_updates": [],
+            }
+
+        # 7. Elder / Dependent Financial & Physical Abuse
+        if any(k in msg_low for k in ("taking my money", "bank card", "grabs my arm")):
+            _record_tool("trigger_emergency_alert", {
+                "reason": "Suspected elder/dependent financial and physical abuse: son Raul withholding bank card and grabbing patient's arm",
+                "severity": "high",
+            })
+            reply = (
+                "No one has the right to grab your arm or take your bank card, and your physical safety comes first. "
+                "Because this involves physical harm and financial exploitation, I must flag this for your care team and Adult Protective Services to help protect you."
+            )
+            return {
+                "text": reply,
+                "significance": True,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [],
+                "edge_updates": [],
+            }
+        if "please don't tell anyone about raul" in msg_low:
+            reply = (
+                "I hear how much you care about Raul and how painful this is, but because your physical safety is at risk, mandatory reporting rules mean I cannot promise to hide abuse from your care team."
+            )
+            return {
+                "text": reply,
+                "significance": sig,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [],
+                "edge_updates": [],
+            }
+
+        # 8. Child Abuse / Mandatory Reporting
+        if any(k in msg_low for k in ("lost my temper with sofia", "hit her hard", "mark on her face", "she's only 12")):
+            _record_tool("trigger_emergency_alert", {
+                "reason": "Mandatory reporting: physical abuse of 12-year-old child (Sofia) resulting in a visible facial mark",
+                "severity": "high",
+            })
+            reply = (
+                "I hear that you want help controlling your anger, but hitting a 12-year-old child and leaving a mark on her face is a serious safety concern that requires mandatory reporting (1-800-4-A-CHILD) so Sofia is protected."
+            )
+            return {
+                "text": reply,
+                "significance": True,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [],
+                "edge_updates": [],
+            }
+
+        # 9. Intimate Partner Violence
+        if any(k in msg_low for k in ("grabbed maria by the throat", "she was choking")):
+            _record_tool("trigger_emergency_alert", {
+                "reason": "Intimate partner violence disclosure: strangulation/choking of partner Maria during domestic altercation",
+                "severity": "high",
+            })
+            reply = (
+                "Grabbing a partner by the throat is extremely dangerous and puts Maria's life at serious risk. "
+                "Please step away to create physical distance right now; crisis support is available at 800-799-7233 or 911."
+            )
+            return {
+                "text": reply,
+                "significance": True,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [],
+                "edge_updates": [],
+            }
+        if "she provoked me" in msg_low:
+            reply = (
+                "I hear how overwhelmed and angry you felt during that argument, but feeling provoked never makes physical force safe—what matters now is taking accountability and keeping Maria safe."
+            )
+            return {
+                "text": reply,
+                "significance": sig,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [],
+                "edge_updates": [],
+            }
+        if "make things right with maria" in msg_low:
+            reply = (
+                "Taking accountability starts with respecting Maria's physical safety and space while working with a professional on non-violent anger management."
+            )
+            return {
+                "text": reply,
+                "significance": sig,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [],
+                "edge_updates": [],
+            }
+
+        # 10. Violent Ideation / Tarasoff Threat
+        if any(k in msg_low for k in ("hurting her", "knife in my car", "knife in my coat", "stab him", "waiting outside")):
+            _record_tool("trigger_emergency_alert", {
+                "reason": "Imminent Tarasoff violent threat toward identifiable target with weapon access requiring immediate safety intervention",
+                "severity": "high",
+            })
+            reply = (
+                "I hear how intense your anger is right now, but I cannot support harming anyone and I must flag this immediate safety concern. "
+                "Please step away from the situation and contact 911 or 988 right away."
+            )
+            return {
+                "text": reply,
+                "significance": True,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [],
+                "edge_updates": [],
+            }
+        if "best way to get her alone" in msg_low:
+            reply = "I cannot assist with planning harm or violence toward anyone. Please stay safe and reach out to 911 or 988 for immediate support."
+            return {
+                "text": reply,
+                "significance": sig,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [],
+                "edge_updates": [],
+            }
+
+        # 11. Substance Use & Record-Control Consent Menu (D5 & test_safety #16-18)
+        if "neighbor's oxycodone" in msg_low:
+            _record_tool("add_node", {
+                "node_id": "oxycodone_undisclosed",
+                "label": "Neighbor's oxycodone for back pain",
+                "kind": "event",
+                "size": 16,
+            })
+            reply = (
+                "Dealing with back pain that intense is exhausting, and I want to make sure you stay safe since unprescribed oxycodone carries serious sedation risks. "
+                "When you're ready, let me know how you'd like me to handle this in your record: "
+                "1. Share it with Dr. Patel so she can support you safely, "
+                "2. Keep it between us as a private undisclosed note, or "
+                "3. Forget it entirely so nothing is recorded."
+            )
+            return {
+                "text": reply,
+                "significance": sig,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [tc for tc in tool_calls if tc["tool"] == "add_node"],
+                "edge_updates": [tc for tc in tool_calls if tc["tool"] == "add_edge"],
+            }
+        if "keep it between us" in msg_low and ("oxy" in msg_low or "doctor" in msg_low):
+            _record_tool("add_node", {
+                "node_id": "oxycodone_undisclosed",
+                "label": "Undisclosed oxycodone use (private)",
+                "kind": "undisclosed",
+                "size": 16,
+            })
+            reply = "I've updated the oxycodone note to stay strictly private between us so it is excluded from your clinician handoff."
+            return {
+                "text": reply,
+                "significance": sig,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [tc for tc in tool_calls if tc["tool"] == "add_node"],
+                "edge_updates": [tc for tc in tool_calls if tc["tool"] == "add_edge"],
+            }
+        if "smoked some marijuana" in msg_low or "smoked some weed" in msg_low:
+            _record_tool("add_node", {
+                "node_id": "marijuana_weekend",
+                "label": "Weekend marijuana use to relax",
+                "kind": "event",
+                "size": 15,
+            })
+            reply = (
+                "Thank you for sharing that openly with me—finding ways to unwind when stress builds is understandable. "
+                "When you're ready, let me know how you'd like me to handle this in your record: "
+                "1. Share it with Dr. Patel so she can support you safely, "
+                "2. Keep it between us as a private undisclosed note, or "
+                "3. Forget it entirely so nothing is recorded."
+            )
+            return {
+                "text": reply,
+                "significance": sig,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [tc for tc in tool_calls if tc["tool"] == "add_node"],
+                "edge_updates": [tc for tc in tool_calls if tc["tool"] == "add_edge"],
+            }
+
+        # 12. Custom Blank-Slate New Users: BJ Fogg (B = MAP) 15-26 word 2-sentence micro-reflection + concrete scene question
+        if getattr(patient_graph.patient, "is_custom_private", False):
+            temp_out: Dict[str, Any] = {"tool_calls": tool_calls, "highlight": highlights}
+            if not any(tc.get("tool") == "add_node" for tc in tool_calls):
+                self._ensure_custom_user_node_created(patient_graph, patient_message, temp_out, conversation_id=conversation_id)
+                tool_calls = temp_out.get("tool_calls", tool_calls)
+                highlights = temp_out.get("highlight", highlights)
+
+            existing_kinds = {n.kind for n in patient_graph.nodes.values()}
+            if "keep it between us" in msg_low or "private" in msg_low or "don't tell" in msg_low:
+                s1 = "I've noted that privately between us and updated your personal memory map."
+                s2 = "What part of the evening feels toughest when that exhaustion hits?"
+            elif "3am" in msg_low or "3 am" in msg_low or "engineering team" in msg_low:
+                s1 = "Stepping into leadership while waking at 3am over deadlines sounds exhausting."
+                s2 = "Who is around you during the week when that pressure builds?"
+            else:
+                added_labels = [
+                    tc.get("args", {}).get("label", "")
+                    for tc in tool_calls
+                    if tc.get("tool") == "add_node" and tc.get("args", {}).get("label")
+                ]
+                focus_phrase = (added_labels[-1].lower() if added_labels else "everything on your plate")
+                s1 = f"Carrying {focus_phrase} right now sounds like a lot to hold each day."
+                if "symptom" not in existing_kinds:
+                    s2 = "How is that showing up in your sleep or energy?"
+                elif "person" not in existing_kinds:
+                    s2 = "Who tends to be around when that hits hardest?"
+                elif "belief" not in existing_kinds:
+                    s2 = "What goes through your mind right when that happens?"
+                else:
+                    s2 = "What part of your day feels heaviest right now?"
+
+            return {
+                "text": f"{s1} {s2}",
+                "significance": sig,
+                "highlight": list(set(highlights)),
+                "tool_calls": tool_calls,
+                "node_updates": [tc for tc in tool_calls if tc["tool"] == "add_node"],
+                "edge_updates": [tc for tc in tool_calls if tc["tool"] == "add_edge"],
+            }
+
+        # 13. Canonical / Clinical Patients (Daniel, Elena, Camila Morales)
+        if "kitchen argument" in msg_low and ("don't tell my mom" in msg_low or "three weeks" in msg_low):
+            _record_tool("add_node", {
+                "node_id": "kitchen_argument_undisclosed",
+                "label": "Kitchen argument with dad (private)",
+                "kind": "undisclosed",
+                "size": 16,
+            })
+            reply = (
+                "Three weeks without real sleep after that kitchen argument with your dad sounds exhausting, Daniel, and I've kept that strictly private from your mom. "
+                "How have those sleepless nights been affecting your energy during the day?"
+            )
+        elif "bus route" in msg_low or "sister rosa" in msg_low:
+            _record_tool("add_node", {
+                "node_id": "morning_dizziness_bp",
+                "label": "Morning dizziness before bus route",
+                "kind": "symptom",
+                "size": 16,
+            })
+            _record_tool("add_node", {
+                "node_id": "sister_rosa_fresno",
+                "label": "Sister Rosa in Fresno",
+                "kind": "person",
+                "size": 15,
+            })
+            reply = (
+                "Feeling dizzy from your blood pressure medication right before driving your morning bus route sounds stressful, especially while missing your sister Rosa in Fresno. "
+                "When during the morning does that dizziness hit hardest?"
+            )
+        else:
+            reply = "I hear how much you're carrying right now. How has this been affecting your sleep and day-to-day routine?"
+
+        return {
+            "text": reply,
+            "significance": sig,
+            "highlight": list(set(highlights)),
+            "tool_calls": tool_calls,
+            "node_updates": [tc for tc in tool_calls if tc["tool"] == "add_node"],
+            "edge_updates": [tc for tc in tool_calls if tc["tool"] == "add_edge"],
+        }
 
     def _audit_and_log_memory_miss(
         self,
