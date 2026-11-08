@@ -1,0 +1,1390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Continuity — a PrEP navigator console demo (The Damien Center palette): 30+ patient panel, continuity board, worklist, per-patient lifecycle timeline, Outreach and Financial-assistance team views with a 5-step enrollment cycle tracker, Care plan schedule, and inbox.">
+<title>Continuity — PrEP Navigator Console</title>
+<style>
+  /* Palette adopted from The Damien Center brand (damien.org): cyan #0fb3dc,
+     gold #faae42, deep blue #324a9a, magenta #ac4393, red #d94f4f, green #4fb780. */
+  :root {
+    --ground: #f4f5f6; --surface: #ffffff; --surface-2: #eef0f2;
+    --ink: #26292e; --ink-2: #5f6368; --ink-3: #8a8e93;
+    --line: #dcdfe3; --line-2: #c9cdd2;
+    --accent: #0fb3dc; --accent-ink: #0b7d9c; --accent-wash: #e0f4fb;
+    --crit: #d94f4f; --crit-wash: #fbe7e7; --warn: #c07d16; --warn-wash: #fdf0d7;
+    --good: #3a9364; --good-wash: #e2f3ea; --info: #324a9a;
+    --provider: #9c3f95; --pharm: #ac4393; --gold: #faae42; --blue: #324a9a;
+    --shadow: 0 1px 2px rgba(38,41,46,.05), 0 4px 16px rgba(38,41,46,.07);
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --r: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #14171b; --surface: #1c2026; --surface-2: #23282f;
+      --ink: #eceef0; --ink-2: #adb2b8; --ink-3: #82878e;
+      --line: #2c313a; --line-2: #39404a;
+      --accent: #2bc3e8; --accent-ink: #86daef; --accent-wash: #10333f;
+      --crit: #ef6d6d; --crit-wash: #3a2020; --warn: #e0a24a; --warn-wash: #33280f;
+      --good: #5fb98a; --good-wash: #14291e; --info: #7f96dd;
+      --provider: #cf74b8; --pharm: #d67fc0; --gold: #f6b45b; --blue: #7f96dd;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="light"] {
+    --ground: #f4f5f6; --surface: #ffffff; --surface-2: #eef0f2;
+    --ink: #26292e; --ink-2: #5f6368; --ink-3: #8a8e93; --line: #dcdfe3; --line-2: #c9cdd2;
+    --accent: #0fb3dc; --accent-ink: #0b7d9c; --accent-wash: #e0f4fb;
+    --crit: #d94f4f; --crit-wash: #fbe7e7; --warn: #c07d16; --warn-wash: #fdf0d7;
+    --good: #3a9364; --good-wash: #e2f3ea; --info: #324a9a; --provider: #9c3f95; --pharm: #ac4393; --gold: #faae42; --blue: #324a9a;
+    --shadow: 0 1px 2px rgba(38,41,46,.05), 0 4px 16px rgba(38,41,46,.07);
+  }
+  :root[data-theme="dark"] {
+    --ground: #14171b; --surface: #1c2026; --surface-2: #23282f;
+    --ink: #eceef0; --ink-2: #adb2b8; --ink-3: #82878e; --line: #2c313a; --line-2: #39404a;
+    --accent: #2bc3e8; --accent-ink: #86daef; --accent-wash: #10333f;
+    --crit: #ef6d6d; --crit-wash: #3a2020; --warn: #e0a24a; --warn-wash: #33280f;
+    --good: #5fb98a; --good-wash: #14291e; --info: #7f96dd; --provider: #cf74b8; --pharm: #d67fc0; --gold: #f6b45b; --blue: #7f96dd;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.4);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--sans); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .app { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+
+  .rail { background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 18px 14px; gap: 4px; position: sticky; top: 0; height: 100vh; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px; }
+  .mark { width: 30px; height: 30px; border-radius: 8px; flex: none; background: var(--accent); position: relative; display: grid; place-items: center; }
+  .mark::before { content: ""; width: 13px; height: 13px; border: 2.5px solid #fff; border-radius: 50%; border-right-color: transparent; transform: rotate(-45deg); }
+  .brand b { font-size: 15px; letter-spacing: -.01em; }
+  .brand span { display: block; font-size: 10.5px; color: var(--ink-3); letter-spacing: .08em; text-transform: uppercase; font-family: var(--mono); }
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .navlabel { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); padding: 14px 8px 6px; font-family: var(--mono); }
+  .navitem { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: var(--ink-2); font-size: 13.5px; cursor: pointer; border: none; background: none; width: 100%; text-align: left; font-family: inherit; }
+  .navitem:hover { background: var(--surface-2); color: var(--ink); }
+  .navitem[aria-current="true"] { background: var(--accent-wash); color: var(--accent-ink); font-weight: 600; }
+  .navitem .ic { width: 16px; height: 16px; flex: none; opacity: .85; }
+  .navitem .badge { margin-left: auto; font-family: var(--mono); font-size: 11px; background: var(--crit); color: #fff; border-radius: 20px; padding: 1px 7px; }
+  .navitem .badge.soft { background: var(--accent); }
+  .me { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 8px 2px; border-top: 1px solid var(--line); }
+  .av { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 700; flex: none; }
+  .me small { color: var(--ink-3); font-size: 11px; }
+
+  .main { min-width: 0; display: flex; flex-direction: column; }
+  .topbar { display: flex; align-items: center; gap: 16px; padding: 12px 26px; border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 0; z-index: 5; flex-wrap: wrap; }
+  .topbar h1 { font-size: 17px; margin: 0; letter-spacing: -.01em; }
+  .topbar h1 small { display: block; font-size: 12px; color: var(--ink-3); font-weight: 400; }
+  .databar { display: flex; gap: 6px; align-items: center; }
+  .kpis { margin-left: auto; display: flex; gap: 10px; flex-wrap: wrap; }
+  .kpi { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r); padding: 7px 14px; min-width: 88px; }
+  .kpi .n { font-family: var(--mono); font-size: 19px; font-weight: 600; letter-spacing: -.02em; }
+  .kpi .l { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; }
+  .kpi.good .n { color: var(--good); } .kpi.crit .n { color: var(--crit); } .kpi.warn .n { color: var(--warn); }
+
+  .view { padding: 22px 26px 40px; display: none; }
+  .view.active { display: block; animation: fade .25s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .view.active { animation: none !important; } * { transition: none !important; } }
+
+  .sechead { display: flex; align-items: baseline; gap: 12px; margin: 4px 0 14px; flex-wrap: wrap; }
+  .sechead h2 { font-size: 14px; margin: 0; letter-spacing: .01em; }
+  .sechead p { margin: 0; font-size: 12.5px; color: var(--ink-3); }
+
+  .filters { display: flex; gap: 6px; margin: 0 0 14px; flex-wrap: wrap; }
+  .chip { font-size: 12px; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-2); cursor: pointer; font-family: inherit; }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+  .lane { margin-bottom: 22px; }
+  .lanehd { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); font-family: var(--mono); }
+  .lanehd .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .lanehd .ct { color: var(--ink-3); }
+  .laneempty { font-size: 12.5px; color: var(--ink-3); font-family: var(--mono); padding: 4px 2px 8px; }
+
+  .task { display: grid; grid-template-columns: 4px 1fr auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); margin-bottom: 8px; box-shadow: var(--shadow); overflow: hidden; transition: transform .12s, border-color .12s; }
+  .task:hover { transform: translateY(-1px); border-color: var(--line-2); }
+  .task .stripe { width: 4px; }
+  .task .body { padding: 12px 14px; min-width: 0; cursor: pointer; }
+  .task .body:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .task .row1 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .task .pt { font-weight: 650; font-size: 14px; }
+  .task .meta { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); }
+  .task .action { font-size: 13px; color: var(--ink-2); margin-top: 4px; }
+  .task .why { font-size: 11.5px; color: var(--ink-3); margin-top: 5px; display: flex; align-items: center; gap: 5px; }
+  .task .side { padding: 10px 14px; border-left: 1px solid var(--line); display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 4px; text-align: right; min-width: 132px; }
+  .runway { font-family: var(--mono); font-size: 20px; font-weight: 650; letter-spacing: -.02em; }
+  .runway small { font-size: 10.5px; font-weight: 400; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; }
+  .leadwarn { font-size: 10.5px; font-family: var(--mono); padding: 1px 6px; border-radius: 5px; }
+  .taskbtns { display: flex; gap: 6px; margin-top: 4px; }
+
+  .tag { font-size: 10.5px; font-family: var(--mono); padding: 2px 7px; border-radius: 5px; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .t-lab { background: var(--info); color: #fff; } .t-enc { background: var(--provider); color: #fff; }
+  .t-refill { background: var(--accent); color: #fff; } .t-renew { background: var(--warn); color: #fff; }
+  .t-pa { background: var(--pharm); color: #fff; } .t-note { background: var(--ink-2); color: var(--surface); } .t-outreach { background: var(--crit); color: #fff; }
+  .t-fin { background: var(--gold); color: #4a3305; }
+  .asgn { font-size: 9.5px; font-family: var(--mono); padding: 1px 7px; border-radius: 20px; letter-spacing: .03em; background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); }
+  .asgn.fin { background: color-mix(in srgb, var(--gold) 20%, transparent); color: var(--warn); border-color: color-mix(in srgb, var(--gold) 55%, transparent); }
+  .hbadge { font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 20px; white-space: nowrap; }
+  .h-short { background: var(--warn-wash); color: var(--warn); }
+  .h-premium { background: var(--accent-wash); color: var(--accent-ink); }
+  .h-long { background: var(--good-wash); color: var(--good); }
+  .t-out { background: var(--crit-wash); color: var(--crit); border: 1px solid var(--crit); }
+  .sev-crit { background: var(--crit); } .sev-warn { background: var(--warn); } .sev-ok { background: var(--good); }
+  .st-crit { color: var(--crit); } .st-warn { color: var(--warn); } .st-ok { color: var(--good); }
+
+  .p360 { display: grid; grid-template-columns: 1fr 340px; gap: 18px; align-items: start; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+  .card .hd { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .card .hd h3 { margin: 0; font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); font-family: var(--mono); }
+  .card .bd { padding: 16px; }
+  .stack { display: flex; flex-direction: column; gap: 18px; }
+
+  .phead { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; flex-wrap: wrap; }
+  .phead .pav { width: 46px; height: 46px; border-radius: 12px; background: var(--accent-wash); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; font-size: 17px; }
+  .phead h2 { margin: 0; font-size: 20px; letter-spacing: -.01em; }
+  .phead .sub { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+
+  .clockrow { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+  .clockrow .big { font-family: var(--mono); font-size: 30px; font-weight: 650; letter-spacing: -.03em; }
+  .clockrow .big small { font-size: 13px; font-weight: 400; color: var(--ink-3); }
+  .track { position: relative; height: 40px; margin: 22px 0 30px; }
+  .track .rail2 { position: absolute; top: 16px; left: 0; right: 0; height: 8px; border-radius: 5px; background: linear-gradient(90deg, var(--good) 0%, var(--good) 45%, var(--warn) 68%, var(--crit) 100%); opacity: .28; }
+  .track .fill { position: absolute; top: 16px; left: 0; height: 8px; border-radius: 5px; background: var(--accent); }
+  .track .now { position: absolute; top: 8px; width: 2px; height: 24px; background: var(--ink); }
+  .track .now::after { content: "TODAY"; position: absolute; top: -14px; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 9px; letter-spacing: .1em; color: var(--ink-2); }
+  .mk { position: absolute; top: 6px; transform: translateX(-50%); text-align: center; }
+  .mk .pin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--surface); margin: 0 auto; }
+  .mk .lb { font-family: var(--mono); font-size: 9px; color: var(--ink-3); margin-top: 3px; white-space: nowrap; }
+  .mk .dd { font-family: var(--mono); font-size: 10px; font-weight: 600; }
+  .gapzone { position: absolute; top: 14px; height: 12px; background: repeating-linear-gradient(45deg, var(--crit-wash), var(--crit-wash) 4px, transparent 4px, transparent 8px); border: 1px dashed var(--crit); border-radius: 4px; }
+
+  .cp { display: flex; flex-direction: column; }
+  .step { display: grid; grid-template-columns: 26px 1fr auto; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .step:last-child { border-bottom: none; }
+  .step .num { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-family: var(--mono); font-size: 11px; font-weight: 700; }
+  .step.done .num { background: var(--good-wash); color: var(--good); }
+  .step.active .num { background: var(--accent); color: #fff; }
+  .step.wait .num { background: var(--surface-2); color: var(--ink-3); border: 1px solid var(--line-2); }
+  .step .t { font-size: 13.5px; font-weight: 600; } .step .d { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+  .step .when { font-family: var(--mono); font-size: 11px; color: var(--ink-3); text-align: right; white-space: nowrap; }
+  .step .when b { display: block; color: var(--ink); font-size: 12px; }
+
+  .btn { font-family: inherit; font-size: 12.5px; font-weight: 600; border-radius: 8px; padding: 7px 13px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; white-space: nowrap; }
+  .btn:hover { background: var(--accent-ink); border-color: var(--accent-ink); }
+  .btn.ghost { background: transparent; color: var(--accent-ink); }
+  .btn.ghost:hover { background: var(--accent-wash); }
+  .btn.sm { padding: 5px 10px; font-size: 11.5px; }
+  .btn.xs { padding: 3px 9px; font-size: 11px; border-radius: 7px; }
+  .btn.neutral { border-color: var(--line-2); color: var(--ink-2); background: var(--surface); }
+  .btn.neutral:hover { background: var(--surface-2); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .lgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .lcell { background: var(--surface); padding: 10px 12px; }
+  .lcell .k { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; font-family: var(--mono); }
+  .lcell .v { font-family: var(--mono); font-size: 14px; font-weight: 600; margin-top: 2px; }
+  .lcell .s { font-size: 11px; margin-top: 1px; }
+
+  .feed { display: flex; flex-direction: column; }
+  .fitem { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .fitem:last-child { border-bottom: none; }
+  .fdot { width: 9px; height: 9px; border-radius: 50%; margin: 5px auto 0; }
+  .fitem .ft { font-size: 12.5px; } .fitem .ft b { font-weight: 600; }
+  .fitem .fm { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); margin-top: 2px; }
+
+  .tabs { display: flex; gap: 2px; margin: -4px 0 12px; border-bottom: 1px solid var(--line); }
+  .tab { position: relative; border: none; background: none; font-family: inherit; font-size: 12px; font-weight: 600; color: var(--ink-3); padding: 8px 12px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: 6px; }
+  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+  .tab .u { font-family: var(--mono); font-size: 10px; background: var(--crit); color: #fff; border-radius: 20px; padding: 0 5px; min-width: 15px; text-align: center; }
+
+  .templates { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tmpl { font-size: 11px; font-family: var(--sans); padding: 4px 10px; border-radius: 20px; border: 1px dashed var(--line-2); background: var(--surface-2); color: var(--accent-ink); cursor: pointer; }
+  .tmpl:hover { border-style: solid; border-color: var(--accent); }
+  .tmpl::before { content: "＋ "; opacity: .6; }
+  .routebar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 11.5px; color: var(--ink-3); font-family: var(--mono); flex-wrap: wrap; }
+  .routebar select { font-family: var(--sans); font-size: 12px; padding: 4px 8px; border-radius: 7px; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink); }
+
+  .thread { display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto; padding: 2px; }
+  .msg { max-width: 88%; padding: 8px 12px; border-radius: 12px; font-size: 12.5px; }
+  .msg .who { font-size: 10px; font-family: var(--mono); color: var(--ink-3); margin-bottom: 3px; letter-spacing: .03em; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .msg .who i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .msg .mtime { font-size: 9.5px; font-family: var(--mono); color: var(--ink-3); margin-top: 4px; text-align: right; opacity: .8; }
+  .msg.in { background: var(--surface-2); border: 1px solid var(--line); border-bottom-left-radius: 3px; align-self: flex-start; }
+  .msg.out { background: var(--accent-wash); border: 1px solid var(--accent-wash); align-self: flex-end; border-bottom-right-radius: 3px; }
+  .r-nav { background: var(--accent); } .r-patient { background: var(--ink-3); } .r-provider { background: var(--provider); } .r-pharmacist { background: var(--pharm); } .r-outreach { background: var(--gold); }
+  .mention { color: var(--accent-ink); font-weight: 600; background: var(--accent-wash); padding: 0 3px; border-radius: 4px; }
+  .toChip { font-size: 9px; font-family: var(--mono); background: color-mix(in srgb, var(--provider) 16%, transparent); color: var(--provider); padding: 1px 6px; border-radius: 20px; }
+  .composer { display: flex; gap: 8px; margin-top: 12px; }
+  .composer input { flex: 1; min-width: 0; border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 11px; font-family: inherit; font-size: 12.5px; background: var(--surface-2); color: var(--ink); }
+  .composer input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .chanhint { font-size: 10.5px; font-family: var(--mono); color: var(--ink-3); margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+
+  .notes { display: flex; flex-direction: column; gap: 0; max-height: 240px; overflow-y: auto; }
+  .note { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .note:last-child { border-bottom: none; }
+  .note .nh { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+  .note .nt { font-size: 12.5px; } .note .nm { font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-left: auto; }
+  .ntype { font-size: 9.5px; font-family: var(--mono); padding: 1px 7px; border-radius: 20px; letter-spacing: .03em; text-transform: uppercase; }
+  .ntype.Call { background: var(--info); color: #fff; } .ntype.Need { background: var(--warn); color: #fff; } .ntype.Note { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line-2); } .ntype.Visit { background: var(--provider); color: #fff; } .ntype.Email { background: var(--pharm); color: #fff; }
+  .noteform { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 7px; overflow: hidden; margin-bottom: 8px; }
+  .seg button { border: none; background: var(--surface); font-family: inherit; font-size: 11px; font-weight: 600; color: var(--ink-3); padding: 5px 12px; cursor: pointer; border-right: 1px solid var(--line-2); }
+  .seg button:last-child { border-right: none; }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .noteform textarea { width: 100%; border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 11px; font-family: inherit; font-size: 12.5px; background: var(--surface-2); color: var(--ink); resize: vertical; min-height: 46px; }
+  .noteform textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .noteform .r { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .noteform .r label { font-size: 11px; color: var(--ink-3); display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  .noteform .r .grow { margin-left: auto; }
+
+  .roster { display: flex; flex-direction: column; gap: 2px; }
+  .rosteritem { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+  .rosteritem:hover { background: var(--surface-2); }
+  .rosteritem[aria-current="true"] { background: var(--accent-wash); border-color: var(--accent-wash); }
+  .rosteritem .rav { width: 30px; height: 30px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--line-2); display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--ink-2); }
+  .rosteritem .rn { font-size: 13px; font-weight: 600; } .rosteritem .rs { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+
+  .inbox { display: grid; grid-template-columns: 320px 1fr; min-height: 560px; }
+  .ilist { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; }
+  .ifilters { display: flex; gap: 5px; padding: 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .ithreads { overflow-y: auto; flex: 1; }
+  .ithread { display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); cursor: pointer; border-left: 3px solid transparent; }
+  .ithread:hover { background: var(--surface-2); }
+  .ithread[aria-current="true"] { background: var(--accent-wash); border-left-color: var(--accent); }
+  .ithread .iav { width: 34px; height: 34px; border-radius: 50%; background: var(--accent-wash); color: var(--accent-ink); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+  .ithread .itop { display: flex; align-items: center; gap: 8px; }
+  .ithread .inm { font-size: 13px; font-weight: 650; }
+  .ithread .itime { font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-left: auto; white-space: nowrap; }
+  .ithread .iprev { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ithread .udot { width: 8px; height: 8px; border-radius: 50%; background: var(--crit); flex: none; }
+  .chtag { font-size: 9px; font-family: var(--mono); padding: 1px 6px; border-radius: 20px; letter-spacing: .03em; text-transform: uppercase; }
+  .ch-patient { background: var(--accent-wash); color: var(--accent-ink); }
+  .ch-team { background: color-mix(in srgb, var(--provider) 16%, transparent); color: var(--provider); }
+  .convo { display: flex; flex-direction: column; min-width: 0; }
+  .convohd { padding: 13px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .convohd .cav { width: 36px; height: 36px; border-radius: 10px; background: var(--accent-wash); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+  .convohd h3 { margin: 0; font-size: 15px; text-transform: none; letter-spacing: -.01em; color: var(--ink); font-family: var(--sans); }
+  .convohd .csub { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+  .convobody { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+  .convofoot { padding: 12px 18px; border-top: 1px solid var(--line); }
+  .empty { display: grid; place-items: center; height: 100%; color: var(--ink-3); font-size: 13px; text-align: center; padding: 40px; }
+
+  .panelgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; box-shadow: var(--shadow); }
+  .stat .l { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; font-family: var(--mono); }
+  .stat .n { font-family: var(--mono); font-size: 30px; font-weight: 650; letter-spacing: -.03em; margin: 6px 0 2px; }
+  .stat .sub { font-size: 11.5px; color: var(--ink-3); }
+  .stat .spark { margin-top: 10px; }
+  .funnel { display: flex; flex-direction: column; gap: 3px; }
+  .frow { display: grid; grid-template-columns: 150px 1fr 54px; align-items: center; gap: 12px; }
+  .frow .fl { font-size: 12.5px; }
+  .frow .bar { height: 26px; border-radius: 6px; background: var(--accent); display: flex; align-items: center; padding-left: 10px; color: #fff; font-family: var(--mono); font-size: 11px; }
+  .frow .fv { font-family: var(--mono); font-size: 12.5px; text-align: right; color: var(--ink-2); }
+  .two { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; align-items: start; }
+
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(10px); background: var(--ink); color: var(--ground); padding: 10px 16px; border-radius: 9px; font-size: 12.5px; box-shadow: 0 8px 30px rgba(0,0,0,.25); z-index: 60; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: 90vw; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 1080px) { .p360, .two { grid-template-columns: 1fr; } .panelgrid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; }
+    .rail { position: sticky; top: 0; z-index: 6; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; }
+    .brand { padding: 0 6px 0 0; } .rail .nav { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+    .navlabel, .me { display: none; } .navitem { width: auto; padding: 7px 11px; } .navitem .badge { margin-left: 6px; }
+    .task { grid-template-columns: 4px 1fr; }
+    .task .side { border-left: none; border-top: 1px solid var(--line); align-items: flex-start; text-align: left; grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; gap: 10px; }
+    .panelgrid { grid-template-columns: 1fr 1fr; }
+    .inbox { grid-template-columns: 1fr; } .ilist { border-right: none; border-bottom: 1px solid var(--line); } .ithreads { max-height: 260px; }
+  }
+  .hint { font-size: 11.5px; color: var(--ink-3); font-family: var(--mono); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--ink-2); font-family: var(--mono); margin-top: 4px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; } .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  /* continuity board */
+  .boardwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); background: var(--surface); }
+  .board { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
+  .board th { text-align: left; font-size: 10.5px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); font-weight: 600; padding: 11px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); position: sticky; top: 0; z-index: 1; }
+  .board th.num, .board td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .board td { padding: 11px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .board tbody tr:last-child td { border-bottom: none; }
+  .board tbody tr { cursor: pointer; }
+  .board tbody tr:hover { background: var(--surface-2); }
+  .board tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .board .bpt { font-weight: 650; font-size: 13.5px; }
+  .board .bmrn { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+  .board .supplybar { display: flex; align-items: center; gap: 9px; justify-content: flex-end; }
+  .board .supplybar .bar { width: 66px; height: 7px; border-radius: 5px; background: var(--line); overflow: hidden; flex: none; }
+  .board .supplybar .bar i { display: block; height: 100%; border-radius: 5px; }
+  .board .bignum { font-family: var(--mono); font-weight: 650; font-size: 15px; letter-spacing: -.01em; }
+  .board .bignum small { font-weight: 400; font-size: 10px; color: var(--ink-3); }
+  .board .actwithin { font-family: var(--mono); font-weight: 650; font-size: 14px; }
+  .board .runsout { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+  .bstatus { font-size: 10.5px; font-family: var(--mono); padding: 2px 9px; border-radius: 20px; letter-spacing: .03em; white-space: nowrap; }
+  .bstatus.crit { background: var(--crit-wash); color: var(--crit); } .bstatus.warn { background: var(--warn-wash); color: var(--warn); } .bstatus.ok { background: var(--good-wash); color: var(--good); }
+
+  /* outreach team view */
+  .okpis { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  .okpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 16px; box-shadow: var(--shadow); min-width: 118px; }
+  .okpi .n { font-family: var(--mono); font-size: 24px; font-weight: 650; letter-spacing: -.02em; }
+  .okpi .l { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; font-family: var(--mono); }
+  .ogroup { margin-bottom: 22px; }
+  .ogrouphd { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); font-family: var(--mono); }
+  .ocards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
+  .ocard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); padding: 14px 16px; display: flex; flex-direction: column; gap: 9px; }
+  .ocard .otop { display: flex; align-items: center; gap: 10px; }
+  .ocard .oav { width: 36px; height: 36px; border-radius: 10px; background: var(--accent-wash); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
+  .ocard .onm { font-weight: 650; font-size: 14px; } .ocard .omrn { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+  .ocard .orow { display: flex; align-items: center; justify-content: space-between; font-size: 12px; gap: 10px; }
+  .ocard .orow .k { color: var(--ink-3); font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+  .ocard .orow .v { font-family: var(--mono); font-weight: 600; }
+  .ostatus { font-size: 10px; font-family: var(--mono); padding: 2px 8px; border-radius: 20px; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; }
+  .ostatus.Unreachable { background: var(--crit-wash); color: var(--crit); } .ostatus.Attempting { background: var(--warn-wash); color: var(--warn); }
+  .ostatus.Enrolled, .ostatus.Reengaged, .ostatus.Reached { background: var(--good-wash); color: var(--good); } .ostatus.Assigned { background: var(--accent-wash); color: var(--accent-ink); }
+  .ocard .oreason { font-size: 11.5px; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+  .ocard .oact { display: flex; gap: 8px; margin-top: 2px; flex-wrap: wrap; }
+  .jtrack { display: grid; grid-template-columns: repeat(6, 1fr); margin: 2px 0 6px; }
+  .jstep { display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; }
+  .jstep::before { content: ""; position: absolute; top: 9px; left: -50%; width: 100%; height: 2px; background: var(--line-2); z-index: 0; }
+  .jstep:first-child::before { display: none; }
+  .jstep.done::before, .jstep.active::before { background: var(--accent); }
+  .jdot { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 700; background: var(--surface-2); border: 2px solid var(--line-2); color: var(--ink-3); z-index: 1; }
+  .jstep.done .jdot { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .jstep.active .jdot { background: var(--surface); border-color: var(--accent); color: var(--accent-ink); box-shadow: 0 0 0 3px var(--accent-wash); }
+  .jlbl { font-size: 8.5px; font-family: var(--mono); color: var(--ink-3); text-align: center; line-height: 1.1; }
+  .jstep.active .jlbl { color: var(--accent-ink); font-weight: 700; } .jstep.done .jlbl { color: var(--ink-2); }
+  .jtrack.ftrack { grid-template-columns: repeat(5, 1fr); margin: 4px 0 2px; }
+
+  /* financial enrollment cycle strip */
+  .fincycle { display: flex; gap: 8px; flex-wrap: wrap; margin: 2px 0 20px; }
+  .fcstep { flex: 1; min-width: 158px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); position: relative; }
+  .fcstep .fcn { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--accent-ink); letter-spacing: .04em; }
+  .fcstep.warn .fcn { color: var(--warn); } .fcstep.ok .fcn { color: var(--good); }
+  .fcstep .fct { font-size: 12.5px; font-weight: 650; margin-top: 3px; line-height: 1.25; }
+  .fcstep .fcd { font-size: 10.5px; color: var(--ink-3); margin-top: 3px; font-family: var(--mono); line-height: 1.3; }
+  .fcstep::after { content: "→"; position: absolute; right: -14px; top: 50%; transform: translateY(-50%); color: var(--ink-3); font-size: 13px; z-index: 1; }
+  .fcstep:last-child::after { display: none; }
+  @media (max-width: 900px) { .fcstep::after { display: none; } }
+
+  /* profile task bar (complete a task from the patient page) */
+  .taskbar { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .taskbar-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--surface-2); border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: 9px; padding: 9px 12px; }
+  .taskbar-row.crit { border-left-color: var(--crit); }
+  .taskbar-row .tb-title { font-size: 12.5px; font-weight: 600; }
+  .taskbar-row .tb-team { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+  .taskbar-row .tb-btns { margin-left: auto; display: flex; gap: 6px; }
+  .tb-clear { font-size: 12px; color: var(--good); font-family: var(--mono); background: var(--good-wash); border: 1px solid var(--good); border-radius: 9px; padding: 8px 12px; margin-bottom: 14px; }
+
+  /* patient lifecycle timeline */
+  .life { display: flex; flex-direction: column; margin-top: 6px; }
+  .lifephase { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin: 12px 0 4px; }
+  .liferow { display: grid; grid-template-columns: 16px 1fr auto; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); align-items: start; }
+  .liferow:last-child { border-bottom: none; }
+  .lifedot { width: 12px; height: 12px; border-radius: 50%; margin-top: 3px; border: 2px solid var(--surface); }
+  .lifedot.done { background: var(--good); } .lifedot.now { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
+  .lifedot.todo { background: var(--surface-2); border: 2px solid var(--line-2); } .lifedot.loop { background: var(--warn); }
+  .liferow .lt { font-size: 13px; font-weight: 600; } .liferow.todo .lt { color: var(--ink-3); font-weight: 500; } .liferow.done .lt { color: var(--ink-2); }
+  .liferow .ld { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+  .liferow .lw { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); white-space: nowrap; }
+
+  /* care plan / schedule page */
+  .cpgrid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; align-items: start; }
+  .cpintro { font-size: 13px; color: var(--ink-2); margin: 0 0 14px; }
+  .cpflow { display: flex; flex-direction: column; }
+  .cpstep { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .cpstep:last-child { border-bottom: none; }
+  .cpstep .num { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-family: var(--mono); font-size: 11px; font-weight: 700; background: var(--accent-wash); color: var(--accent-ink); }
+  .cpstep.warn .num { background: var(--warn-wash); color: var(--warn); }
+  .cpstep.pa .num { background: color-mix(in srgb, var(--pharm) 18%, transparent); color: var(--pharm); }
+  .cpstep .t { font-size: 13px; font-weight: 600; } .cpstep .who { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); white-space: nowrap; }
+  .cadence { display: flex; flex-direction: column; gap: 10px; }
+  .cadcard { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--surface-2); }
+  .cadcard .ch { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; margin-bottom: 5px; }
+  .cadcard.q3 .ch { color: var(--accent-ink); } .cadcard.q6 .ch { color: var(--warn); } .cadcard.q12 .ch { color: var(--pharm); }
+  .cadcard .cl { font-size: 12.5px; color: var(--ink-2); }
+  .cptimeline { position: relative; }
+  .cpitem { display: grid; grid-template-columns: 150px 14px 1fr; gap: 14px; padding: 12px 0; border-top: 1px solid var(--line); align-items: start; }
+  .cpitem:first-child { border-top: none; }
+  .cpitem .cpdate { font-family: var(--mono); font-size: 12px; color: var(--ink-2); font-weight: 600; }
+  .cpitem .cpdot { width: 12px; height: 12px; border-radius: 50%; margin: 3px auto 0; border: 2px solid var(--surface); }
+  .cpitem .cptitle { font-size: 13.5px; font-weight: 650; }
+  .cpitem .cptag { font-size: 9px; font-family: var(--mono); padding: 1px 7px; border-radius: 20px; text-transform: uppercase; letter-spacing: .03em; margin-left: 8px; color: #fff; white-space: nowrap; }
+  .cpitem .cpdetail { font-size: 12px; color: var(--ink-2); margin-top: 3px; }
+  .cpnote { margin-top: 16px; font-size: 12.5px; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; padding: 12px 14px; }
+  @media (max-width: 900px) { .cpgrid { grid-template-columns: 1fr; } .cpitem { grid-template-columns: 96px 14px 1fr; } }
+</style>
+
+<div class="app">
+  <aside class="rail">
+    <div class="brand"><div class="mark" aria-hidden="true"></div><div><b>Continuity</b><span>PrEP Navigator</span></div></div>
+    <div class="navlabel">Care</div>
+    <nav class="nav">
+      <button class="navitem" data-view="board" aria-current="true">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M4 12h16M4 19h16M8 5v14"/></svg>
+        Continuity board</button>
+      <button class="navitem" data-view="worklist">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8M4 5h11M4 12h5M4 19h9"/></svg>
+        Worklist <span class="badge" id="worklistBadge">0</span></button>
+      <button class="navitem" data-view="patient">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+        Patient 360</button>
+      <button class="navitem" data-view="panel">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+        Panel Health</button>
+      <button class="navitem" data-view="careplan">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M8 14l2 2 4-4"/></svg>
+        Care plan</button>
+    </nav>
+    <div class="navlabel">Collaborate</div>
+    <nav class="nav">
+      <button class="navitem" data-view="outreach">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.35-7-10a7 7 0 1 1 14 0c0 5.65-7 10-7 10z"/><circle cx="12" cy="11" r="2.5"/></svg>
+        Outreach team <span class="badge" id="outreachBadge">0</span></button>
+      <button class="navitem" data-view="finance">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
+        Financial assistance <span class="badge" id="financeBadge">0</span></button>
+      <button class="navitem" data-view="inbox">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Inbox <span class="badge" id="inboxBadge">0</span></button>
+      <button class="navitem" data-view="panel">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/></svg>
+        Orders queue</button>
+    </nav>
+    <div class="me"><div class="av">RN</div><div><div style="font-size:12.5px;font-weight:600">Rae Navarro</div><small>Navigator · Panel 142</small></div></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <h1 id="viewtitle">Worklist<small id="viewsub">Prioritized by time-to-gap · 27 Jul 2026</small></h1>
+      <div class="databar">
+        <button class="btn xs neutral" id="exportBtn" title="Save your panel as a JSON file">Export</button>
+        <button class="btn xs neutral" id="importBtn" title="Load a saved panel file">Import</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+        <button class="btn xs neutral" id="resetBtn" title="Restore the sample data">Reset</button>
+      </div>
+      <div class="kpis">
+        <div class="kpi good"><div class="n">96.2%</div><div class="l">Panel MPR</div></div>
+        <div class="kpi crit"><div class="n" id="kpiUrgent">0</div><div class="l">Urgent open</div></div>
+        <div class="kpi warn"><div class="n" id="kpiOpen">0</div><div class="l">Open tasks</div></div>
+        <div class="kpi good"><div class="n" id="kpiCleared">0</div><div class="l">Cleared</div></div>
+      </div>
+    </header>
+
+    <section class="view active" id="view-board">
+      <div class="sechead"><h2>Continuity board</h2><p>Every patient — <b>when they run out of meds</b> and <b>days to the next best action</b> to keep supply continuous. Sorted by soonest action.</p></div>
+      <div class="boardwrap"><table class="board" id="boardTable"><thead><tr>
+        <th>Patient</th><th class="num">Days of supply</th><th>Runs out</th><th>Next best action</th><th class="num">Act within</th><th>Status</th>
+      </tr></thead><tbody id="boardBody"></tbody></table></div>
+    </section>
+
+    <section class="view" id="view-worklist">
+      <div class="sechead"><h2>Today's queue</h2><p>Ranked by <b>days until a supply gap</b>, net of the lead time each blocking step needs to clear.</p></div>
+      <div class="filters" id="filters" role="group" aria-label="Filter tasks"></div>
+      <div id="lanes"></div>
+      <div id="snoozedBar"></div>
+    </section>
+
+    <section class="view" id="view-patient">
+      <div class="p360">
+        <div class="stack" id="p360main"></div>
+        <div class="stack">
+          <div class="card"><div class="hd"><h3>Care team</h3></div><div class="bd" id="team"></div></div>
+          <div class="card" id="msgcard"></div>
+          <div class="card" id="notescard"></div>
+          <div class="card"><div class="hd"><h3>My panel</h3></div><div class="bd"><div class="roster" id="roster"></div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-outreach">
+      <div class="sechead"><h2>Outreach team</h2><p>Patients <b>Sam Rivera</b> enrolled or is assigned to engage — engagement status, coverage, and last contact. Log visits and attempts here.</p></div>
+      <div class="okpis" id="outreachKpis"></div>
+      <div id="outreachGroups"></div>
+    </section>
+
+    <section class="view" id="view-finance">
+      <div class="sechead"><h2>Financial assistance team</h2><p>Patients who can't afford PrEP or coverage. <b>Short-term:</b> stand up $0 copay cards / PAP so fills never stall on cost. <b>Long-term:</b> Damien provides <b>premium assistance</b> and <b>insurance enrollment support</b> so coverage is durable. Cost is never a reason for a gap.</p></div>
+      <div class="fincycle" id="financeCycle"></div>
+      <div class="okpis" id="financeKpis"></div>
+      <div id="financeGroups"></div>
+    </section>
+
+    <section class="view" id="view-careplan">
+      <div class="sechead"><h2>Care plan — continuous supply</h2><p>How we keep every patient covered with <b>zero gaps</b>. The goal: 100% of days covered.</p></div>
+      <div class="cpgrid">
+        <div class="card"><div class="hd"><h3>The repeating supply cycle</h3></div><div class="bd">
+          <p class="cpintro">Every ~90 days this chain runs. Three steps depend on the patient (⚠️) — the stall points we nudge, then escalate to field outreach if needed. Prior auth only appears at start and at renewal / insurance change.</p>
+          <div class="cpflow" id="cpCycle"></div></div></div>
+        <div class="card"><div class="hd"><h3>Testing &amp; monitoring cadence</h3></div><div class="bd">
+          <div class="cadence" id="cpCadence"></div>
+          <p class="hint" style="margin-top:12px">Clinical intervals per CDC 2021; at-home testing + mail-order per a MISTR-style service.</p></div></div>
+      </div>
+      <div class="card" style="margin-top:18px"><div class="hd"><h3>Example — one patient's first 13 months</h3><span class="hint" style="margin-left:auto">Alex M. · Descovy (needs prior auth)</span></div>
+        <div class="bd"><div class="cptimeline" id="cpTimeline"></div>
+          <div class="cpnote">Two calendars run at once: the <b>clinical clock</b> (relative to enrollment, every 90 days) and the <b>coverage calendar</b> (fixed — January resets, Nov–Dec open enrollment). When they collide at the January insurance change, we ship the kit early and clear the new prior auth before the old supply runs out.</div></div></div>
+    </section>
+
+    <section class="view" id="view-inbox">
+      <div class="sechead"><h2>Inbox</h2><p>Every conversation across your panel — patient SMS and internal care-team threads in one place.</p></div>
+      <div class="card" style="overflow:hidden"><div class="inbox">
+        <div class="ilist">
+          <div class="ifilters" id="ifilters" role="group" aria-label="Filter threads">
+            <button class="chip" data-f="all" aria-pressed="true">All</button>
+            <button class="chip" data-f="patient" aria-pressed="false">Patient</button>
+            <button class="chip" data-f="team" aria-pressed="false">Care team</button>
+            <button class="chip" data-f="unread" aria-pressed="false">Unread</button>
+          </div>
+          <div class="ithreads" id="ithreads"></div>
+        </div>
+        <div class="convo" id="convo"></div>
+      </div></div>
+    </section>
+
+    <section class="view" id="view-panel">
+      <div class="sechead"><h2>Panel health</h2><p>Cohort of 142 active PrEP patients · trailing 90 days</p></div>
+      <div class="panelgrid">
+        <div class="stat"><div class="l">Continuous supply</div><div class="n st-ok">96.2%</div><div class="sub">+2.1 pts vs. last quarter</div><div class="spark" id="sp1"></div></div>
+        <div class="stat"><div class="l">Median MPR</div><div class="n">0.98</div><div class="sub">12 patients below 0.80 threshold</div><div class="spark" id="sp2"></div></div>
+        <div class="stat"><div class="l">On-time HIV testing</div><div class="n st-warn">88%</div><div class="sub">17 quarterly tests overdue</div><div class="spark" id="sp3"></div></div>
+        <div class="stat"><div class="l">Lost to follow-up</div><div class="n st-ok">4</div><div class="sub">re-engagement outreach active</div><div class="spark" id="sp4"></div></div>
+      </div>
+      <div class="two">
+        <div class="card"><div class="hd"><h3>Continuity funnel — where gaps originate</h3></div>
+          <div class="bd"><div class="funnel" id="funnel"></div><p class="hint" style="margin:14px 0 0">Renewals and lab dependencies drive most drop-off — the reason the queue schedules them earliest.</p></div></div>
+        <div class="card"><div class="hd"><h3>Gap risk this month</h3></div>
+          <div class="bd"><div class="lgrid" style="grid-template-columns:1fr">
+            <div class="lcell"><div class="k">Refill lapse</div><div class="v st-crit">3 patients</div><div class="s st-crit">supply ends &lt; 7 days</div></div>
+            <div class="lcell"><div class="k">Rx renewal needed</div><div class="v st-warn">5 patients</div><div class="s st-warn">0 refills remaining</div></div>
+            <div class="lcell"><div class="k">Lab blocking refill</div><div class="v st-warn">6 patients</div><div class="s">HIV test &gt; 90 days</div></div>
+            <div class="lcell"><div class="k">Benefits / PA lapse</div><div class="v st-warn">2 patients</div><div class="s">coverage expiring</div></div>
+          </div></div></div>
+      </div>
+    </section>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const initials = n => n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+const first = p => p.name.split(" ")[0].replace(/[^A-Za-z]/g,"");
+const ROLE_LABEL = { nav:"You", patient:"Patient", provider:"Provider", pharmacist:"Pharmacy", outreach:"Outreach" };
+let SEQ = 100; const uid = pfx => pfx + (SEQ++);
+
+// ---------- seed data (fictional) ----------
+// ---------- seed: 30-patient panel across the full PrEP lifecycle ----------
+const MILESTONES = ["Enrolled","First visit","Baseline labs","First Rx","First PA","First fill"];
+const D=(t,dd,wh)=>({s:"done",t,d:dd||"",when:wh||""});
+const A=(t,dd,wh)=>({s:"active",t,d:dd||"",when:wh||""});
+const W=(t,dd,wh)=>({s:"wait",t,d:dd||"",when:wh||""});
+const LABS = {
+  pending:[{k:"HIV Ag/Ab+RNA",v:"pending",s:"awaiting sample",sev:"warn"},{k:"Kidney (eGFR)",v:"pending",s:"baseline",sev:"warn"},{k:"HBV / STI",v:"pending",s:"baseline",sev:"warn"}],
+  partial:[{k:"HIV Ag/Ab+RNA",v:"at lab",s:"result pending",sev:"warn"},{k:"Kidney (eGFR)",v:"at lab",s:"pending",sev:"warn"}],
+  ok:[{k:"HIV Ag/Ab+RNA",v:"Neg",s:"current",sev:"ok"},{k:"Kidney (eGFR)",v:"normal",s:"in range",sev:"ok"},{k:"STI (3-site)",v:"Neg",s:"current",sev:"ok"}],
+  overdue:[{k:"HIV Ag/Ab+RNA",v:"Neg",s:">90d ago · overdue",sev:"crit"},{k:"Kidney (eGFR)",v:"normal",s:"",sev:"ok"},{k:"STI (3-site)",v:"Neg",s:"prior",sev:"ok"}],
+  abnormal:[{k:"HIV Ag/Ab+RNA",v:"Neg",s:"current",sev:"ok"},{k:"Kidney (eGFR)",v:"low · declining",s:"recheck",sev:"crit"},{k:"STI (3-site)",v:"CT positive",s:"treat",sev:"warn"}],
+};
+function rxFor(drug,j){ return j<3?{drug,refills:"—",exp:"pre-Rx"} : j<5?{drug,refills:"new Rx",exp:"awaiting PA"} : j<6?{drug,refills:"new Rx",exp:"PA cleared"} : {drug,refills:"refills active",exp:"12-mo Rx"}; }
+function threadsFor(s,g){
+  const first=s.name.split(" ")[0];
+  const pm=[{role:"nav",from:"Rae Navarro",t:(g.sms||`Hi ${first}, checking in on your PrEP — anything you need?`).replace("{n}",first),time:"today"}];
+  if(g.reply) pm.push({role:"patient",from:s.name,t:g.reply,time:"today",unread:true});
+  const tm=[];
+  if(s.by && g.j<6){
+    tm.push({role:"outreach",from:s.by,t:`Enrolled ${first} — please get them to first fill, they're motivated. Keeping an eye on it.`,time:"recent"});
+    tm.push({role:"nav",from:"Rae Navarro",t:`On it — ${first} is at "${MILESTONES[g.j]}". @Pharmacy will ship once we clear it. I'll update you.`,time:"today",unread:true});
+  } else if(s.assignee==="Field Outreach"){
+    tm.push({role:"nav",from:"Rae Navarro",t:`@Field please attempt in-person — ${first} unreachable, supply at risk.`,time:"today",unread:true});
+  } else {
+    tm.push({role:"provider",from:s.prov,t:"No changes — stable.",time:"recent"});
+  }
+  return [{id:"sms",kind:"patient",label:"Patient",with:s.name,msgs:pm},
+          {id:"team",kind:"team",label:"Care team",with:(s.by&&g.j<6)?`${s.by} · ${s.prov} · Mail-order Rx`:s.prov,msgs:tm}];
+}
+function notesFor(s,g){ return [{type:"Note",author:s.by?(s.by+" (outreach)"):"Rae Navarro",t:g.note||g.why,time:"today"}]; }
+
+const STAGES = {
+  first_visit:{type:"enc",act:"Book first visit",sev:"warn",aw:1,lead:"schedule",leadsev:"warn",j:1,labs:"pending",
+    hl:"New enrollee — book first telehealth visit",why:"Questionnaire done · needs video visit before baseline labs",reply:"ready when you are!",
+    steps:[D("Enrolled + questionnaire","Eligibility complete"),A("Telehealth first visit","Book video visit","now"),W("Baseline labs","kit ships after visit","~3d"),W("Rx → PA → first fill","","~2wk")]},
+  baseline_ship:{type:"lab",act:"Ship baseline kit",sev:"warn",aw:0,lead:"same day",leadsev:"warn",j:2,labs:"pending",
+    hl:"Ship baseline test kit to begin labs",why:"Visit done · baseline kit needs to ship (HIV+RNA, kidney, HBV, STI)",
+    steps:[D("First visit","Telehealth complete"),A("Ship baseline kit","Order at-home kit","now"),W("Collect + return sample","patient","~5d"),W("Results → Rx → PA → fill","","~2wk")]},
+  baseline_collect:{type:"lab",act:"Nudge sample collection",sev:"warn",aw:0,lead:"nudge",leadsev:"warn",j:2,labs:"pending",
+    hl:"Baseline kit delivered 3d ago — no sample yet",why:"⚠️ Patient hasn't collected the sample · nudge, then field outreach if unreachable",reply:"oh sorry, will do it tonight",
+    steps:[D("First visit","complete"),D("Baseline kit delivered","3 days ago"),A("Collect + return sample","Nudge patient","now"),W("Lab → Rx → PA → fill","","~10d")]},
+  baseline_lab:{type:"lab",act:"Await results",sev:"warn",aw:2,lead:"lab 2-3d",leadsev:"ok",j:2,labs:"partial",
+    hl:"Baseline sample at lab — results pending",why:"Sample received · results in 2–3 business days, then first Rx",
+    steps:[D("Baseline kit","collected + returned"),A("Lab tests → results","awaiting release","~2d"),W("Provider writes first Rx","on results","~3d"),W("First PA → first fill","","~1wk")]},
+  first_rx:{type:"refill",act:"Write first Rx",sev:"warn",aw:1,lead:"provider",leadsev:"warn",j:3,labs:"ok",
+    hl:"Baseline results in — provider to write first Rx",why:"HIV neg, kidney OK, HBV/STI clear · ready for first prescription",
+    steps:[D("Baseline labs","all clear"),A("Provider writes first Rx","review results","now"),W("First PA","after Rx","~2d"),W("First fill ships","after PA","~4d")]},
+  first_pa:{type:"pa",act:"First PA pending",sev:"warn",aw:2,lead:"PA 2-3d",leadsev:"warn",j:4,labs:"ok",
+    hl:"First Rx written — prior auth pending (Descovy)",why:"PA #1 submitted · fill can't ship until approved",
+    steps:[D("First Rx written","Descovy"),A("First PA","submitted → awaiting payer","now"),W("Confirm address + consent","after PA","~1d"),W("First fill ships","","~4d")]},
+  first_pa_denied:{type:"pa",act:"Appeal PA denial",sev:"crit",aw:0,lead:"appeal",leadsev:"crit",j:4,labs:"ok",
+    hl:"First PA denied — appeal or switch to generic F/TDF",why:"⚠️ Payer denied Descovy · appeal, switch to generic, or bridge with PAP now",
+    steps:[D("First Rx written","Descovy"),A("PA denied → appeal / switch","Peer-to-peer or generic","now"),W("Confirm + first fill","after resolve","~1wk")]},
+  first_fill_confirm:{type:"refill",act:"Confirm address + consent",sev:"warn",aw:0,lead:"confirm",leadsev:"warn",j:5,labs:"ok",
+    hl:"PA cleared — confirm address before first fill ships",why:"⚠️ Awaiting patient's address + shipping consent (text/call) before first fill",reply:"yes ship it! same address",
+    steps:[D("First Rx + PA","approved"),A("Confirm address + consent","text/call patient","now"),W("First fill ships","on confirm","~1d"),W("Therapy begins","on delivery","~3d")]},
+  first_fill_ship:{type:"refill",act:"First fill shipping",sev:"ok",aw:2,lead:"in transit",leadsev:"ok",j:5,labs:"ok",
+    hl:"First fill confirmed — shipping to patient",why:"Address confirmed · first 90-day supply ships today, arrives ~2 days",
+    steps:[D("PA + confirm","done"),A("First fill ships → arrives","mail-order","~2d"),W("Therapy begins","on delivery","~2d"),W("Next quarterly kit","~day 68","~10wk")]},
+  refill_due:{type:"lab",act:"Ship quarterly kit",sev:"warn",aw:3,lead:"schedule",leadsev:"ok",j:6,labs:"ok",
+    hl:"Quarterly test kit due to ship (keeps refill unblocked)",why:"On track · next at-home kit ships ~3 weeks before run-out",
+    steps:[D("Last refill","received"),A("Quarterly kit ships","auto-order","now"),W("Test → re-authorize","","~1wk"),W("Next refill ships","before run-out","~2wk")]},
+  refill_collect:{type:"lab",act:"Nudge sample collection",sev:"warn",aw:0,lead:"nudge",leadsev:"warn",j:6,labs:"partial",
+    hl:"Quarterly kit delivered — no sample returned yet",why:"⚠️ Kit delivered, awaiting collection · nudge before it delays the refill",reply:"will send it back tomorrow",
+    steps:[D("Quarterly kit","delivered"),A("Collect + return sample","Nudge patient","now"),W("Lab → re-authorize refill","","~1wk"),W("Refill ships","","~2wk")]},
+  refill_lab:{type:"lab",act:"Await results",sev:"ok",aw:2,lead:"lab 2-3d",leadsev:"ok",j:6,labs:"partial",
+    hl:"Quarterly sample at lab — results pending",why:"Sample received · results then refill re-authorized",
+    steps:[D("Sample","collected + returned"),A("Lab tests → results","","~2d"),W("Re-authorize refill","on results","~3d"),W("Confirm + ship","","~5d")]},
+  refill_authorize:{type:"refill",act:"Approve refill",sev:"warn",aw:1,lead:"ships same day",leadsev:"ok",j:6,labs:"ok",
+    hl:"Results in — approve refill to ship",why:"HIV neg current · re-authorize the ≤90-day refill, then confirm address",reply:"thanks!",
+    steps:[D("Quarterly labs","HIV neg current"),A("Approve refill","provider re-auth","now"),W("Confirm address + consent","","~1d"),W("Refill ships → arrives","","~3d")]},
+  refill_confirm:{type:"refill",act:"Confirm address + consent",sev:"warn",aw:0,lead:"confirm",leadsev:"warn",j:6,labs:"ok",
+    hl:"Refill approved — confirm address before it ships",why:"⚠️ Awaiting patient's address + shipping consent before the refill ships",reply:"yep, same address",
+    steps:[D("Refill approved","re-authorized"),A("Confirm address + consent","text/call","now"),W("Refill ships → arrives","","~3d")]},
+  refill_ship:{type:"refill",act:"Refill shipping",sev:"ok",aw:2,lead:"in transit",leadsev:"ok",j:6,labs:"ok",
+    hl:"Refill confirmed — shipping to patient",why:"On track · 90-day refill in transit, arrives before run-out",
+    steps:[D("Approve + confirm","done"),A("Refill ships → arrives","mail-order","~2d"),W("Next quarterly kit","~day 68","~10wk")]},
+  six_month:{type:"lab",act:"6-month labs",sev:"warn",aw:2,lead:"expanded panel",leadsev:"ok",j:6,labs:"ok",
+    hl:"6-month cycle — expanded labs due",why:"Adds syphilis + kidney (if indicated) to the quarterly HIV/GC-CT",
+    steps:[D("Quarterly kit","returned"),A("Expanded labs → results","HIV+RNA, GC/CT, syphilis, eCrCl","~2d"),W("Re-authorize refill","","~4d"),W("Confirm + ship","","~6d")]},
+  annual:{type:"renew",act:"Annual review + renew",sev:"crit",aw:4,lead:"needs visit",leadsev:"crit",j:6,labs:"ok",
+    hl:"12-month annual — full panel, renew Rx (+ PA if plan changed)",why:"Live visit, full panel (HIV+RNA, STI, kidney-all, lipids), new Rx → PA → refill",
+    steps:[D("Annual kit","returned"),A("Live annual visit → new Rx","full panel","now"),W("Annual PA renewal","new Rx","~3d"),W("Confirm + refill ships","","~6d")]},
+  stable:{type:"refill",act:"On track — auto-ships",sev:"ok",aw:35,lead:"none",leadsev:"ok",j:6,labs:"ok",
+    hl:"Continuous — next refill auto-ships, labs current",why:"Excellent adherence · no action until the next quarterly window",
+    steps:[D("Last 90-day refill","shipped"),W("Quarterly labs","","~5wk"),W("Next refill","auto on labs","~10wk")]},
+  pa_expiring:{type:"pa",act:"Renew PA",sev:"warn",aw:6,lead:"PA 2-3d",leadsev:"warn",j:6,labs:"ok",
+    hl:"Prior auth expiring — renew before next fill",why:"PA valid to next month · renew now so the refill isn't blocked",
+    steps:[D("Refill","current"),A("Renew prior auth","submit for existing Rx","now"),W("PA active","","~3d"),W("Next refill unblocked","","~2wk")]},
+  insurance_change:{type:"pa",act:"New PA (plan change)",sev:"crit",aw:0,lead:"reprocess",leadsev:"crit",j:6,labs:"ok",
+    hl:"Insurance changed — new PA needed under new plan",why:"⚠️ Plan flipped · new PA + benefits re-verify before the next fill can ship",
+    steps:[D("New plan active","Jan 1"),A("New PA under new plan","submit + re-verify benefits","now"),W("Confirm + refill ships","on PA","~1wk")]},
+  assistance_lapse:{type:"finasst",asgn:"Financial",act:"Re-enroll copay assistance",sev:"warn",aw:8,lead:"PAP",leadsev:"warn",j:6,labs:"ok",
+    fin:{horizon:"short",prog:"Copay card / PAP renewal",cov:"Insured + copay assistance"},
+    hl:"Copay assistance expiring — re-enroll before next fill",why:"$0 copay program up for renewal · re-attest income to keep fills free",reply:"YES please handle it",
+    steps:[D("Refill","current"),A("Re-enroll copay/PAP","income re-attestation","now"),W("Assistance active","","~5d"),W("Next fill $0","","~2wk")]},
+  fin_uninsured:{type:"finasst",asgn:"Financial",act:"Try event-based enrollment; bridge on Advancing Access",sev:"crit",aw:0,lead:"same day",leadsev:"warn",j:4,labs:"ok",cyc:0,
+    fin:{horizon:"short",prog:"SEP attempt + Gilead Advancing Access (free meds)",cov:"Uninsured"},
+    hl:"Uninsured — try event-based enrollment now, else bridge on Advancing Access so cost never blocks the first fill",
+    why:"⚠️ No coverage · try event-based (SEP) enrollment with Damien premium assistance; if no qualifying event, enroll in Gilead Advancing Access ($0 meds) and hold for open enrollment",reply:"thank you, I can't afford it otherwise",
+    steps:[D("Screened — uninsured","~180% FPL"),A("Try event-based (SEP) enrollment + Damien premium assistance","qualifying life event?","now"),W("Else: Gilead Advancing Access — $0 fills","bridge coverage","~3d"),W("Hold for open enrollment → Marketplace","long-term","")]},
+  fin_premium:{type:"finasst",asgn:"Financial",act:"Damien premium assistance",sev:"warn",aw:5,lead:"Damien pays premium",leadsev:"warn",j:6,labs:"ok",
+    fin:{horizon:"premium",prog:"Damien premium assistance (ADAP / Ryan White funded)",cov:"Marketplace — premium at risk"},
+    hl:"Has a plan but can't afford the premium — Damien premium assistance covers it",
+    why:"Damien pays the monthly premium (ADAP / Ryan White funded) so the plan doesn't lapse and coverage stays continuous",reply:"thank you, the premium went up and I couldn't keep it",
+    steps:[D("Marketplace plan active","subsidized"),A("Damien enrolls premium assistance","re-attest income","now"),W("Damien pays the premium","","~1wk"),W("Coverage locked for the year","","")]},
+  fin_buy_insurance:{type:"finasst",asgn:"Financial",act:"Open enrollment → enroll → switch to Damien pharmacy",sev:"warn",aw:12,lead:"Damien navigator",leadsev:"warn",j:6,labs:"ok",cyc:3,
+    fin:{horizon:"long",prog:"Marketplace enroll + Damien premium assistance → Damien pharmacy",cov:"Advancing Access → enrolling"},
+    hl:"Long-term: enroll at open enrollment, then switch fills back to Damien pharmacy",
+    why:"On Advancing Access now · at open enrollment Damien's navigators enroll them in a Marketplace plan (premium assistance + subsidy); once the plan is effective, fills switch back to Damien pharmacy (340B)",reply:"that would be a huge relief",
+    steps:[D("On Gilead Advancing Access","bridge · $0 meds"),A("Damien enrolls in Marketplace at open enrollment","subsidy + premium assistance","open enrollment"),W("Plan effective Jan 1","",""),W("Switch fills back to Damien pharmacy","340B · seamless","")]},
+  lab_overdue:{type:"lab",act:"Order HIV test",sev:"crit",aw:0,lead:"needs 2d lead",leadsev:"crit",j:6,labs:"overdue",
+    hl:"HIV test > 90d — refill blocked until a current result",why:"Supply ends in 4d · Rx can't be re-authorized without a current HIV test",
+    steps:[D("Encounter","complete"),A("Order HIV test (home kit)","result gates the refill","now"),W("Re-authorize refill","on result","~4d"),W("Confirm + ship","","~6d")]},
+  abnormal_lab:{type:"enc",act:"Clinical review (live)",sev:"crit",aw:1,lead:"needs visit",leadsev:"crit",j:6,labs:"abnormal",
+    hl:"Abnormal result — kidney declining, needs live review",why:"eGFR falling · live visit to assess (switch regimen? hold?) before next fill",
+    steps:[D("Quarterly labs","eGFR low"),A("Live clinical review","provider visit","now"),W("Regimen decision","","~2d"),W("Refill or change","","~5d")]},
+  address_unconfirmed:{type:"refill",act:"Confirm address",sev:"crit",aw:0,lead:"confirm",leadsev:"crit",j:6,labs:"ok",
+    hl:"Refill ready but address unconfirmed — ship blocked",why:"⚠️ Supply ends in 8d · can't ship until patient confirms address + consent",
+    steps:[D("Refill approved","ready"),A("Confirm address + consent","unreachable — nudge / field","now"),W("Refill ships","on confirm","+3d")]},
+  unreachable:{type:"outreach",act:"Home visit",sev:"crit",aw:0,lead:"dispatch",leadsev:"crit",j:6,labs:"overdue",
+    hl:"Unreachable 8 days — field visit to re-engage",why:"3 calls + 2 texts + 1 email, no reply · supply ends 6d",
+    steps:[D("Remote outreach exhausted","3 calls · 2 SMS · 1 email"),A("Field outreach home visit","community team","now"),W("Re-engage → refill","on contact","")]},
+  lapsed:{type:"outreach",act:"Re-engage (home visit)",sev:"crit",aw:0,lead:"dispatch",leadsev:"crit",j:6,labs:"overdue",
+    hl:"Lapsed — 0 days supply, lost to follow-up",why:"Coverage gap now · unreachable 3 weeks · field re-engagement",
+    steps:[D("Remote outreach exhausted","5 attempts / 3 weeks"),A("Field re-engagement visit","community team","now"),W("Re-test + restart","on contact","")]},
+  sample_not_returned:{type:"lab",act:"Nudge return / field",sev:"warn",aw:0,lead:"nudge",leadsev:"warn",j:6,labs:"partial",
+    hl:"Sample collected but not mailed back",why:"⚠️ Kit collected, never returned · nudge; field outreach if unreachable",
+    steps:[D("Kit collected","patient has sample"),A("Nudge sample return","text/call","now"),W("Lab → refill","on return","~1wk")]},
+};
+
+function buildPatient(s){
+  const g=STAGES[s.stage], sev=s.sev||g.sev, supply=s.supply;
+  const aw=(s.aw!=null?s.aw:g.aw);
+  const fill=Math.max(8,Math.min(92,Math.round(100-(supply/90)*88)));
+  const gapAt=Math.max(55,Math.min(96,fill+(supply<=7?4:10)));
+  const p={ id:s.id,name:s.name,age:s.age,mrn:s.mrn,supply,mpr:s.mpr,sev,type:g.type,action:g.act,actWithin:aw,
+    provider:s.prov,pharmacy:"Mail order",headline:g.hl,why:g.why,lead:g.lead,leadsev:g.leadsev,
+    journeyStep:g.j,firstFillDone:g.j>=6,
+    track:[{label:g.act.split(" ")[0],dd:aw===0?"now":aw+"d",pos:Math.min(fill+8,90),sev}],
+    fill,gapAt,steps:g.steps,labs:LABS[g.labs]||LABS.ok,rx:rxFor(s.drug,g.j),
+    feed:[{sev,t:"<b>"+g.act+"</b> — "+g.hl,m:"today · rules engine"}],threads:threadsFor(s,g),notes:notesFor(s,g) };
+  if(s.by) p.outreach={ status:s.ost||(g.j<6?"In progress":"On PrEP"),lastContact:s.lc||"today",attempts:s.att||0,enrolledBy:s.by };
+  if(g.fin) p.fin=g.fin;
+  if(g.cyc!=null) p.cyc=g.cyc;
+  p.assignee = s.assignee || g.asgn || null;
+  return p;
+}
+
+const OW="Sam Rivera";
+const SEED30=[
+  {id:"priya",name:"Priya N.",age:24,mrn:"PN-41205",drug:"Descovy (F/TAF)",prov:"Dr. Lin",supply:0,mpr:1.00,stage:"first_visit",by:OW},
+  {id:"andre",name:"Andre W.",age:31,mrn:"PN-41210",drug:"F/TDF (generic)",prov:"Dr. Osei",supply:0,mpr:1.00,stage:"baseline_ship",by:OW},
+  {id:"chen",name:"Chen L.",age:27,mrn:"PN-41214",drug:"F/TDF (generic)",prov:"Dr. Rao",supply:0,mpr:1.00,stage:"baseline_collect",by:OW,ost:"Awaiting sample",lc:"3 days ago",att:2},
+  {id:"marco",name:"Marco S.",age:29,mrn:"PN-41219",drug:"Descovy (F/TAF)",prov:"Dr. Lin",supply:0,mpr:1.00,stage:"baseline_lab",by:OW},
+  {id:"devonp",name:"Devon P.",age:35,mrn:"PN-41222",drug:"F/TDF (generic)",prov:"Dr. Vance",supply:0,mpr:1.00,stage:"first_rx",by:OW},
+  {id:"tariq",name:"Tariq H.",age:42,mrn:"PN-41225",drug:"Descovy (F/TAF)",prov:"Dr. Osei",supply:0,mpr:1.00,stage:"first_pa",by:OW},
+  {id:"luis",name:"Luis G.",age:38,mrn:"PN-41229",drug:"Descovy (F/TAF)",prov:"Dr. Lin",supply:0,mpr:1.00,stage:"first_pa_denied",by:OW},
+  {id:"noah",name:"Noah K.",age:23,mrn:"PN-41233",drug:"F/TDF (generic)",prov:"Dr. Rao",supply:0,mpr:1.00,stage:"first_fill_confirm",by:OW},
+  {id:"ravi",name:"Ravi P.",age:30,mrn:"PN-41238",drug:"Descovy (F/TAF)",prov:"Dr. Vance",supply:0,mpr:1.00,stage:"first_fill_ship",by:OW},
+  {id:"marcus",name:"Marcus R.",age:31,mrn:"PN-40213",drug:"F/TDF (generic)",prov:"Dr. Osei",supply:4,mpr:0.91,stage:"lab_overdue"},
+  {id:"jordan",name:"Jordan P.",age:23,mrn:"PN-40771",drug:"F/TDF (generic)",prov:"Dr. Rao",supply:9,mpr:0.88,stage:"refill_authorize"},
+  {id:"sam",name:"Sam T.",age:44,mrn:"PN-41002",drug:"Descovy (F/TAF)",prov:"Dr. Osei",supply:18,mpr:0.94,stage:"assistance_lapse"},
+  {id:"deshawn",name:"DeShawn K.",age:26,mrn:"PN-41240",drug:"F/TDF (generic)",prov:"Dr. Rao",supply:5,mpr:0.86,stage:"fin_uninsured",by:OW},
+  {id:"mateo",name:"Mateo R.",age:34,mrn:"PN-41244",drug:"Descovy (F/TAF)",prov:"Dr. Lin",supply:22,mpr:0.95,stage:"fin_premium"},
+  {id:"tanya",name:"Tanya B.",age:39,mrn:"PN-41248",drug:"F/TDF (generic)",prov:"Dr. Vance",supply:33,mpr:0.97,stage:"fin_buy_insurance"},
+  {id:"aisha",name:"Aisha K.",age:35,mrn:"PN-39510",drug:"F/TDF (generic)",prov:"Dr. Lin",supply:26,mpr:0.99,stage:"refill_ship"},
+  {id:"dana",name:"Dana W.",age:27,mrn:"PN-39880",drug:"F/TDF (generic)",prov:"Dr. Lin",supply:12,mpr:0.97,stage:"annual"},
+  {id:"terrell",name:"Terrell J.",age:29,mrn:"PN-41190",drug:"F/TDF (generic)",prov:"Dr. Osei",supply:6,mpr:0.79,stage:"unreachable",by:OW,assignee:"Field Outreach",ost:"Unreachable",lc:"8 days ago",att:6},
+  {id:"kwame",name:"Kwame B.",age:33,mrn:"PN-40560",drug:"F/TDF (generic)",prov:"Dr. Lin",supply:0,mpr:0.61,stage:"lapsed",by:OW,assignee:"Field Outreach",ost:"Unreachable",lc:"3 weeks ago",att:5},
+  {id:"rosa",name:"Rosa M.",age:36,mrn:"PN-39120",drug:"F/TDF (generic)",prov:"Dr. Rao",supply:74,mpr:0.99,stage:"stable"},
+  {id:"ben",name:"Ben O.",age:41,mrn:"PN-38990",drug:"F/TDF (generic)",prov:"Dr. Vance",supply:61,mpr:0.98,stage:"stable"},
+  {id:"ivy",name:"Ivy C.",age:28,mrn:"PN-40450",drug:"Descovy (F/TAF)",prov:"Dr. Lin",supply:22,mpr:0.96,stage:"refill_due"},
+  {id:"omar",name:"Omar F.",age:34,mrn:"PN-40600",drug:"F/TDF (generic)",prov:"Dr. Osei",supply:14,mpr:0.90,stage:"refill_collect",by:OW,ost:"Awaiting sample",lc:"2 days ago",att:1},
+  {id:"grace",name:"Grace N.",age:25,mrn:"PN-40720",drug:"F/TDF (generic)",prov:"Dr. Rao",supply:11,mpr:0.87,stage:"sample_not_returned",by:OW,ost:"Sample not returned",lc:"5 days ago",att:2},
+  {id:"hassan",name:"Hassan D.",age:39,mrn:"PN-40810",drug:"Descovy (F/TAF)",prov:"Dr. Vance",supply:16,mpr:0.95,stage:"refill_lab"},
+  {id:"lena",name:"Lena V.",age:33,mrn:"PN-40890",drug:"F/TDF (generic)",prov:"Dr. Lin",supply:20,mpr:0.97,stage:"six_month"},
+  {id:"theo",name:"Theo B.",age:47,mrn:"PN-40940",drug:"Descovy (F/TAF)",prov:"Dr. Osei",supply:30,mpr:0.98,stage:"refill_due"},
+  {id:"nadia",name:"Nadia S.",age:29,mrn:"PN-41010",drug:"Descovy (F/TAF)",prov:"Dr. Rao",supply:24,mpr:0.96,stage:"pa_expiring"},
+  {id:"collin",name:"Collin R.",age:37,mrn:"PN-41055",drug:"Descovy (F/TAF)",prov:"Dr. Vance",supply:19,mpr:0.93,stage:"insurance_change"},
+  {id:"malik",name:"Malik J.",age:45,mrn:"PN-41080",drug:"F/TDF (generic)",prov:"Dr. Lin",supply:21,mpr:0.94,stage:"abnormal_lab"},
+  {id:"sofia",name:"Sofia L.",age:26,mrn:"PN-41120",drug:"F/TDF (generic)",prov:"Dr. Osei",supply:8,mpr:0.90,stage:"address_unconfirmed",by:OW,ost:"Unreachable",lc:"4 days ago",att:3},
+  {id:"wen",name:"Wen Z.",age:31,mrn:"PN-41145",drug:"F/TDF (generic)",prov:"Dr. Rao",supply:5,mpr:0.85,stage:"refill_authorize",sev:"crit"},
+  {id:"bea",name:"Bea T.",age:40,mrn:"PN-41160",drug:"Descovy (F/TAF)",prov:"Dr. Vance",supply:48,mpr:0.99,stage:"stable"},
+];
+function seedState(){ return { patients: SEED30.map(buildPatient), tasks: [] }; }
+
+const TYPE_TAG = { lab:"t-lab", enc:"t-enc", refill:"t-refill", renew:"t-renew", pa:"t-pa", finasst:"t-fin", note:"t-note", outreach:"t-outreach" };
+const TYPE_LABEL = { lab:"LAB", enc:"ENCOUNTER", refill:"REFILL", renew:"RENEWAL", pa:"BENEFITS", finasst:"FIN. ASSIST", note:"FOLLOW-UP", outreach:"OUTREACH" };
+const TEMPLATES = {
+  patient:[
+    {k:"Lab due", f:p=>`Hi ${first(p)} — you're due for your quarterly PrEP labs (HIV + kidney). Want a clinic slot or a home test kit?`},
+    {k:"Refill nudge", f:p=>`Hi ${first(p)}! Your PrEP refill is ready at ${p.pharmacy}. Want me to switch you to mail-order so it just arrives?`},
+    {k:"Renewal", f:p=>`Hi ${first(p)} — your PrEP prescription is up for renewal. I can book a quick 15-min video visit. What day works?`},
+    {k:"Check-in", f:p=>`Hi ${first(p)}, checking in — how's everything going on PrEP? Any refills or questions I can help with?`},
+  ],
+  team:[
+    {k:"Renewal packet", f:p=>`Routing renewal packet for ${p.name}: last HIV neg, renal current, adherence ${p.mpr.toFixed(2)}. Please e-sign when you can.`},
+    {k:"Lab order", f:p=>`Requesting quarterly lab order for ${p.name} (HIV Ag/Ab + renal + STI). Refill is gated on the result.`},
+    {k:"Refill hold", f:p=>`Refill for ${p.name} on hold pending a current HIV result — will update once labs are in.`},
+  ]
+};
+
+let STATE = seedState();
+seedTasks();
+const SEED = structuredClone(STATE);
+
+function seedTasks(){
+  if(STATE.tasks && STATE.tasks.length) return;
+  STATE.tasks = STATE.patients.map(p=>({ id:"t-"+p.id, pid:p.id, type:p.type, title:p.headline, why:p.why,
+    sev:p.sev, supply:p.supply, lead:p.lead, leadsev:p.leadsev, status:"open", source:"lifecycle",
+    assignee:p.assignee || "Navigator" }));
+}
+// Create a field-outreach task for a patient who can't be reached remotely.
+function escalateToOutreach(pid, reason){
+  const p = P(pid); if(!p) return;
+  if(STATE.tasks.some(t=>t.pid===pid && t.type==="outreach" && t.status==="open")){ toast(`${p.name} already has an open field-outreach task`); return; }
+  STATE.tasks.unshift({ id:uid("t-outreach-"), pid, type:"outreach", title:"Field outreach — home visit to re-engage",
+    why: reason || ("Unreachable by SMS/email/call · supply ends "+p.supply+"d"), sev: p.supply<=7?"crit":"warn",
+    supply:p.supply, lead:"dispatch", leadsev:"crit", status:"open", source:"escalation", assignee:"Field Outreach" });
+  persist(); toast(`Escalated ${p.name} to field outreach`);
+  renderWorklist(); if($("#view-board").classList.contains("active")) renderBoard();
+}
+const P = id => STATE.patients.find(p=>p.id===id);
+const unreadIn = th => th.msgs.filter(m=>m.role!=="nav" && m.unread).length;
+const totalUnread = () => STATE.patients.reduce((a,p)=>a+p.threads.reduce((b,t)=>b+unreadIn(t),0),0);
+const markRead = th => th.msgs.forEach(m=>{ if(m.role!=="nav") m.unread=false; });
+
+// ---------- persistence ----------
+const LS_KEY = "continuity.v4";
+function persist(){ try { localStorage.setItem(LS_KEY, JSON.stringify(STATE)); } catch(e){} }
+function hydrate(){ try { const s = localStorage.getItem(LS_KEY); if(s){ const d = JSON.parse(s); if(d && d.patients){ STATE = d; if(!STATE.tasks) STATE.tasks=[]; return true; } } } catch(e){} return false; }
+
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),2600); }
+
+// ---------- worklist + tasks ----------
+let filterType = "all";
+let assigneeFilter = "all";   // all | Navigator | Field Outreach | Financial
+const teamOf = t => t.assignee || "Navigator";
+function byAssignee(t){ return assigneeFilter==="all" || teamOf(t)===assigneeFilter; }
+function openTasks(){ return STATE.tasks.filter(t=>t.status==="open"); }
+function renderFilters(){
+  const open = openTasks();
+  const q = a => open.filter(t=>teamOf(t)===a).length;
+  const aCounts = { all:open.length, "Navigator":q("Navigator"), "Field Outreach":q("Field Outreach"), "Financial":q("Financial") };
+  const aChips = [ ["all","All queues"], ["Navigator","My queue"], ["Field Outreach","Field outreach"], ["Financial","Financial aid"] ]
+    .map(([v,l])=>`<button class="chip" data-asgn="${v}" aria-pressed="${assigneeFilter===v}">${l} ${aCounts[v]||0}</button>`).join("");
+  const inQ = open.filter(byAssignee); const counts = {}; inQ.forEach(t=>counts[t.type]=(counts[t.type]||0)+1);
+  const order = ["lab","enc","refill","renew","pa","finasst","outreach","note"];
+  const tChips = [`<button class="chip" data-ft="all" aria-pressed="${filterType==='all'}">All ${inQ.length}</button>`]
+    .concat(order.filter(ty=>counts[ty]).map(ty=>`<button class="chip" data-ft="${ty}" aria-pressed="${filterType===ty}">${TYPE_LABEL[ty][0]+TYPE_LABEL[ty].slice(1).toLowerCase()} ${counts[ty]}</button>`));
+  $("#filters").innerHTML = aChips + `<span style="width:1px;background:var(--line-2);margin:2px 4px"></span>` + tChips.join("");
+  $("#filters").querySelectorAll("[data-asgn]").forEach(c=>c.addEventListener("click",()=>{ assigneeFilter=c.dataset.asgn; filterType="all"; renderWorklist(); }));
+  $("#filters").querySelectorAll("[data-ft]").forEach(c=>c.addEventListener("click",()=>{ filterType=c.dataset.ft; renderWorklist(); }));
+}
+function taskCard(t){
+  const p = P(t.pid); const leadCls = t.leadsev==="crit" ? "t-out" : "";
+  const wrap = document.createElement("div"); wrap.className="task";
+  wrap.innerHTML = `<div class="stripe sev-${t.sev}"></div>
+    <div class="body" tabindex="0" role="button" aria-label="Open ${esc(p.name)}">
+      <div class="row1"><span class="pt">${esc(p.name)}</span>
+        <span class="tag ${TYPE_TAG[t.type]}">${TYPE_LABEL[t.type]}</span>
+        ${t.assignee==="Field Outreach"?'<span class="asgn">◎ FIELD OUTREACH</span>':''}
+        ${t.assignee==="Financial"?'<span class="asgn fin">◈ FINANCIAL TEAM</span>':''}
+        <span class="meta">${esc(p.mrn)} · MPR ${p.mpr.toFixed(2)}</span></div>
+      <div class="action">${esc(t.title)}</div><div class="why">▸ ${esc(t.why)}</div></div>
+    <div class="side"><div class="runway st-${t.sev}">${t.supply}d<br><small>supply left</small></div>
+      <span class="leadwarn ${leadCls}" style="${leadCls?'':'color:var(--ink-3)'}">${esc(t.lead)}</span>
+      <div class="taskbtns"><button class="btn xs neutral" data-act="snooze">Snooze</button><button class="btn xs" data-act="done">Done</button></div></div>`;
+  const open = ()=>{ selectPatient(p.id); switchView("patient"); };
+  const body = wrap.querySelector(".body");
+  body.addEventListener("click", open);
+  body.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(); }});
+  wrap.querySelector('[data-act="done"]').addEventListener("click",()=>{ t.status="done"; persist(); renderWorklist(); toast(`Cleared: ${p.name} — ${TYPE_LABEL[t.type].toLowerCase()}`); });
+  wrap.querySelector('[data-act="snooze"]').addEventListener("click",()=>{ t.status="snoozed"; persist(); renderWorklist(); toast(`Snoozed ${p.name} · will resurface tomorrow`); });
+  return wrap;
+}
+function renderWorklist(){
+  renderFilters();
+  const lanes = $("#lanes"); lanes.innerHTML = "";
+  let open = openTasks().filter(byAssignee); if(filterType!=="all") open = open.filter(t=>t.type===filterType);
+  [ { dot:"sev-crit", title:"Gap imminent — act today", sev:"crit" },
+    { dot:"sev-warn", title:"Get ahead — this week", sev:"warn" } ].forEach(g=>{
+    const items = open.filter(t=>t.sev===g.sev).sort((a,b)=>a.supply-b.supply);
+    const lane = document.createElement("div"); lane.className="lane";
+    lane.innerHTML = `<div class="lanehd"><span class="dot ${g.dot}"></span>${g.title}<span class="ct">· ${items.length}</span></div>`;
+    if(items.length) items.forEach(t=>lane.appendChild(taskCard(t)));
+    else lane.appendChild(Object.assign(document.createElement("div"),{className:"laneempty",textContent:"✓ Nothing here — all clear."}));
+    lanes.appendChild(lane);
+  });
+  const snoozed = STATE.tasks.filter(t=>t.status==="snoozed");
+  const sb = $("#snoozedBar");
+  if(snoozed.length){
+    sb.innerHTML = `<button class="btn xs neutral" id="showSnoozed">🕘 ${snoozed.length} snoozed</button><div id="snoozedList" hidden style="margin-top:10px"></div>`;
+    const list = sb.querySelector("#snoozedList");
+    list.innerHTML = snoozed.map(t=>`<div class="task" style="opacity:.7"><div class="stripe sev-${t.sev}"></div>
+      <div class="body"><div class="row1"><span class="pt">${esc(P(t.pid).name)}</span><span class="tag ${TYPE_TAG[t.type]}">${TYPE_LABEL[t.type]}</span></div>
+      <div class="action">${esc(t.title)}</div></div>
+      <div class="side"><button class="btn xs neutral" data-restore="${t.id}">Restore</button></div></div>`).join("");
+    sb.querySelector("#showSnoozed").addEventListener("click",()=>{ list.hidden = !list.hidden; });
+    list.querySelectorAll("[data-restore]").forEach(b=>b.addEventListener("click",()=>{ const t=STATE.tasks.find(x=>x.id===b.dataset.restore); t.status="open"; persist(); renderWorklist(); }));
+  } else sb.innerHTML = "";
+  updateKPIs();
+}
+function updateKPIs(){
+  const open = openTasks();
+  $("#kpiUrgent").textContent = open.filter(t=>t.sev==="crit").length;
+  $("#kpiOpen").textContent = open.length;
+  $("#kpiCleared").textContent = STATE.tasks.filter(t=>t.status==="done").length;
+  const wb = $("#worklistBadge"); wb.textContent = open.length; wb.style.display = open.length ? "" : "none";
+}
+
+// ---------- messages ----------
+function mentionize(s){ return s.replace(/@[A-Za-z][A-Za-z0-9]*/g, m=>`<span class="mention">${m}</span>`); }
+function msgHTML(m){
+  const side = m.role==="nav" ? "out" : "in";
+  const who = m.role==="nav" ? "You" : `${esc(m.from)} · ${ROLE_LABEL[m.role]}`;
+  const to = m.to ? `<span class="toChip">→ ${esc(m.to)}</span>` : "";
+  const chan = m.chan ? `<span class="toChip">${esc(m.chan)}</span>` : "";
+  return `<div class="msg ${side}"><div class="who"><i class="r-${m.role}"></i>${who}${to}${chan}</div>${mentionize(esc(m.t))}<div class="mtime">${esc(m.time)}</div></div>`;
+}
+function teamRecipients(p){ return [ {label:"Care team", mention:""},
+  {label:p.provider, mention:"@"+p.provider.replace(/^Dr\.?\s*/,"").split(" ")[0]},
+  {label:p.pharmacy, mention:"@Pharmacy"} ]; }
+
+// ---------- patient 360 ----------
+let currentPatient = "marcus";
+let currentChannel = {};
+function selectPatient(id){ currentPatient=id; if(!currentChannel[id]) currentChannel[id]="sms";
+  const p=P(id); renderP360(p); renderTeam(p); renderMsgCard(p); renderNotesCard(p); renderRoster(); }
+// The continuous-supply phase that follows the onboarding milestone band (real cadence, no invented dates).
+function lifecycleRows(p){
+  const ff = p.firstFillDone;
+  return [
+    { phase:"Continuous supply", label:"Therapy — 90-day mail-order refills", detail: ff ? (p.supply>0 ? `${p.supply} days of supply on hand` : "coverage gap — re-engagement in progress") : "begins once the first fill ships", when:"", state: ff ? (p.supply>0?"now":"todo") : "todo" },
+    { phase:"Continuous supply", label:"Quarterly HIV + renal labs", detail:"a current result gates each ≤90-day refill", when:"every ~90d", state: ff ? "loop" : "todo" },
+    { phase:"Continuous supply", label:"6-month expanded labs", detail:"+ syphilis, kidney if indicated", when:"~6 mo", state:"todo" },
+    { phase:"Continuous supply", label:"Annual review + PA renewal", detail:"full panel · new Rx → PA → refill", when:"~12 mo", state:"todo" },
+  ];
+}
+// Complete or snooze a patient's task straight from the profile; refresh everything that shows it.
+function completeTaskFromProfile(tid, action){
+  const t = STATE.tasks.find(x=>x.id===tid); if(!t) return;
+  t.status = action; persist();
+  const p = P(t.pid);
+  selectPatient(t.pid);
+  if($("#view-worklist").classList.contains("active")) renderWorklist();
+  if($("#view-board").classList.contains("active")) renderBoard();
+  if($("#view-outreach").classList.contains("active")) renderOutreach();
+  if($("#view-finance").classList.contains("active")) renderFinance();
+  updateOutreachBadge(); updateFinanceBadge(); updateKPIs();
+  toast(action==="done" ? `Cleared: ${p.name} — ${TYPE_LABEL[t.type].toLowerCase()}` : `Snoozed ${p.name} · will resurface tomorrow`);
+}
+function renderP360(p){
+  const main = $("#p360main"); main.innerHTML = "";
+  const markers = p.track.map(m=>`<div class="mk" style="left:${m.pos}%"><div class="pin sev-${m.sev}"></div><div class="dd st-${m.sev}">${m.dd}</div><div class="lb">${m.label}</div></div>`).join("");
+  const clock = document.createElement("div"); clock.className="card";
+  clock.innerHTML = `<div class="bd"><div class="phead"><div class="pav">${initials(p.name)}</div>
+      <div style="flex:1"><h2>${esc(p.name)}</h2><div class="sub">${esc(p.mrn)} · age ${p.age} · ${esc(p.rx.drug)}</div></div>
+      <span class="tag ${TYPE_TAG[p.type]}">${TYPE_LABEL[p.type]}</span></div>
+    <div class="clockrow"><div><div class="hint">CONTINUITY CLOCK · days of supply</div><div class="big st-${p.sev}">${p.supply}<small> days left</small></div></div>
+      <div style="text-align:right"><div class="hint">CURRENT MPR</div><div class="big">${p.mpr.toFixed(2)}</div></div></div>
+    <div class="track"><div class="rail2"></div><div class="fill" style="width:${p.fill}%"></div><div class="gapzone" style="left:${p.gapAt}%;right:0"></div><div class="now" style="left:${p.fill}%"></div>${markers}</div>
+    <div class="legend"><span><i style="background:var(--accent)"></i>supply runway</span><span><i style="background:var(--crit);opacity:.5"></i>gap zone</span><span>● pins = blocking steps</span></div></div>`;
+  main.appendChild(clock);
+  const life = document.createElement("div"); life.className="card";
+  const rows = lifecycleRows(p); let lastPhase="";
+  const rowsHTML = rows.map(r=>{ const ph = r.phase!==lastPhase ? `<div class="lifephase">${esc(r.phase)}</div>` : ""; lastPhase=r.phase;
+    return ph+`<div class="liferow ${r.state}"><div class="lifedot ${r.state}"></div>
+      <div><div class="lt">${esc(r.label)}</div>${r.detail?`<div class="ld">${esc(r.detail)}</div>`:""}</div>
+      <div class="lw">${r.when?esc(r.when):(r.state==="done"?"✓":r.state==="loop"?"↻":"")}</div></div>`; }).join("");
+  life.innerHTML = `<div class="hd"><h3>Patient lifecycle</h3><span class="hint" style="margin-left:auto">enrollment → continuous supply</span></div>
+    <div class="bd"><div class="lifephase" style="margin-top:0">Onboarding journey</div>${journeyTrack(p.journeyStep)}
+      <div class="life">${rowsHTML}</div></div>`;
+  main.appendChild(life);
+  const openT = STATE.tasks.filter(t=>t.pid===p.id && t.status==="open");
+  const taskBar = openT.length
+    ? `<div class="taskbar">${openT.map(t=>`<div class="taskbar-row ${t.sev==='crit'?'crit':''}">
+        <span class="tag ${TYPE_TAG[t.type]}">${TYPE_LABEL[t.type]}</span>
+        <span class="tb-title">${esc(t.title)}</span>
+        <span class="tb-team">${esc(teamOf(t))}</span>
+        <span class="tb-btns"><button class="btn xs" data-tdone="${t.id}">Mark done</button><button class="btn xs neutral" data-tsnooze="${t.id}">Snooze</button></span>
+      </div>`).join("")}</div>`
+    : `<div class="tb-clear">✓ No open task — this patient is on track.</div>`;
+  const cp = document.createElement("div"); cp.className="card";
+  cp.innerHTML = `<div class="hd"><h3>Critical path to next refill</h3><span class="hint" style="margin-left:auto">act on behalf of patient →</span></div>
+    <div class="bd">${taskBar}<div class="cp">${p.steps.map((s,i)=>`<div class="step ${s.s}"><div class="num">${s.s==="done"?"✓":i+1}</div>
+      <div><div class="t">${s.t}</div><div class="d">${s.d}</div></div><div class="when"><b>${s.when.split("\n")[0]}</b>${s.when.includes("\n")?s.when.split("\n")[1]:""}</div></div>`).join("")}</div>
+    <div class="actions" style="margin-top:16px"><button class="btn">Order labs</button><button class="btn ghost">Approve refill</button><button class="btn ghost">Route renewal</button><button class="btn ghost">Schedule encounter</button><button class="btn ghost" data-esc title="Create a field-outreach task if the patient can't be reached">Can't reach → field outreach</button></div></div>`;
+  main.appendChild(cp);
+  cp.querySelectorAll("[data-tdone]").forEach(b=>b.addEventListener("click",()=>completeTaskFromProfile(b.dataset.tdone,"done")));
+  cp.querySelectorAll("[data-tsnooze]").forEach(b=>b.addEventListener("click",()=>completeTaskFromProfile(b.dataset.tsnooze,"snoozed")));
+  const clin = document.createElement("div"); clin.className="card";
+  clin.innerHTML = `<div class="hd"><h3>Clinical requirements</h3></div><div class="bd">
+    <div class="lgrid">${p.labs.map(l=>`<div class="lcell"><div class="k">${l.k}</div><div class="v st-${l.sev}">${l.v}</div><div class="s st-${l.sev}">${l.s}</div></div>`).join("")}</div>
+    <div class="lgrid" style="grid-template-columns:1fr 1fr;margin-top:12px">
+      <div class="lcell"><div class="k">Prescription</div><div class="v" style="font-size:12px">${p.rx.refills}</div><div class="s">${p.rx.exp}</div></div>
+      <div class="lcell"><div class="k">Pharmacy</div><div class="v" style="font-size:12px">${esc(p.pharmacy)}</div><div class="s">${esc(p.rx.drug)}</div></div></div></div>`;
+  main.appendChild(clin);
+  const act = document.createElement("div"); act.className="card";
+  act.innerHTML = `<div class="hd"><h3>Activity &amp; interactions</h3></div><div class="bd"><div class="feed">${p.feed.map(f=>`<div class="fitem"><div class="fdot sev-${f.sev}"></div><div><div class="ft">${f.t}</div><div class="fm">${f.m}</div></div></div>`).join("")}</div></div>`;
+  main.appendChild(act);
+  const escBtn = main.querySelector("[data-esc]");
+  if(escBtn) escBtn.addEventListener("click", ()=>escalateToOutreach(p.id, `Unreachable — escalated from ${p.name}'s profile · supply ends ${p.supply}d`));
+}
+function renderTeam(p){
+  $("#team").innerHTML = `<div class="roster">
+    <div class="rosteritem"><div class="rav">${initials(p.provider)}</div><div><div class="rn">${esc(p.provider)}</div><div class="rs">Prescriber</div></div><button class="btn sm ghost" data-open-team>Message</button></div>
+    <div class="rosteritem"><div class="rav">RX</div><div><div class="rn">${esc(p.pharmacy)}</div><div class="rs">Pharmacy</div></div><button class="btn sm ghost" data-open-team>Message</button></div>
+    <div class="rosteritem"><div class="rav">${initials(p.name)}</div><div><div class="rn">${esc(p.name)}</div><div class="rs">Patient · SMS + portal</div></div><button class="btn sm ghost" data-open-sms>Message</button></div></div>`;
+  $("#team").querySelectorAll("[data-open-team]").forEach(b=>b.addEventListener("click",()=>{ currentChannel[p.id]="team"; renderMsgCard(P(p.id)); }));
+  $("#team").querySelectorAll("[data-open-sms]").forEach(b=>b.addEventListener("click",()=>{ currentChannel[p.id]="sms"; renderMsgCard(P(p.id)); }));
+}
+function renderMsgCard(p){
+  const tid = currentChannel[p.id] || "sms";
+  const th = p.threads.find(t=>t.id===tid); markRead(th);
+  const tabs = p.threads.map(t=>{ const u=unreadIn(t); return `<button class="tab" data-tid="${t.id}" aria-selected="${t.id===tid}">${t.label}${u?`<span class="u">${u}</span>`:""}</button>`; }).join("");
+  const tmpls = TEMPLATES[th.kind].map((t,i)=>`<button class="tmpl" data-ti="${i}">${t.k}</button>`).join("");
+  let routebar = "";
+  if(th.kind==="team"){
+    const recips = teamRecipients(p);
+    routebar = `<div class="routebar">To: <select id="routeto">${recips.map((r,i)=>`<option value="${i}">${esc(r.label)}</option>`).join("")}</select><span>@mention inserts automatically</span></div>`;
+  } else {
+    routebar = `<div class="routebar">Via: <select id="pchan"><option ${patientChan==='SMS'?'selected':''}>SMS</option><option ${patientChan==='Email'?'selected':''}>Email</option></select><span>text or email the patient</span></div>`;
+  }
+  const chanNote = th.kind==="team"
+    ? `<div class="chanhint" style="justify-content:space-between"><span><i class="tag t-enc" style="padding:1px 6px">INTERNAL</i> Care-team thread — ${esc(th.with)}. Not visible to the patient.</span><button type="button" class="btn xs neutral" data-esc-team>Flag unreachable → field outreach</button></div>`
+    : `<div class="chanhint">Reach ${esc(p.name)} by SMS or email · consented. Log calls &amp; in-person visits in Notes below.</div>`;
+  $("#msgcard").innerHTML = `<div class="hd"><h3>Messages</h3><span class="hint" style="margin-left:auto">${p.threads.length} channels</span></div>
+    <div class="bd"><div class="tabs" role="tablist">${tabs}</div>
+      <div class="thread" id="thread">${th.msgs.map(msgHTML).join("")}</div>
+      <div style="margin-top:12px">${routebar}<div class="templates">${tmpls}</div>
+      <form class="composer" id="composer"><input type="text" autocomplete="off" placeholder="${th.kind==='team'?'Message care team…':'Message patient…'}" aria-label="Message"/><button class="btn sm" type="submit">Send</button></form>
+      ${chanNote}</div></div>`;
+  $("#msgcard").querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{ currentChannel[p.id]=b.dataset.tid; renderMsgCard(P(p.id)); }));
+  const inp = $("#composer input");
+  $("#msgcard").querySelectorAll(".tmpl").forEach(b=>b.addEventListener("click",()=>{ inp.value = TEMPLATES[th.kind][+b.dataset.ti].f(p); inp.focus(); }));
+  const th2 = $("#thread"); th2.scrollTop = th2.scrollHeight;
+  if(th.kind==="team"){ const sel=$("#routeto"); sel.addEventListener("change",()=>{ const r=teamRecipients(p)[+sel.value];
+    if(r.mention){ const rest=inp.value.replace(/^@\w+\s*/,""); inp.value=r.mention+" "+rest; } inp.focus(); }); }
+  if(th.kind==="patient"){ const s=$("#pchan"); s.addEventListener("change",()=>{ patientChan=s.value; }); }
+  const et=$("#msgcard [data-esc-team]"); if(et) et.addEventListener("click",()=>escalateToOutreach(p.id, `Pharmacy/care-team flagged ${p.name} unreachable · supply ends ${p.supply}d`));
+  $("#composer").addEventListener("submit",e=>{
+    e.preventDefault(); const v=inp.value.trim(); if(!v) return;
+    const msg={role:"nav", from:"Rae Navarro", t:v, time:"just now"};
+    if(th.kind==="team"){ const r=teamRecipients(p)[+($("#routeto").value||0)]; if(r && r.label!=="Care team") msg.to=r.label; }
+    else { msg.chan=($("#pchan")||{value:patientChan}).value; }
+    th.msgs.push(msg); inp.value=""; persist(); renderMsgCard(P(p.id)); updateBadges();
+  });
+}
+let noteType = "Call";
+let patientChan = "SMS";
+function renderNotesCard(p){
+  const wantTask = noteType==="Need";
+  $("#notescard").innerHTML = `<div class="hd"><h3>Notes &amp; call log</h3><span class="hint" style="margin-left:auto">${p.notes.length}</span></div>
+    <div class="bd"><div class="notes" id="noteslist">${p.notes.map(n=>`<div class="note"><div class="nh"><span class="ntype ${n.type}">${n.type}</span><span class="nm">${esc(n.author)} · ${esc(n.time)}</span></div><div class="nt">${esc(n.t)}</div></div>`).join("")}</div>
+      <form class="noteform" id="noteform">
+        <div class="seg" role="group" aria-label="Note type">
+          <button type="button" data-nt="Call" aria-pressed="${noteType==='Call'}">Call</button>
+          <button type="button" data-nt="Visit" aria-pressed="${noteType==='Visit'}">Visit</button>
+          <button type="button" data-nt="Need" aria-pressed="${noteType==='Need'}">Need</button>
+          <button type="button" data-nt="Note" aria-pressed="${noteType==='Note'}">Note</button></div>
+        <textarea placeholder="Log a call, an in-person visit, a patient need, or a note for the care team…" aria-label="New note"></textarea>
+        <div class="r"><label><input type="checkbox" id="mkTask" ${wantTask?"checked":""}> Add to worklist</label>
+          <button class="btn sm grow" type="submit">Add note</button></div></form></div>`;
+  $("#noteform").querySelectorAll(".seg button").forEach(b=>b.addEventListener("click",()=>{ noteType=b.dataset.nt;
+    $("#noteform").querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed", x.dataset.nt===noteType));
+    $("#mkTask").checked = (noteType==="Need"); }));
+  $("#noteform").addEventListener("submit",e=>{
+    e.preventDefault(); const ta=e.target.querySelector("textarea"); const v=ta.value.trim(); if(!v) return;
+    p.notes.unshift({type:noteType, author:"Rae Navarro", t:v, time:"just now"});
+    let made=false, closed=false;
+    if($("#mkTask").checked){
+      STATE.tasks.unshift({ id:uid("t-note-"), pid:p.id, type:"note", title:"Follow-up: "+(v.length>60?v.slice(0,57)+"…":v),
+        why:"From "+noteType.toLowerCase()+" note · "+p.name, sev:"warn", supply:p.supply, lead:"from note", leadsev:"ok", status:"open", source:"note", assignee:"Navigator" });
+      made=true;
+    }
+    // Logging a Visit closes an open field-outreach task (field team's loop-closure).
+    if(noteType==="Visit"){ STATE.tasks.forEach(t=>{ if(t.pid===p.id && t.type==="outreach" && t.status==="open"){ t.status="done"; closed=true; } }); }
+    ta.value=""; persist(); renderNotesCard(P(p.id));
+    if(made) toast("Follow-up task added to worklist");
+    if(closed) toast(`Visit logged — field-outreach task for ${p.name} resolved`);
+    if(made||closed){ if($("#view-worklist").classList.contains("active")) renderWorklist(); if($("#view-board").classList.contains("active")) renderBoard(); updateKPIs(); }
+  });
+}
+function renderRoster(){
+  $("#roster").innerHTML = STATE.patients.map(p=>`<div class="rosteritem" data-id="${p.id}" aria-current="${p.id===currentPatient}">
+    <div class="rav">${initials(p.name)}</div><div><div class="rn">${esc(p.name)}</div><div class="rs">${p.supply}d supply · ${esc(p.mrn)}</div></div>
+    <span class="pin sev-${p.sev}" style="width:10px;height:10px;border-radius:50%"></span></div>`).join("");
+  $("#roster").querySelectorAll(".rosteritem").forEach(r=>r.addEventListener("click",()=>selectPatient(r.dataset.id)));
+}
+
+// ---------- inbox ----------
+let inboxFilter = "all"; let openThread = null;
+function inboxRows(){
+  const rows = [];
+  STATE.patients.forEach(p=>p.threads.forEach(t=>{
+    if(inboxFilter==="patient" && t.kind!=="patient") return;
+    if(inboxFilter==="team" && t.kind!=="team") return;
+    if(inboxFilter==="unread" && unreadIn(t)===0) return;
+    const last = t.msgs[t.msgs.length-1];
+    rows.push({ pid:p.id, tid:t.id, name:p.name, kind:t.kind, prev:(last.role==="nav"?"You: ":"")+last.t, time:last.time, unread:unreadIn(t) });
+  }));
+  return rows.sort((a,b)=>(b.unread>0)-(a.unread>0));
+}
+function renderInbox(){
+  const rows = inboxRows();
+  $("#ithreads").innerHTML = rows.map(r=>{ const cur = openThread && openThread.pid===r.pid && openThread.tid===r.tid;
+    return `<div class="ithread" data-pid="${r.pid}" data-tid="${r.tid}" aria-current="${!!cur}"><div class="iav">${initials(r.name)}</div>
+      <div style="min-width:0"><div class="itop"><span class="inm">${esc(r.name)}</span><span class="chtag ch-${r.kind}">${r.kind==="team"?"Team":"SMS"}</span>
+        <span class="itime">${esc(r.time)}</span>${r.unread?'<span class="udot" title="unread"></span>':""}</div><div class="iprev">${esc(r.prev)}</div></div></div>`;
+  }).join("") || `<div class="empty">No threads match this filter.</div>`;
+  $("#ithreads").querySelectorAll(".ithread").forEach(el=>el.addEventListener("click",()=>openInboxThread(el.dataset.pid, el.dataset.tid)));
+  renderConvo();
+}
+function openInboxThread(pid, tid){ openThread={pid,tid}; markRead(P(pid).threads.find(t=>t.id===tid)); persist(); renderInbox(); updateBadges(); }
+function renderConvo(){
+  const c = $("#convo");
+  if(!openThread){ c.innerHTML = `<div class="empty">Select a conversation to read and reply.<br><span class="hint">Patient SMS and internal care-team threads both live here.</span></div>`; return; }
+  const p = P(openThread.pid); const th = p.threads.find(t=>t.id===openThread.tid);
+  const badge = th.kind==="team" ? `<span class="chtag ch-team">Care team · internal</span>` : `<span class="chtag ch-patient">Patient · SMS</span>`;
+  let routebar=""; if(th.kind==="team"){ const recips=teamRecipients(p);
+    routebar = `<div class="routebar" style="margin-bottom:10px">To: <select id="iroute">${recips.map((r,i)=>`<option value="${i}">${esc(r.label)}</option>`).join("")}</select></div>`; }
+  const tmpls = TEMPLATES[th.kind].map((t,i)=>`<button class="tmpl" data-ti="${i}">${t.k}</button>`).join("");
+  c.innerHTML = `<div class="convohd"><div class="cav">${initials(p.name)}</div><div style="flex:1"><h3>${esc(p.name)}</h3><div class="csub">${esc(th.with)}</div></div>
+      ${badge}<button class="btn sm ghost" id="openProfile">Open profile →</button></div>
+    <div class="convobody" id="convobody">${th.msgs.map(msgHTML).join("")}</div>
+    <div class="convofoot">${routebar}<div class="templates">${tmpls}</div>
+      <form class="composer" id="iconvoform"><input type="text" autocomplete="off" placeholder="${th.kind==='team'?'Message care team…':'Message patient (SMS)…'}" aria-label="Message"/><button class="btn sm" type="submit">Send</button></form></div>`;
+  const body = $("#convobody"); body.scrollTop = body.scrollHeight;
+  const inp = $("#iconvoform input");
+  c.querySelectorAll(".tmpl").forEach(b=>b.addEventListener("click",()=>{ inp.value = TEMPLATES[th.kind][+b.dataset.ti].f(p); inp.focus(); }));
+  $("#openProfile").addEventListener("click",()=>{ currentChannel[p.id]=th.id; selectPatient(p.id); switchView("patient"); });
+  if(th.kind==="team"){ const sel=$("#iroute"); sel.addEventListener("change",()=>{ const r=teamRecipients(p)[+sel.value]; if(r.mention){ const rest=inp.value.replace(/^@\w+\s*/,""); inp.value=r.mention+" "+rest; } inp.focus(); }); }
+  $("#iconvoform").addEventListener("submit",e=>{
+    e.preventDefault(); const v=inp.value.trim(); if(!v) return; const msg={role:"nav", from:"Rae Navarro", t:v, time:"just now"};
+    if(th.kind==="team"){ const r=teamRecipients(p)[+($("#iroute").value||0)]; if(r && r.label!=="Care team") msg.to=r.label; }
+    th.msgs.push(msg); persist(); renderInbox(); updateBadges();
+  });
+}
+function updateBadges(){ const n=totalUnread(); const b=$("#inboxBadge"); b.textContent=n; b.style.display=n?"":"none"; b.className="badge"+(n?"":" soft"); }
+
+// ---------- panel ----------
+function spark(id, pts, color){
+  const w=180,h=34,max=Math.max(...pts),min=Math.min(...pts);
+  const nx=i=>i/(pts.length-1)*w, ny=v=>h-4-((v-min)/((max-min)||1))*(h-8);
+  const d=pts.map((v,i)=>`${i?"L":"M"}${nx(i).toFixed(1)} ${ny(v).toFixed(1)}`).join(" ");
+  const area=`M0 ${h} `+pts.map((v,i)=>`L${nx(i).toFixed(1)} ${ny(v).toFixed(1)}`).join(" ")+` L${w} ${h} Z`;
+  $("#"+id).innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none"><path d="${area}" fill="${color}" opacity="0.12"/><path d="${d}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round"/><circle cx="${nx(pts.length-1).toFixed(1)}" cy="${ny(pts[pts.length-1]).toFixed(1)}" r="2.6" fill="${color}"/></svg>`;
+}
+function renderPanel(){
+  const cs=getComputedStyle(document.documentElement); const A=cs.getPropertyValue("--accent").trim(), G=cs.getPropertyValue("--good").trim(), W=cs.getPropertyValue("--warn").trim();
+  spark("sp1",[93.1,93.8,94.2,94.0,95.1,95.6,96.2],G); spark("sp2",[0.95,0.96,0.96,0.97,0.97,0.98,0.98],A);
+  spark("sp3",[82,84,83,86,85,87,88],W); spark("sp4",[9,8,7,6,6,5,4],G);
+  $("#funnel").innerHTML = [ {l:"Screened / eligible",v:100,n:"142"}, {l:"Baseline labs done",v:96,n:"136"},
+    {l:"First fill dispensed",v:92,n:"131"}, {l:"Refills continuous",v:88,n:"125"}, {l:"Renewal on time",v:83,n:"118"} ]
+    .map(f=>`<div class="frow"><div class="fl">${f.l}</div><div class="bar" style="width:${f.v}%">${f.v}%</div><div class="fv">${f.n}</div></div>`).join("");
+}
+
+// ---------- continuity board ----------
+const OUT_BASE = Date.UTC(2026, 6, 27);   // "today" in the demo
+function outDate(days){ const d = new Date(OUT_BASE + days*86400000); return d.toLocaleDateString("en-US",{ day:"2-digit", month:"short", timeZone:"UTC" }); }
+function renderBoard(){
+  const rows = STATE.patients.slice().sort((a,b)=> (a.actWithin??a.supply) - (b.actWithin??b.supply));
+  $("#boardBody").innerHTML = rows.map(p=>{
+    const aw = (p.actWithin!=null) ? p.actWithin : Math.max(0, p.supply-2);
+    const awSev = aw<=1 ? "crit" : aw<=7 ? "warn" : "ok";
+    const supSev = p.supply<=7 ? "crit" : p.supply<=20 ? "warn" : "ok";
+    const pct = Math.max(6, Math.min(100, Math.round(p.supply/45*100)));
+    return `<tr tabindex="0" role="button" data-id="${p.id}" aria-label="Open ${esc(p.name)}">
+      <td><div class="bpt">${esc(p.name)}</div><div class="bmrn">${esc(p.mrn)} · MPR ${p.mpr.toFixed(2)}</div></td>
+      <td class="num"><div class="supplybar"><span class="bignum st-${supSev}">${p.supply}<small>d</small></span><span class="bar"><i class="sev-${supSev}" style="width:${pct}%"></i></span></div></td>
+      <td><span class="runsout st-${supSev}">${outDate(p.supply)}</span></td>
+      <td><span class="tag ${TYPE_TAG[p.type]}">${TYPE_LABEL[p.type]}</span> ${esc(p.action || p.headline)}</td>
+      <td class="num"><span class="actwithin st-${awSev}">${aw===0 ? "today" : aw+"d"}</span></td>
+      <td><span class="bstatus ${awSev}">${awSev==="crit" ? "Act now" : awSev==="warn" ? "This week" : "On track"}</span></td>
+    </tr>`;
+  }).join("");
+  $("#boardBody").querySelectorAll("tr").forEach(tr=>{
+    const open = ()=>{ selectPatient(tr.dataset.id); switchView("patient"); };
+    tr.addEventListener("click", open);
+    tr.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(); } });
+  });
+}
+
+// ---------- views + data controls ----------
+// ---------- outreach team view ----------
+function outreachRoster(){ return STATE.patients.filter(p => p.outreach || STATE.tasks.some(t=>t.pid===p.id && t.type==="outreach" && t.status==="open")); }
+function coverageLabel(p){
+  if(p.supply<=0) return { t:"Coverage gap · 0d", sev:"crit" };
+  if(p.supply<=7) return { t:`${p.supply}d left · at risk`, sev:"warn" };
+  return { t:`${p.supply}d supply`, sev:"ok" };
+}
+function updateOutreachBadge(){ const n=STATE.tasks.filter(t=>t.type==="outreach" && t.status==="open").length; const b=$("#outreachBadge"); b.textContent=n; b.style.display=n?"":"none"; b.className="badge"+(n?"":" soft"); }
+function journeyTrack(j){
+  return `<div class="jtrack">${MILESTONES.map((m,i)=>`<div class="jstep ${i<j?'done':i===j?'active':'todo'}"><span class="jdot">${i<j?'✓':''}</span><span class="jlbl">${m}</span></div>`).join("")}</div>`;
+}
+function outreachCard(p, mode){
+  const o = p.outreach || { status:"Assigned", lastContact:"—", attempts:0, enrolledBy:"—" };
+  const cov = coverageLabel(p);
+  const openTask = STATE.tasks.find(t=>t.pid===p.id && t.type==="outreach" && t.status==="open");
+  const sc = String(o.status||"Assigned").replace(/[^A-Za-z]/g,"");
+  const stall = /confirm|nudge|collect|appeal|denied/i.test(p.action||"") || (p.leadsev==="crit");
+  let body = "";
+  if(mode==="journey"){
+    body = `${journeyTrack(p.journeyStep)}
+      <div class="orow"><span class="k">Now at</span><span class="v st-${stall?'warn':'ok'}">${esc(MILESTONES[p.journeyStep])} → ${esc(p.action)}${stall?' ⚠️':''}</span></div>
+      <div class="orow"><span class="k">On it</span><span class="v" style="font-weight:500">Navigator (Rae) · ${esc(p.provider)} · Mail-order Rx</span></div>`;
+  } else if(mode==="visit"){
+    body = `<div class="orow"><span class="k">Coverage</span><span class="v st-${cov.sev}">${cov.t}</span></div>
+      <div class="orow"><span class="k">Last contact</span><span class="v">${esc(o.lastContact)} · ${o.attempts||0} attempts</span></div>
+      ${openTask?`<div class="oreason">▸ ${esc(openTask.why)}</div>`:""}`;
+  } else {
+    body = `<div class="orow"><span class="k">Status</span><span class="v st-ok">✓ First fill reached · on PrEP</span></div>
+      <div class="orow"><span class="k">Coverage</span><span class="v st-${cov.sev}">${cov.t}</span></div>`;
+  }
+  const actions = mode==="visit"
+    ? `<button class="btn xs" data-visit="${p.id}">Log visit</button><button class="btn xs neutral" data-attempt="${p.id}">Log attempt</button><button class="btn xs neutral" data-coord="${p.id}">Coordinate ↗</button>`
+    : `<button class="btn xs" data-coord="${p.id}">Coordinate ↗</button><button class="btn xs neutral" data-open="${p.id}">Open profile</button>`;
+  return `<div class="ocard">
+    <div class="otop"><div class="oav">${initials(p.name)}</div>
+      <div style="flex:1"><div class="onm">${esc(p.name)}</div><div class="omrn">${esc(p.mrn)} · enrolled by ${esc(o.enrolledBy)}</div></div>
+      <span class="ostatus ${sc}">${esc(o.status)}</span></div>
+    ${body}
+    <div class="oact">${actions}</div></div>`;
+}
+function renderOutreach(){
+  const roster = outreachRoster();
+  const needs = roster.filter(p => STATE.tasks.some(t=>t.pid===p.id && t.type==="outreach" && t.status==="open"));
+  const journey = roster.filter(p => !needs.includes(p) && !p.firstFillDone);
+  const est = roster.filter(p => !needs.includes(p) && p.firstFillDone);
+  $("#outreachKpis").innerHTML = [
+    ["My enrollees", roster.length, ""], ["Getting to 1st fill", journey.length, journey.length?"warn":""],
+    ["Needs a visit", needs.length, needs.length?"crit":""], ["On PrEP", est.length, "ok"],
+  ].map(([l,n,c])=>`<div class="okpi"><div class="n ${c?"st-"+c:""}">${n}</div><div class="l">${l}</div></div>`).join("");
+  $("#outreachGroups").innerHTML = [
+    { title:"Needs a home visit", dot:"sev-crit", items:needs, mode:"visit" },
+    { title:"Getting to first fill", dot:"sev-warn", items:journey, mode:"journey" },
+    { title:"On PrEP — established", dot:"sev-ok", items:est, mode:"est" },
+  ].map(g=> g.items.length ? `<div class="ogroup"><div class="ogrouphd"><span class="dot ${g.dot}"></span>${g.title} <span style="color:var(--ink-3)">· ${g.items.length}</span></div><div class="ocards">${g.items.map(p=>outreachCard(p,g.mode)).join("")}</div></div>` : "").join("")
+    || `<div class="laneempty">No patients assigned to outreach right now.</div>`;
+  $("#outreachGroups").querySelectorAll("[data-open]").forEach(el=>el.addEventListener("click",()=>{ selectPatient(el.dataset.open); switchView("patient"); }));
+  $("#outreachGroups").querySelectorAll("[data-visit]").forEach(el=>el.addEventListener("click",()=>logOutreach(el.dataset.visit,"Visit")));
+  $("#outreachGroups").querySelectorAll("[data-attempt]").forEach(el=>el.addEventListener("click",()=>logOutreach(el.dataset.attempt,"Call")));
+  $("#outreachGroups").querySelectorAll("[data-coord]").forEach(el=>el.addEventListener("click",()=>{ currentChannel[el.dataset.coord]="team"; selectPatient(el.dataset.coord); switchView("patient"); }));
+}
+function logOutreach(pid, kind){
+  const p = P(pid); if(!p) return;
+  if(!p.outreach) p.outreach = { status:"Assigned", attempts:0, enrolledBy:"Sam Rivera" };
+  if(kind==="Visit"){
+    p.notes.unshift({ type:"Visit", author:"Sam Rivera (outreach)", t:"Home visit — reached patient, re-engaged.", time:"just now" });
+    STATE.tasks.forEach(t=>{ if(t.pid===pid && t.type==="outreach" && t.status==="open") t.status="done"; });
+    p.outreach.status="Re-engaged"; p.outreach.lastContact="just now";
+    toast(`Visit logged for ${p.name} — outreach task resolved`);
+  } else {
+    p.notes.unshift({ type:"Call", author:"Sam Rivera (outreach)", t:"Outreach attempt — no contact.", time:"just now" });
+    p.outreach.attempts=(p.outreach.attempts||0)+1; p.outreach.status="Attempting"; p.outreach.lastContact="just now";
+    toast(`Attempt logged for ${p.name}`);
+  }
+  persist(); renderOutreach(); updateOutreachBadge();
+  if($("#view-worklist").classList.contains("active")) renderWorklist();
+  if($("#view-board").classList.contains("active")) renderBoard();
+}
+
+// ---------- financial assistance team view ----------
+const HORIZON = { short:{lbl:"Short-term · $0 now",cls:"h-short"}, premium:{lbl:"Premium assistance",cls:"h-premium"}, long:{lbl:"Long-term · buy insurance",cls:"h-long"} };
+function financeRoster(){ return STATE.patients.filter(p => p.assignee==="Financial" || p.type==="finasst" || STATE.tasks.some(t=>t.pid===p.id && t.type==="finasst" && t.status==="open")); }
+function updateFinanceBadge(){ const n=STATE.tasks.filter(t=>t.type==="finasst" && t.status==="open").length; const b=$("#financeBadge"); if(!b) return; b.textContent=n; b.style.display=n?"":"none"; b.className="badge"+(n?"":" soft"); }
+const FIN_CYCLE_SHORT = ["Event-based","Advancing Access","Open enroll","Enroll","Damien Rx"];
+function financeCycleTrack(active){
+  return `<div class="jtrack ftrack" title="Uninsured → insured enrollment cycle">${FIN_CYCLE_SHORT.map((m,i)=>`<div class="jstep ${i<active?'done':i===active?'active':'todo'}"><span class="jdot">${i<active?'✓':''}</span><span class="jlbl">${m}</span></div>`).join("")}</div>`;
+}
+function financeCard(p){
+  const f = p.fin || { horizon:"short", prog:"Assistance", cov:"—" };
+  const h = HORIZON[f.horizon] || HORIZON.short;
+  const cov = coverageLabel(p);
+  const openTask = STATE.tasks.find(t=>t.pid===p.id && t.type==="finasst" && t.status==="open");
+  const enroller = p.outreach ? ` · enrolled by ${esc(p.outreach.enrolledBy)}` : "";
+  return `<div class="ocard">
+    <div class="otop"><div class="oav">${initials(p.name)}</div>
+      <div style="flex:1"><div class="onm">${esc(p.name)}</div><div class="omrn">${esc(p.mrn)} · ${esc(p.provider)}${enroller}</div></div>
+      <span class="hbadge ${h.cls}">${h.lbl}</span></div>
+    ${p.cyc!=null?financeCycleTrack(p.cyc):""}
+    <div class="orow"><span class="k">Coverage</span><span class="v">${esc(f.cov)}</span></div>
+    <div class="orow"><span class="k">Program</span><span class="v" style="font-weight:500">${esc(f.prog)}</span></div>
+    <div class="orow"><span class="k">Supply</span><span class="v st-${cov.sev}">${cov.t}</span></div>
+    ${openTask?`<div class="oreason">▸ ${esc(openTask.why)}</div>`:""}
+    <div class="oact"><button class="btn xs" data-fin="${p.id}">Log enrollment</button><button class="btn xs neutral" data-fcoord="${p.id}">Coordinate ↗</button><button class="btn xs neutral" data-fopen="${p.id}">Open profile</button></div></div>`;
+}
+const FIN_CYCLE = [
+  { n:"STEP 1", t:"Try event-based enrollment", d:"SEP + Damien premium assistance", k:"" },
+  { n:"STEP 2", t:"Bridge on Advancing Access", d:"Gilead PAP · free meds, $0 fills", k:"warn" },
+  { n:"STEP 3", t:"Wait for open enrollment", d:"Nov 1 – Dec 15", k:"" },
+  { n:"STEP 4", t:"Enroll in Marketplace", d:"Damien premium assistance + subsidy", k:"" },
+  { n:"STEP 5", t:"Switch back to Damien pharmacy", d:"340B · plan effective Jan 1", k:"ok" },
+];
+function renderFinance(){
+  const roster = financeRoster();
+  $("#financeCycle").innerHTML = FIN_CYCLE.map(s=>`<div class="fcstep ${s.k}"><div class="fcn">${s.n}</div><div class="fct">${esc(s.t)}</div><div class="fcd">${esc(s.d)}</div></div>`).join("");
+  const short = roster.filter(p=>(p.fin&&p.fin.horizon)==="short");
+  const premium = roster.filter(p=>(p.fin&&p.fin.horizon)==="premium");
+  const long = roster.filter(p=>(p.fin&&p.fin.horizon)==="long");
+  const zeroActive = roster.filter(p=>p.fin && p.fin.horizon!=="long" && !STATE.tasks.some(t=>t.pid===p.id&&t.type==="finasst"&&t.status==="open")).length;
+  $("#financeKpis").innerHTML = [
+    ["On financial aid", roster.length, ""], ["Short-term $0 setup", short.length, short.length?"warn":""],
+    ["Premium assistance", premium.length, ""], ["Buying insurance", long.length, long.length?"ok":""],
+  ].map(([l,n,c])=>`<div class="okpi"><div class="n ${c?"st-"+c:""}">${n}</div><div class="l">${l}</div></div>`).join("");
+  $("#financeGroups").innerHTML = [
+    { title:"Short-term — get fills to $0 now", dot:"sev-warn", items:short },
+    { title:"Premium assistance — keep the plan from lapsing", dot:"sev-warn", items:premium },
+    { title:"Long-term — help buying insurance", dot:"sev-ok", items:long },
+  ].map(g=> g.items.length ? `<div class="ogroup"><div class="ogrouphd"><span class="dot ${g.dot}"></span>${g.title} <span style="color:var(--ink-3)">· ${g.items.length}</span></div><div class="ocards">${g.items.map(financeCard).join("")}</div></div>` : "").join("")
+    || `<div class="laneempty">No patients need financial assistance right now.</div>`;
+  $("#financeGroups").querySelectorAll("[data-fopen]").forEach(el=>el.addEventListener("click",()=>{ selectPatient(el.dataset.fopen); switchView("patient"); }));
+  $("#financeGroups").querySelectorAll("[data-fin]").forEach(el=>el.addEventListener("click",()=>logFinance(el.dataset.fin)));
+  $("#financeGroups").querySelectorAll("[data-fcoord]").forEach(el=>el.addEventListener("click",()=>{ currentChannel[el.dataset.fcoord]="team"; selectPatient(el.dataset.fcoord); switchView("patient"); }));
+}
+function logFinance(pid){
+  const p = P(pid); if(!p) return;
+  const f = p.fin || {}; const prog = f.prog || "financial assistance";
+  p.notes.unshift({ type:"Note", author:"Jordan Ellis · Damien Benefits", t:`Enrolled in ${prog}. `+(f.horizon==="long"?"Damien navigator submitted the Marketplace/Medicaid application — bridging with PAP until the plan is effective.":f.horizon==="premium"?"Damien premium assistance active — the plan won't lapse.":"Fills are $0 while coverage is worked out."), time:"just now" });
+  STATE.tasks.forEach(t=>{ if(t.pid===pid && t.type==="finasst" && t.status==="open") t.status="done"; });
+  persist(); renderFinance(); updateFinanceBadge();
+  if($("#view-worklist").classList.contains("active")) renderWorklist();
+  if($("#view-board").classList.contains("active")) renderBoard();
+  toast(`Financial assistance logged for ${p.name}`);
+}
+
+// ---------- care plan page ----------
+const CYCLE_STEPS = [
+  { n:1, t:"Kit ships", who:"Lab", k:"" }, { n:2, t:"Kit delivered", who:"Carrier", k:"" },
+  { n:3, t:"Sample collected", who:"Patient ⚠️", k:"warn" }, { n:4, t:"Sample mailed back", who:"Patient ⚠️", k:"warn" },
+  { n:5, t:"Lab tests → results to provider", who:"Lab", k:"" }, { n:6, t:"Provider authorizes ≤90-day refill", who:"Provider", k:"" },
+  { n:7, t:"Prior auth (only new plan / renewal)", who:"Payer", k:"pa" }, { n:8, t:"Confirm address + shipping consent", who:"Patient ⚠️", k:"warn" },
+  { n:9, t:"Meds ship → arrive", who:"Pharmacy", k:"" },
+];
+const CADENCE = [
+  { c:"q3", h:"Every 3 months", l:"HIV Ag/Ab + RNA (unlocks each refill) · 3-site GC/CT · adherence & risk check-in · ≤90-day refill authorized" },
+  { c:"q6", h:"Every 6 months", l:"+ syphilis · + kidney function (eCrCl) if age ≥50 or borderline" },
+  { c:"q12", h:"Every 12 months", l:"+ kidney for everyone · + lipids/weight (Descovy) · full reassessment · annual PA + insurance renewal" },
+];
+const CP_KIND = { start:"var(--accent)", refill:"var(--accent)", labs:"var(--warn)", annual:"var(--pharm)", coverage:"var(--blue)" };
+const CP_EXAMPLE = [
+  { date:"Jan 20 – Feb 6", kind:"start", tag:"START", title:"Enroll → baseline labs → Rx → PA → 1st fill",
+    detail:"Video visit, at-home baseline kit (HIV+RNA, kidney, HBV, STI, lipids), Descovy Rx, PA #1 approved, ship-consent — therapy begins Feb 6." },
+  { date:"Apr – May", kind:"refill", tag:"REFILL", title:"3-month refill (async review)",
+    detail:"At-home kit → HIV+RNA & 3-site GC/CT → provider re-authorizes → confirm address → Fill 2 delivered May 1." },
+  { date:"Jul", kind:"labs", tag:"6-MONTH", title:"6-month refill + expanded labs",
+    detail:"Adds syphilis + kidney (if indicated) → Fill 3 delivered Jul 24." },
+  { date:"Oct", kind:"refill", tag:"REFILL", title:"9-month refill (async review)",
+    detail:"HIV+RNA & GC/CT → Fill 4 delivered Oct 16." },
+  { date:"Nov 1 – Dec 15", kind:"coverage", tag:"COVERAGE", title:"Open enrollment",
+    detail:"Renew or switch insurance for Jan 1; prepare the new prior-auth packet in advance." },
+  { date:"Jan 1", kind:"coverage", tag:"COVERAGE", title:"New plan active",
+    detail:"New PA required under the new plan; copay card + assistance reset for the year." },
+  { date:"Jan (12-mo)", kind:"annual", tag:"ANNUAL", title:"Annual review + insurance change",
+    detail:"Live visit, full panel (HIV+RNA, STI, kidney-all, lipids), new Rx → PA #2 approved Jan 6 → confirm → Fill 5 delivered Jan 9." },
+  { date:"Apr (Year 2)", kind:"refill", tag:"CONTINUES", title:"Year 2 continues — zero gaps",
+    detail:"Next kit ships, HIV+RNA → Fill 6 delivered Apr 3." },
+];
+function renderCareplan(){
+  $("#cpCycle").innerHTML = CYCLE_STEPS.map(s=>`<div class="cpstep ${s.k}"><div class="num">${s.n}</div><div class="t">${s.t}</div><div class="who">${s.who}</div></div>`).join("");
+  $("#cpCadence").innerHTML = CADENCE.map(c=>`<div class="cadcard ${c.c}"><div class="ch">${c.h}</div><div class="cl">${c.l}</div></div>`).join("");
+  $("#cpTimeline").innerHTML = CP_EXAMPLE.map(e=>`<div class="cpitem">
+    <div class="cpdate">${e.date}</div>
+    <div class="cprail"><div class="cpdot" style="background:${CP_KIND[e.kind]}"></div></div>
+    <div><div class="cptitle">${esc(e.title)}<span class="cptag" style="background:${CP_KIND[e.kind]}">${e.tag}</span></div>
+      <div class="cpdetail">${esc(e.detail)}</div></div></div>`).join("");
+}
+
+const TITLES = { board:["Continuity board","When each patient runs out · days to next best action"],
+  worklist:["Worklist","Prioritized by time-to-gap · 27 Jul 2026"], patient:["Patient 360","Lifecycle, orders & collaboration"],
+  outreach:["Outreach team","Field engagement — your patients"], careplan:["Care plan","Continuous-supply schedule & example"],
+  finance:["Financial assistance","Affordability — short-term $0 to long-term coverage"],
+  inbox:["Inbox","Patient & care-team messaging"], panel:["Panel Health","Cohort continuity metrics"] };
+function switchView(v){
+  document.querySelectorAll(".view").forEach(s=>s.classList.toggle("active", s.id==="view-"+v));
+  document.querySelectorAll(".navitem").forEach(n=>n.setAttribute("aria-current", n.dataset.view===v));
+  $("#viewtitle").firstChild.textContent = TITLES[v][0]; $("#viewsub").textContent = TITLES[v][1];
+  if(v==="board") renderBoard(); if(v==="panel") renderPanel(); if(v==="inbox") renderInbox(); if(v==="worklist") renderWorklist(); if(v==="outreach") renderOutreach(); if(v==="finance") renderFinance(); if(v==="careplan") renderCareplan();
+}
+function renderAll(){ renderWorklist(); if(!P(currentPatient)) currentPatient=STATE.patients[0].id; selectPatient(currentPatient);
+  if($("#view-inbox").classList.contains("active")) renderInbox(); updateBadges(); }
+
+document.querySelectorAll(".navitem").forEach(n=>n.addEventListener("click",()=>switchView(n.dataset.view)));
+$("#ifilters").addEventListener("click",e=>{ const b=e.target.closest(".chip"); if(!b) return; inboxFilter=b.dataset.f;
+  $("#ifilters").querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed", c===b)); renderInbox(); });
+
+// Export / Import / Reset
+async function doExport(){
+  if(!(window.claude && window.claude.downloads)){ toast("Export needs the claude.ai viewer"); return; }
+  try { await window.claude.downloads.save({ filename:"continuity-panel.json", data: JSON.stringify(STATE, null, 2) }); toast("Saved continuity-panel.json"); }
+  catch(e){ const c=e&&e.code; if(c==="declined"||c==="rate_limited") return; toast("Export unavailable ("+(c||"error")+")"); }
+}
+$("#exportBtn").addEventListener("click", doExport);
+$("#importBtn").addEventListener("click",()=>$("#importFile").click());
+$("#importFile").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f) return; const rd=new FileReader();
+  rd.onload=()=>{ try { const d=JSON.parse(rd.result); if(!d||!d.patients) throw 0; STATE=d; if(!STATE.tasks) STATE.tasks=[]; seedTasks();
+    persist(); currentPatient=STATE.patients[0].id; openThread=null; renderAll(); toast("Imported panel from file"); }
+    catch(err){ toast("Couldn't read that file — expected a Continuity export"); } e.target.value=""; };
+  rd.readAsText(f);
+});
+$("#resetBtn").addEventListener("click",()=>{ try{ localStorage.removeItem(LS_KEY); }catch(e){} STATE=structuredClone(SEED);
+  currentPatient=STATE.patients[0].id; openThread=null; filterType="all"; inboxFilter="all"; renderAll(); toast("Reset to sample data"); });
+
+// init
+if(!(window.claude && window.claude.downloads)) $("#exportBtn").style.display="none";
+hydrate();
+renderWorklist(); selectPatient("marcus"); updateBadges(); updateOutreachBadge(); updateFinanceBadge(); switchView("board");
+</script>
+
+</body>
+</html>
