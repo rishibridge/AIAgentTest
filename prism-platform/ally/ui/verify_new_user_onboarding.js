@@ -142,8 +142,13 @@ const PREFIX = URL.includes('run.app') ? 'gcp_nu' : 'local_nu';
       });
       const pData = await pRes.json();
       const pText = JSON.stringify(pData);
-      const ackRes = await fetch(`${apiBase}/api/v1/phi-acknowledgements`, {
+      // S1: Non-admin user token must be blocked (403) from dumping PII acknowledgements
+      const ackUserRes = await fetch(`${apiBase}/api/v1/phi-acknowledgements`, {
         headers: { 'X-Ally-Token': tok },
+      });
+      // Admin key is permitted to audit acknowledgements
+      const ackRes = await fetch(`${apiBase}/api/v1/phi-acknowledgements`, {
+        headers: { 'X-Ally-Token': tok, 'X-Ally-Admin-Key': 'ally-local-admin-2026' },
       });
       const ackData = await ackRes.json();
       const matchingAck = (ackData.acknowledgements || []).find(a => a.email === rawEmail);
@@ -153,20 +158,22 @@ const PREFIX = URL.includes('run.app') ? 'gcp_nu' : 'local_nu';
         hasEmailHash: Boolean(pData?.patient?.email_hash && pData.patient.email_hash.length === 64),
         leaksPlaintextEmail: pText.includes(rawEmail),
         leaksPasswordHash: Boolean(pData?.patient?.password_hash),
+        userBlockedStatus: ackUserRes.status,
         ackRecorded: Boolean(matchingAck && matchingAck.acknowledged === true),
       };
     }, { apiBase: API, tok: token, pid: createdPatientId, rawEmail: testEmail });
 
     record(
       'TC-NU-04',
-      'Blank-Slate 1-Node Creation & SHA-256 Email-Hash Decoupling',
+      'Blank-Slate 1-Node Creation, SHA-256 Email-Hash Decoupling & Admin-Only PII Audit Gate (S1)',
       decouplingAudit.nodeCount === 1 &&
         decouplingAudit.edgeCount === 0 &&
         decouplingAudit.hasEmailHash &&
         !decouplingAudit.leaksPlaintextEmail &&
         !decouplingAudit.leaksPasswordHash &&
+        decouplingAudit.userBlockedStatus === 403 &&
         decouplingAudit.ackRecorded,
-      `pid=${createdPatientId}, nodes=${decouplingAudit.nodeCount}, emailHash=64chars, leaksPlainEmail=${decouplingAudit.leaksPlaintextEmail}, ackLogged=${decouplingAudit.ackRecorded}`
+      `pid=${createdPatientId}, nodes=${decouplingAudit.nodeCount}, emailHash=64chars, leaksPlainEmail=${decouplingAudit.leaksPlaintextEmail}, userAuditStatus=${decouplingAudit.userBlockedStatus}, ackLogged=${decouplingAudit.ackRecorded}`
     );
 
     // TC-NU-05: Verify Ally's Turn 0 Seeded Greeting in LiveChat & 1 Central Self Node at (550, 310)
@@ -451,19 +458,86 @@ const PREFIX = URL.includes('run.app') ? 'gcp_nu' : 'local_nu';
     await page.waitForSelector('[data-testid="feedback-success-msg"]', { timeout: 15000 });
 
     const fbVerify = await page.evaluate(async ({ apiBase, tok, expectedComment }) => {
-      const r = await fetch(`${apiBase}/api/v1/feedback`, {
+      const userRes = await fetch(`${apiBase}/api/v1/feedback`, {
         headers: { 'X-Ally-Token': tok },
       });
-      const data = await r.json();
+      const adminRes = await fetch(`${apiBase}/api/v1/feedback`, {
+        headers: { 'X-Ally-Token': tok, 'X-Ally-Admin-Key': 'ally-local-admin-2026' },
+      });
+      const data = await adminRes.json();
       const found = (data.feedback || []).some(item => item.comment === expectedComment && item.rating === 5);
-      return { count: data.count, found };
+      return { userBlockedStatus: userRes.status, count: data.count, found };
     }, { apiBase: API, tok: token, expectedComment: fbComment });
 
     record(
       'TC-NU-10',
-      'Give Feedback Modal Submission & Persistence Audit',
-      fbVerify.found === true,
-      `feedbackSaved=${fbVerify.found}, totalFeedbackCount=${fbVerify.count}`
+      'Give Feedback Modal Submission, Admin-Only Feedback Audit Gate (S1) & Persistence',
+      fbVerify.userBlockedStatus === 403 && fbVerify.found === true,
+      `userGetStatus=${fbVerify.userBlockedStatus}, feedbackSaved=${fbVerify.found}, totalFeedbackCount=${fbVerify.count}`
+    );
+
+    // TC-NU-11: Security & Compliance Hardening (S2 IDOR Prevention, Unsigned Header Rejection & S5 Payload Bounds)
+    const secHardeningAudit = await page.evaluate(async ({ apiBase, tok, pid }) => {
+      const unlockedTokens = (localStorage.getItem('ally_unlocked_tokens') || '').split(',').filter(Boolean);
+      const validUnlockToken = unlockedTokens[unlockedTokens.length - 1] || '';
+
+      // 1. Cross-user IDOR attempt (no cookies, no signed unlock token) -> must return 403
+      const idorProfileRes = await fetch(`${apiBase}/api/v1/patients/${pid}`, {
+        credentials: 'omit',
+        headers: { 'X-Ally-Token': tok },
+      });
+      const idorGraphRes = await fetch(`${apiBase}/api/v1/patients/${pid}/graph`, {
+        credentials: 'omit',
+        headers: { 'X-Ally-Token': tok },
+      });
+
+      // 2. Spoofed unsigned X-Unlocked-Patients header (raw patient ID without HMAC signature) -> must return 403 & hide from list
+      const spoofedGetRes = await fetch(`${apiBase}/api/v1/patients/${pid}`, {
+        credentials: 'omit',
+        headers: { 'X-Ally-Token': tok, 'X-Unlocked-Patients': pid },
+      });
+      const spoofedListRes = await fetch(`${apiBase}/api/v1/patients`, {
+        credentials: 'omit',
+        headers: { 'X-Ally-Token': tok, 'X-Unlocked-Patients': pid },
+      });
+      const spoofedList = await spoofedListRes.json();
+      const leakedInSpoofedList = Array.isArray(spoofedList) && spoofedList.some(p => p.id === pid);
+
+      // 3. Valid HMAC-signed unlock token in X-Unlocked-Tokens (with credentials: 'omit') -> must return 200
+      const signedUnlockRes = await fetch(`${apiBase}/api/v1/patients/${pid}`, {
+        credentials: 'omit',
+        headers: { 'X-Ally-Token': tok, 'X-Unlocked-Tokens': validUnlockToken },
+      });
+
+      // 4. Oversized payload bounds (S5): >4000 char feedback comment -> must return 422
+      const oversizedFbRes = await fetch(`${apiBase}/api/v1/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Ally-Token': tok },
+        body: JSON.stringify({ rating: 5, comment: 'X'.repeat(4500) }),
+      });
+
+      return {
+        hasSignedToken: validUnlockToken.startsWith(`${pid}.`) && validUnlockToken.length > pid.length + 16,
+        idorProfileStatus: idorProfileRes.status,
+        idorGraphStatus: idorGraphRes.status,
+        spoofedGetStatus: spoofedGetRes.status,
+        leakedInSpoofedList,
+        signedUnlockStatus: signedUnlockRes.status,
+        oversizedFbStatus: oversizedFbRes.status,
+      };
+    }, { apiBase: API, tok: token, pid: createdPatientId });
+
+    record(
+      'TC-NU-11',
+      'Security & Compliance Hardening (S2 IDOR Prevention, Unsigned Unlock-Header Rejection & S5 Payload Bounds)',
+      secHardeningAudit.hasSignedToken &&
+        secHardeningAudit.idorProfileStatus === 403 &&
+        secHardeningAudit.idorGraphStatus === 403 &&
+        secHardeningAudit.spoofedGetStatus === 403 &&
+        !secHardeningAudit.leakedInSpoofedList &&
+        secHardeningAudit.signedUnlockStatus === 200 &&
+        secHardeningAudit.oversizedFbStatus === 422,
+      `signedToken=${secHardeningAudit.hasSignedToken}, idorProfile=${secHardeningAudit.idorProfileStatus}, idorGraph=${secHardeningAudit.idorGraphStatus}, spoofedHeader=${secHardeningAudit.spoofedGetStatus}, leakedInList=${secHardeningAudit.leakedInSpoofedList}, validSignedUnlock=${secHardeningAudit.signedUnlockStatus}, oversizedPayload=${secHardeningAudit.oversizedFbStatus}`
     );
 
   } catch (err) {

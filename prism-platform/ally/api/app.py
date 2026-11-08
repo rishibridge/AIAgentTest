@@ -23,7 +23,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from prism.engine.reasoning.llm_client import LLMClient
 from ally.engine.firewall import PatientFirewall
@@ -43,12 +43,13 @@ from ally.engine.persistence import (
 
 from ally.api.routes import patients, conversations, graphs, consolidation, handoffs, clinician, debate
 
-# ── Security Configuration (C1, C2) ─────────────────────────────────
+# ── Security Configuration (C1, C2, S1–S5) ──────────────────────────
 _ENABLE_DOCS = os.environ.get("ALLY_ENABLE_DOCS", "0") == "1"
 _SESSION_SECRET = os.environ.get("ALLY_SESSION_SECRET", "ally-prism-hmac-session-secret-2026-v1")
 _ADMIN_KEY = os.environ.get("ALLY_ADMIN_KEY", "ally-local-admin-2026")
 _USER_RATE_LIMIT_PER_MIN = int(os.environ.get("ALLY_RATE_LIMIT_PER_MIN", "30"))
 _ADMIN_RATE_LIMIT_PER_MIN = int(os.environ.get("ALLY_ADMIN_RATE_LIMIT_PER_MIN", "180"))
+_AUTH_RATE_LIMIT_PER_MIN = int(os.environ.get("ALLY_AUTH_RATE_LIMIT_PER_MIN", "25"))
 
 app = FastAPI(
     title="Ally API",
@@ -74,7 +75,14 @@ app.add_middleware(
     allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Ally-Token", "X-Ally-Admin-Key", "X-Unlocked-Patients"],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "X-Ally-Token",
+        "X-Ally-Admin-Key",
+        "X-Unlocked-Patients",
+        "X-Unlocked-Tokens",
+    ],
 )
 
 
@@ -134,7 +142,7 @@ def _extract_auth_claims(request: Request) -> Optional[Dict[str, Any]]:
     return _verify_session_token(token)
 
 
-# ── Route Classification for RBAC & Rate Limiting (C1) ──────────────
+# ── Route Classification for RBAC, Ownership & Rate Limiting (C1, S1, S2, S3) ──
 
 _PUBLIC_PATHS = {
     "/api/v1/health",
@@ -151,13 +159,23 @@ _MODEL_SPENDING_PATTERNS = [
     ("GET", re.compile(r"^/api/v1/patients/[^/]+/debate/stream$")),
 ]
 
+_AUTH_SENSITIVE_PATTERNS = [
+    ("POST", re.compile(r"^/api/v1/patients/onboard$")),
+    ("POST", re.compile(r"^/api/v1/patients/resume$")),
+    ("POST", re.compile(r"^/api/v1/auth/elevate$")),
+]
+
 _ADMIN_ONLY_PATTERNS = [
     ("POST", re.compile(r"^/api/v1/patients$")),
     ("DELETE", re.compile(r"^/api/v1/patients/[^/]+$")),
     ("DELETE", re.compile(r"^/api/v1/patients/[^/]+/graph/nodes/[^/]+$")),
     ("DELETE", re.compile(r"^/api/v1/patients/[^/]+/graph/edges$")),
     ("POST", re.compile(r"^/api/v1/patients/[^/]+/graph/reset$")),
+    ("GET", re.compile(r"^/api/v1/phi-acknowledgements$")),
+    ("GET", re.compile(r"^/api/v1/feedback$")),
 ]
+
+_PATIENT_ROUTE_RE = re.compile(r"^/api/v1/patients/([^/]+)(?:/.*)?$")
 
 _rate_buckets: Dict[str, Deque[float]] = collections.defaultdict(collections.deque)
 
@@ -166,8 +184,19 @@ def _is_model_spending(method: str, path: str) -> bool:
     return any(m == method and pat.match(path) for m, pat in _MODEL_SPENDING_PATTERNS)
 
 
+def _is_auth_sensitive(method: str, path: str) -> bool:
+    return any(m == method and pat.match(path) for m, pat in _AUTH_SENSITIVE_PATTERNS)
+
+
 def _is_admin_only(method: str, path: str) -> bool:
     return any(m == method and pat.match(path) for m, pat in _ADMIN_ONLY_PATTERNS)
+
+
+def _is_https_request(request: Request) -> bool:
+    return (
+        request.url.scheme == "https"
+        or request.headers.get("x-forwarded-proto", "").lower() == "https"
+    )
 
 
 def _check_rate_limit(bucket_key: str, limit_per_min: int) -> bool:
@@ -206,7 +235,7 @@ async def security_and_auth_middleware(request: Request, call_next):
     path = request.url.path
     method = request.method.upper()
 
-    # Enforce auth, RBAC, and rate limiting on all /api routes except explicit public endpoints (C1, C2)
+    # Enforce auth, RBAC, private-patient ownership (S2), and rate limiting (C1, C2, S1, S3)
     if (path == "/api" or path.startswith("/api/")) and method != "OPTIONS":
         if path not in _PUBLIC_PATHS:
             claims = _extract_auth_claims(request)
@@ -221,15 +250,52 @@ async def security_and_auth_middleware(request: Request, call_next):
 
             role = claims.get("role", "user")
             request.state.auth_claims = claims
+            unlocked_ids = patients.extract_unlocked_patient_ids(request)
+            request.state.unlocked_patient_ids = unlocked_ids
 
             if _is_admin_only(method, path) and role != "admin":
                 resp = JSONResponse(
                     status_code=403,
-                    content={"detail": "Admin role required for destructive patient or graph operations."},
+                    content={"detail": "Admin role required for protected audit, patient, or graph operations."},
                 )
                 for hk, hv in _SECURITY_HEADERS.items():
                     resp.headers[hk] = hv
                 return resp
+
+            # Enforce cryptographically signed private-patient ownership against IDOR (S2)
+            pat_match = _PATIENT_ROUTE_RE.match(path)
+            if pat_match and role != "admin":
+                target_pid = pat_match.group(1)
+                if target_pid not in ("onboard", "resume"):
+                    fw = store.get("firewall")
+                    pg = fw.get_patient_graph(target_pid) if fw else None
+                    is_private_target = (
+                        bool(pg and getattr(pg.patient, "is_custom_private", False))
+                        or (pg is None and target_pid.startswith("user_"))
+                    )
+                    if is_private_target and target_pid not in unlocked_ids:
+                        resp = JSONResponse(
+                            status_code=403,
+                            content={
+                                "detail": "Private user profile access denied. Sign in via /api/v1/patients/resume to unlock your profile."
+                            },
+                        )
+                        for hk, hv in _SECURITY_HEADERS.items():
+                            resp.headers[hk] = hv
+                        return resp
+
+            if _is_auth_sensitive(method, path) and role != "admin":
+                client_ip = request.client.host if request.client else "unknown"
+                auth_bucket = f"auth:{client_ip}:{claims.get('sub', 'anon')}"
+                if not _check_rate_limit(auth_bucket, _AUTH_RATE_LIMIT_PER_MIN):
+                    resp = JSONResponse(
+                        status_code=429,
+                        content={"detail": f"Too many authentication attempts ({_AUTH_RATE_LIMIT_PER_MIN}/min). Please wait before retrying."},
+                        headers={"Retry-After": "60"},
+                    )
+                    for hk, hv in _SECURITY_HEADERS.items():
+                        resp.headers[hk] = hv
+                    return resp
 
             if _is_model_spending(method, path):
                 client_ip = request.client.host if request.client else "unknown"
@@ -251,20 +317,20 @@ async def security_and_auth_middleware(request: Request, call_next):
     return response
 
 
-# ── Auth Endpoints (C2, C1) ─────────────────────────────────────────
+# ── Auth Endpoints (C2, C1, S4, S5) ─────────────────────────────────
 
 class AcceptTermsRequest(BaseModel):
     accepted: bool
-    admin_key: Optional[str] = None
+    admin_key: Optional[str] = Field(default=None, max_length=128)
 
 
 class ElevateAdminRequest(BaseModel):
-    admin_key: str
+    admin_key: str = Field(..., max_length=128)
 
 
 @app.post("/api/v1/auth/accept-terms")
-def accept_terms(req: AcceptTermsRequest, response: Response):
-    """Issue a server-verified HMAC session token upon acceptance of legal/clinical terms (C2)."""
+def accept_terms(req: AcceptTermsRequest, request: Request, response: Response):
+    """Issue a server-verified HMAC session token upon acceptance of legal/clinical terms (C2, S4)."""
     if not req.accepted:
         raise HTTPException(400, "Terms must be explicitly accepted (accepted=true)")
 
@@ -278,6 +344,7 @@ def accept_terms(req: AcceptTermsRequest, response: Response):
         value=token,
         max_age=86400,
         httponly=True,
+        secure=_is_https_request(request),
         samesite="lax",
         path="/",
     )
@@ -290,8 +357,8 @@ def accept_terms(req: AcceptTermsRequest, response: Response):
 
 
 @app.post("/api/v1/auth/elevate")
-def elevate_to_admin(req: ElevateAdminRequest, response: Response):
-    """Elevate an authenticated session to admin role for authorized graph maintenance (C1)."""
+def elevate_to_admin(req: ElevateAdminRequest, request: Request, response: Response):
+    """Elevate an authenticated session to admin role for authorized graph maintenance (C1, S4)."""
     if not req.admin_key or not hmac.compare_digest(req.admin_key, _ADMIN_KEY):
         raise HTTPException(403, "Invalid admin key")
 
@@ -301,6 +368,7 @@ def elevate_to_admin(req: ElevateAdminRequest, response: Response):
         value=token,
         max_age=86400,
         httponly=True,
+        secure=_is_https_request(request),
         samesite="lax",
         path="/",
     )
@@ -385,9 +453,9 @@ def health():
 
 class FeedbackSubmissionRequest(BaseModel):
     rating: int = 5
-    comment: str
-    email: Optional[str] = ""
-    patient_id: Optional[str] = ""
+    comment: str = Field(..., max_length=4000)
+    email: Optional[str] = Field(default="", max_length=254)
+    patient_id: Optional[str] = Field(default="", max_length=64)
 
 
 @app.post("/api/v1/feedback")

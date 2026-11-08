@@ -3,7 +3,7 @@ import re
 import time
 import uuid
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 
 router = APIRouter(prefix="/api/v1/patients/{patient_id}/clinician", tags=["clinician"])
@@ -17,8 +17,8 @@ def set_store(store):
 
 
 class ClinicianMessageRequest(BaseModel):
-    text: str
-    sender: str = "clinician"
+    text: str = Field(..., min_length=1, max_length=8000)
+    sender: str = Field(default="clinician", max_length=80)
 
 
 @router.post("/messages")
@@ -117,7 +117,7 @@ def send_clinician_message(patient_id: str, req: ClinicianMessageRequest):
 
 
 class PostVisitRequest(BaseModel):
-    transcript: str
+    transcript: str = Field(..., max_length=50000)
 
 
 def _slugify(text: str) -> str:

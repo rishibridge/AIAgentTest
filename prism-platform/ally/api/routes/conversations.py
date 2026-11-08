@@ -1,7 +1,7 @@
 """Conversation API routes — start conversations, sweep abandoned sessions (M2), send messages with telemetry (M12)."""
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 
 router = APIRouter(prefix="/api/v1/patients/{patient_id}/conversations", tags=["conversations"])
@@ -15,12 +15,12 @@ def set_store(store):
 
 
 class SendMessageRequest(BaseModel):
-    text: str
-    sender: Optional[str] = None  # defaults to patient name
+    text: str = Field(..., min_length=1, max_length=8000)
+    sender: Optional[str] = Field(default=None, max_length=80)  # defaults to patient name
 
 
 class StartConversationRequest(BaseModel):
-    label: str = ""
+    label: str = Field(default="", max_length=120)
 
 
 def _parse_iso(ts: str) -> Optional[datetime]:

@@ -1,11 +1,13 @@
-"""Patient CRUD & New-User Onboarding API routes with persistence sync and email-hash decoupling."""
+"""Patient CRUD & New-User Onboarding API routes with persistence sync, email-hash decoupling, and signed ownership tokens (S2, S5)."""
 from datetime import datetime
+import hashlib
 import hmac
+import os
 import re
 import uuid
-from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, HTTPException, Request, Response
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any, Set
 
 from ally.engine.persistence import (
     delete_patient_record,
@@ -18,6 +20,76 @@ from ally.engine.persistence import (
 router = APIRouter(prefix="/api/v1/patients", tags=["patients"])
 
 _store = None
+_UNLOCK_SECRET = os.environ.get("ALLY_SESSION_SECRET", "ally-prism-hmac-session-secret-2026-v1")
+
+
+def issue_patient_unlock_token(patient_id: str) -> str:
+    """Issue a cryptographically signed HMAC-SHA256 ownership token for a private custom patient (S2)."""
+    clean_id = (patient_id or "").strip()
+    sig = hmac.new(
+        _UNLOCK_SECRET.encode("utf-8"),
+        f"unlock:{clean_id}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()[:24]
+    return f"{clean_id}.{sig}"
+
+
+def verify_patient_unlock_token(token_str: str) -> Optional[str]:
+    """Verify a signed patient unlock token ('patient_id.sig') and return patient_id if valid (S2)."""
+    raw = (token_str or "").strip()
+    if "." not in raw:
+        return None
+    patient_id, sig = raw.rsplit(".", 1)
+    if not patient_id or not sig:
+        return None
+    expected = hmac.new(
+        _UNLOCK_SECRET.encode("utf-8"),
+        f"unlock:{patient_id}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()[:24]
+    if hmac.compare_digest(expected, sig):
+        return patient_id
+    return None
+
+
+def extract_unlocked_patient_ids(request: Request) -> Set[str]:
+    """Extract and cryptographically verify all unlocked custom patient IDs from headers, cookies, or query params (S2)."""
+    hdr_patients = request.headers.get("X-Unlocked-Patients", "")
+    hdr_tokens = request.headers.get("X-Unlocked-Tokens", "")
+    cookie_tokens = request.cookies.get("ally_unlocked", "")
+    query_tokens = f"{request.query_params.get('unlocked', '')},{request.query_params.get('unlock_token', '')}"
+
+    combined = f"{hdr_patients},{hdr_tokens},{cookie_tokens},{query_tokens}"
+    verified: Set[str] = set()
+    for part in combined.split(","):
+        tok = part.strip()
+        if not tok:
+            continue
+        pid = verify_patient_unlock_token(tok)
+        if pid:
+            verified.add(pid)
+    return verified
+
+
+def _set_unlock_cookie(request: Request, response: Response, unlock_token: str) -> None:
+    """Append the signed unlock token to the HttpOnly ally_unlocked cookie (S2, S4)."""
+    existing_raw = request.cookies.get("ally_unlocked", "")
+    tokens = [t.strip() for t in existing_raw.split(",") if t.strip() and verify_patient_unlock_token(t.strip())]
+    if unlock_token not in tokens:
+        tokens.append(unlock_token)
+    is_https = (
+        request.url.scheme == "https"
+        or request.headers.get("x-forwarded-proto", "").lower() == "https"
+    )
+    response.set_cookie(
+        key="ally_unlocked",
+        value=",".join(tokens[-10:]),
+        max_age=86400 * 30,
+        httponly=True,
+        secure=is_https,
+        samesite="lax",
+        path="/",
+    )
 
 DEMO_TERMS_STATEMENT = (
     "I am 18+ and understand this is an unmonitored product demo, not medical care. "
@@ -43,25 +115,25 @@ def _save(pg) -> None:
 
 
 class CreatePatientRequest(BaseModel):
-    name: str
+    name: str = Field(..., max_length=120)
     age: int = 0
-    bio: str = ""
-    bot_context: str = ""
+    bio: str = Field(default="", max_length=4000)
+    bot_context: str = Field(default="", max_length=4000)
     anonymous: bool = False
     excluded_content: List[str] = []
     locked_nodes: List[str] = []
 
 
 class OnboardPatientRequest(BaseModel):
-    name: str
-    email: str
-    password: str
+    name: str = Field(..., max_length=80)
+    email: str = Field(..., max_length=254)
+    password: str = Field(..., max_length=128)
     demo_terms_acknowledged: bool = False
 
 
 class ResumePatientRequest(BaseModel):
-    email: str
-    password: str
+    email: str = Field(..., max_length=254)
+    password: str = Field(..., max_length=128)
 
 
 @router.post("")
@@ -98,10 +170,11 @@ def create_patient(req: CreatePatientRequest):
 
 
 @router.post("/onboard")
-def onboard_patient(req: OnboardPatientRequest):
+def onboard_patient(req: OnboardPatientRequest, request: Request, response: Response):
     """
     Create a blank-slate Session #1 profile for a new user with email-hash decoupling.
     Plaintext email is stored ONLY in the decoupled tester_acknowledgements log, never in the patient graph JSON.
+    Issues a cryptographically signed HMAC ownership token (S2).
     """
     from ally.engine.patient_graph import Patient, PatientGraph
 
@@ -140,11 +213,14 @@ def onboard_patient(req: OnboardPatientRequest):
     for existing_pg in _store["firewall"].graphs.values():
         if getattr(existing_pg.patient, "email_hash", "") == email_hash:
             if hmac.compare_digest(getattr(existing_pg.patient, "password_hash", ""), password_hash):
+                unlock_tok = issue_patient_unlock_token(existing_pg.patient.id)
+                _set_unlock_cookie(request, response, unlock_tok)
                 return {
                     "id": existing_pg.patient.id,
                     "name": existing_pg.patient.name,
                     "status": "resumed",
                     "is_custom_private": True,
+                    "unlock_token": unlock_tok,
                     "node_count": len(existing_pg.nodes),
                     "edge_count": len(existing_pg.edges),
                     "conversation_count": len(existing_pg.conversations),
@@ -181,11 +257,14 @@ def onboard_patient(req: OnboardPatientRequest):
     pg.graph_version = 1
     _store["firewall"].register_patient(pg)
     _save(pg)
+    unlock_tok = issue_patient_unlock_token(patient.id)
+    _set_unlock_cookie(request, response, unlock_tok)
     return {
         "id": patient.id,
         "name": patient.name,
         "status": "created",
         "is_custom_private": True,
+        "unlock_token": unlock_tok,
         "node_count": len(pg.nodes),
         "edge_count": len(pg.edges),
         "conversation_count": len(pg.conversations),
@@ -193,8 +272,8 @@ def onboard_patient(req: OnboardPatientRequest):
 
 
 @router.post("/resume")
-def resume_patient(req: ResumePatientRequest):
-    """Sign in a returning user via email + password using salted SHA-256 hash matching."""
+def resume_patient(req: ResumePatientRequest, request: Request, response: Response):
+    """Sign in a returning user via email + password using salted SHA-256 hash matching and issue signed unlock token (S2)."""
     clean_email = (req.email or "").strip().lower()
     clean_password = (req.password or "").strip()
     if not clean_email or not clean_password:
@@ -207,11 +286,14 @@ def resume_patient(req: ResumePatientRequest):
         if getattr(pg.patient, "email_hash", "") == email_hash:
             if not hmac.compare_digest(getattr(pg.patient, "password_hash", ""), password_hash):
                 raise HTTPException(401, "Incorrect password for this email address.")
+            unlock_tok = issue_patient_unlock_token(pg.patient.id)
+            _set_unlock_cookie(request, response, unlock_tok)
             return {
                 "id": pg.patient.id,
                 "name": pg.patient.name,
                 "status": "resumed",
                 "is_custom_private": True,
+                "unlock_token": unlock_tok,
                 "node_count": len(pg.nodes),
                 "edge_count": len(pg.edges),
                 "conversation_count": len(pg.conversations),
@@ -222,13 +304,9 @@ def resume_patient(req: ResumePatientRequest):
 
 @router.get("")
 def list_patients(request: Request):
-    unlocked_hdr = request.headers.get("X-Unlocked-Patients", "")
-    unlocked_q = request.query_params.get("unlocked", "")
-    unlocked_ids = {
-        tok.strip()
-        for tok in f"{unlocked_hdr},{unlocked_q}".split(",")
-        if tok.strip()
-    }
+    unlocked_ids = getattr(request.state, "unlocked_patient_ids", None)
+    if unlocked_ids is None:
+        unlocked_ids = extract_unlocked_patient_ids(request)
     claims = getattr(request.state, "auth_claims", None) or {}
     is_admin = claims.get("role") == "admin"
 

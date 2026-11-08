@@ -1,6 +1,6 @@
 """Graph API routes — read graph state, snapshots, graph editing, document ingestion, and divergence tracking."""
 from fastapi import APIRouter, Body, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Dict, Any, Optional
 
 from ally.engine.patient_graph import _coerce_label_str
@@ -197,8 +197,8 @@ def reset_patient(patient_id: str):
 # ═══════════════════════════════════════════════════════════════════
 
 class IngestRequest(BaseModel):
-    text: str
-    source_name: str = "Clinical Note"
+    text: str = Field(..., max_length=50000)
+    source_name: str = Field(default="Clinical Note", max_length=200)
 
 
 @router.post("/ingest")

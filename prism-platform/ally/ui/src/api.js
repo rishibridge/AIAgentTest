@@ -8,6 +8,7 @@ const API_BASE = window.location.origin.includes('localhost:5173')
 const TOKEN_STORAGE_KEY = 'ally_auth_token';
 const ROLE_STORAGE_KEY = 'ally_auth_role';
 const UNLOCKED_PATIENTS_KEY = 'ally_unlocked_patients';
+const UNLOCKED_TOKENS_KEY = 'ally_unlocked_tokens';
 const LAST_USER_EMAIL_KEY = 'ally_last_user_email';
 
 export function getUnlockedPatientIds() {
@@ -19,12 +20,26 @@ export function getUnlockedPatientIds() {
   }
 }
 
-export function rememberUnlockedPatient(patientId, email = '') {
+export function getUnlockedPatientTokens() {
+  try {
+    const raw = localStorage.getItem(UNLOCKED_TOKENS_KEY) || '';
+    return raw.split(',').map((s) => s.trim()).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+export function rememberUnlockedPatient(patientId, email = '', unlockToken = '') {
   try {
     if (patientId) {
       const existing = new Set(getUnlockedPatientIds());
       existing.add(patientId);
       localStorage.setItem(UNLOCKED_PATIENTS_KEY, Array.from(existing).join(','));
+    }
+    if (unlockToken) {
+      const existingTokens = new Set(getUnlockedPatientTokens());
+      existingTokens.add(unlockToken);
+      localStorage.setItem(UNLOCKED_TOKENS_KEY, Array.from(existingTokens).join(','));
     }
     if (email) {
       localStorage.setItem(LAST_USER_EMAIL_KEY, email.trim().toLowerCase());
@@ -118,11 +133,16 @@ async function ensureAuthToken() {
 
 async function apiFetch(path, options = {}) {
   const token = await ensureAuthToken();
-  const unlocked = getUnlockedPatientIds();
+  const unlockedTokens = getUnlockedPatientTokens();
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { 'X-Ally-Token': token } : {}),
-    ...(unlocked.length > 0 ? { 'X-Unlocked-Patients': unlocked.join(',') } : {}),
+    ...(unlockedTokens.length > 0
+      ? {
+          'X-Unlocked-Patients': unlockedTokens.join(','),
+          'X-Unlocked-Tokens': unlockedTokens.join(','),
+        }
+      : {}),
     ...(options.headers || {}),
   };
 
@@ -169,7 +189,7 @@ export async function onboardNewUser({ name, email, password, demo_terms_acknowl
     body: JSON.stringify({ name, email, password, demo_terms_acknowledged }),
   });
   if (data?.id) {
-    rememberUnlockedPatient(data.id, email);
+    rememberUnlockedPatient(data.id, email, data.unlock_token || '');
   }
   return data;
 }
@@ -180,7 +200,7 @@ export async function resumeUser({ email, password }) {
     body: JSON.stringify({ email, password }),
   });
   if (data?.id) {
-    rememberUnlockedPatient(data.id, email);
+    rememberUnlockedPatient(data.id, email, data.unlock_token || '');
   }
   return data;
 }
@@ -230,6 +250,7 @@ export const endConversation = (patientId, convId) =>
 export const abandonConversation = (patientId, convId) => {
   if (!patientId || !convId) return Promise.resolve();
   const token = getAuthToken();
+  const unlockedTokens = getUnlockedPatientTokens();
   return fetch(`${API_BASE}/api/v1/patients/${patientId}/conversations/${convId}/abandon`, {
     method: 'POST',
     keepalive: true,
@@ -237,6 +258,7 @@ export const abandonConversation = (patientId, convId) => {
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { 'X-Ally-Token': token } : {}),
+      ...(unlockedTokens.length > 0 ? { 'X-Unlocked-Tokens': unlockedTokens.join(',') } : {}),
     },
   }).catch(() => {});
 };
@@ -318,8 +340,10 @@ export const resetPatient = (patientId) =>
 // ── DDx Debate & Verdicts ───────────────────────────────────────────
 export const getDebateStreamUrl = (patientId, topic, forModel, againstModel, judgeModel, maxRounds = 3) => {
   const token = getAuthToken();
+  const unlockedTokens = getUnlockedPatientTokens();
   const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
-  return `${API_BASE}/api/v1/patients/${patientId}/debate/stream?topic=${encodeURIComponent(topic)}&for_model=${forModel}&against_model=${againstModel}&judge_model=${judgeModel}&max_rounds=${maxRounds}${tokenParam}`;
+  const unlockParam = unlockedTokens.length > 0 ? `&unlock_token=${encodeURIComponent(unlockedTokens.join(','))}` : '';
+  return `${API_BASE}/api/v1/patients/${patientId}/debate/stream?topic=${encodeURIComponent(topic)}&for_model=${forModel}&against_model=${againstModel}&judge_model=${judgeModel}&max_rounds=${maxRounds}${tokenParam}${unlockParam}`;
 };
 
 export const submitHumanTurn = (patientId, sessionId, role, text, scoreDelta, endDebate, winner) =>
