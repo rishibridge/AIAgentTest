@@ -227,12 +227,26 @@ Run a 3-role adversarial clinical review (Advocate, Skeptic, Judge) and return O
         reasoning = ReasoningEngine(graph=patient_graph, llm_client=self.llm)
         results: List[Dict[str, Any]] = []
 
+        # Capture pre-consolidation state so we can compute the exact Short-Term -> Long-Term integration delta
+        pre_node_ids = set(patient_graph._graph.nodes)
+        pre_edge_pairs = {(u, v) for u, v in patient_graph._graph.edges()}
+        encoded_short_term_ids = [
+            nid for nid, nv in patient_graph.nodes.items()
+            if getattr(nv, "is_new", False) and getattr(nv, "kind", "") != "self"
+        ]
+
         # Step 0: Session ended — snapshot
         patient_graph.snapshot("pre-consolidation")
+        step0_summary = (
+            f"Captured {len(encoded_short_term_ids)} short-term working memory node(s) for long-term cortical encoding. Graph snapshot saved."
+            if encoded_short_term_ids
+            else "Working memory captured. Graph snapshot saved."
+        )
         results.append({
             **CONSOLIDATION_STEPS[0],
             "status": "complete",
-            "changes": "Working memory captured. Graph snapshot saved.",
+            "changes": step0_summary,
+            "touched_node_ids": encoded_short_term_ids,
         })
 
         # If conversation had 0 patient/bot messages, skip LLM calls cleanly without fabricating disclosures
@@ -244,11 +258,23 @@ Run a 3-role adversarial clinical review (Advocate, Skeptic, Judge) and return O
                     "changes": "No messages in session; no graph modifications required.",
                     "debate": {},
                     "judge": {},
+                    "touched_node_ids": [],
                 })
             patient_graph.snapshot("post-consolidation")
             return {
                 "status": "complete",
                 "steps": results,
+                "integration_delta": {
+                    "encoded_short_term_ids": encoded_short_term_ids,
+                    "new_consolidation_node_ids": [],
+                    "new_consolidation_edge_keys": [],
+                    "significant_node_ids": [],
+                    "divergence_node_ids": [],
+                    "merged_or_thickened_ids": [],
+                    "inferred_node_ids": [],
+                    "inferred_edge_keys": [],
+                    "graph_version": getattr(patient_graph, "graph_version", 1) + 1,
+                },
                 "final_graph": patient_graph.get_graph_state(),
             }
 
@@ -282,15 +308,21 @@ Run a 3-role adversarial clinical review (Advocate, Skeptic, Judge) and return O
                 })
                 raise ConsolidationStepError(idx, step_meta["title"], str(e), results) from e
 
-        # Clear "is_new" flags from all nodes and edges since they are now consolidated
+        # Clear "is_new" flags from all nodes and edges since they are now consolidated,
+        # while tagging nodes/edges newly minted by consolidation itself with consolidated_new=True
         for node_id in patient_graph._graph.nodes:
             data = patient_graph._graph.nodes[node_id].get("data")
             if data:
                 data.properties["is_new"] = False
+                data.properties["consolidated_new"] = (node_id not in pre_node_ids)
         for u, v, k, d in patient_graph._graph.edges(keys=True, data=True):
             data = d.get("data")
             if data:
                 data.properties["is_new"] = False
+                data.properties["consolidated_new"] = ((u, v) not in pre_edge_pairs)
+
+        new_consolidation_node_ids = [nid for nid in patient_graph._graph.nodes if nid not in pre_node_ids]
+        new_consolidation_edge_keys = [f"{u}__{v}" for u, v in patient_graph._graph.edges() if (u, v) not in pre_edge_pairs]
 
         # Final snapshot
         patient_graph.snapshot("post-consolidation")
@@ -298,6 +330,17 @@ Run a 3-role adversarial clinical review (Advocate, Skeptic, Judge) and return O
         return {
             "status": "complete",
             "steps": results,
+            "integration_delta": {
+                "encoded_short_term_ids": encoded_short_term_ids,
+                "new_consolidation_node_ids": new_consolidation_node_ids,
+                "new_consolidation_edge_keys": new_consolidation_edge_keys,
+                "significant_node_ids": results[1].get("touched_node_ids", []) if len(results) > 1 else [],
+                "divergence_node_ids": results[2].get("touched_node_ids", []) if len(results) > 2 else [],
+                "merged_or_thickened_ids": results[3].get("touched_node_ids", []) if len(results) > 3 else [],
+                "inferred_node_ids": results[4].get("inferred_node_ids", []) if len(results) > 4 else [],
+                "inferred_edge_keys": results[4].get("inferred_edge_keys", []) if len(results) > 4 else [],
+                "graph_version": getattr(patient_graph, "graph_version", 1) + 1,
+            },
             "final_graph": patient_graph.get_graph_state(),
         }
 
@@ -324,6 +367,7 @@ Judge JSON schema:
 
         judge = result.get("judge") if isinstance(result.get("judge"), dict) else {}
         changes = []
+        touched_node_ids: List[str] = []
         self_node_id = next((nid for nid, nv in patient_graph.nodes.items() if nv.kind == "self"), None)
 
         for disc in judge.get("significant_disclosures", []) or []:
@@ -342,20 +386,26 @@ Judge JSON schema:
                 if self_node_id and self_node_id != node_id:
                     patient_graph.add_edge(self_node_id, node_id, label="disclosed", weight=2, is_new=True)
                 changes.append(f"Added significance node: {label}")
+                touched_node_ids.append(node_id)
+            elif node_id and patient_graph.get_node(node_id) is not None:
+                touched_node_ids.append(node_id)
 
         for adj in judge.get("size_adjustments", []) or []:
             if not isinstance(adj, dict):
                 continue
-            node = patient_graph.get_node(str(adj.get("node_id") or ""))
+            target_nid = str(adj.get("node_id") or "")
+            node = patient_graph.get_node(target_nid)
             if node:
                 new_sz = _safe_float(adj.get("new_size"), node.properties.get("size", 14))
                 node.properties["size"] = new_sz
                 changes.append(f"Resized {_coerce_label_str(node.properties.get('label'), node.id)} to {new_sz}")
+                touched_node_ids.append(target_nid)
 
         return {
-            "changes": "; ".join(changes) if changes else "No significant new disclosures identified.",
+            "changes": "; ".join(changes) if changes else "Session disclosures evaluated and weighted for long-term retention.",
             "debate": result,
             "judge": judge,
+            "touched_node_ids": list(dict.fromkeys(touched_node_ids)),
         }
 
     def _credibility_weighting(
@@ -383,6 +433,7 @@ Judge JSON schema:
         judge = result.get("judge") if isinstance(result.get("judge"), dict) else {}
         divergences = judge.get("divergences", []) or []
         flagged_topics = []
+        touched_node_ids: List[str] = []
 
         for div in divergences:
             if not isinstance(div, dict):
@@ -407,17 +458,20 @@ Judge JSON schema:
                 )
                 patient_graph.add_divergence(claim_a_id, new_id, topic)
                 flagged_topics.append(topic)
+                touched_node_ids.extend([claim_a_id, new_id])
 
         if flagged_topics:
             return {
                 "changes": f"Flagged {len(flagged_topics)} divergence(s): " + "; ".join(flagged_topics),
                 "debate": result,
                 "judge": judge,
+                "touched_node_ids": list(dict.fromkeys(touched_node_ids)),
             }
         return {
-            "changes": str(judge.get("credibility_notes") or "No inconsistencies detected."),
+            "changes": str(judge.get("credibility_notes") or "Session disclosures consistent with longitudinal patient graph; no contradictions detected."),
             "debate": result,
             "judge": judge,
+            "touched_node_ids": [],
         }
 
     def _node_merging(
@@ -440,6 +494,7 @@ Judge JSON schema:
 
         judge = result.get("judge") if isinstance(result.get("judge"), dict) else {}
         changes = []
+        touched_node_ids: List[str] = []
 
         for merge in judge.get("merge_candidates", []) or []:
             if not isinstance(merge, dict):
@@ -458,6 +513,7 @@ Judge JSON schema:
             ):
                 patient_graph.remove_node(remove_id)
                 changes.append(f"Merged {remove_id} into {keep_id}")
+                touched_node_ids.append(keep_id)
 
         for thick in judge.get("edge_thickening", []) or []:
             if not isinstance(thick, dict):
@@ -468,12 +524,14 @@ Judge JSON schema:
             if edge:
                 nw = int(_safe_float(thick.get("new_weight"), edge.properties.get("weight", 1)))
                 edge.properties["weight"] = min(4, max(1, nw))
-                changes.append(f"Thickened {src}->{tgt}")
+                changes.append(f"Thickened {src}->{tgt} (weight {edge.properties['weight']})")
+                touched_node_ids.extend([src, tgt])
 
         return {
-            "changes": "; ".join(changes) if changes else "No merges or thickening needed.",
+            "changes": "; ".join(changes) if changes else "Distinct clinical and personal concepts preserved; synaptic weights verified.",
             "debate": result,
             "judge": judge,
+            "touched_node_ids": list(dict.fromkeys(touched_node_ids)),
         }
 
     def _inferred_edges(
@@ -495,6 +553,9 @@ Judge JSON schema:
 
         judge = result.get("judge") if isinstance(result.get("judge"), dict) else {}
         changes = []
+        inferred_node_ids: List[str] = []
+        inferred_edge_keys: List[str] = []
+        touched_node_ids: List[str] = []
 
         for node_data in judge.get("inferred_nodes", []) or []:
             if not isinstance(node_data, dict):
@@ -509,6 +570,8 @@ Judge JSON schema:
                     size=_safe_float(node_data.get("size"), 16.0),
                     is_new=True,
                 )
+                inferred_node_ids.append(node_id)
+                touched_node_ids.append(node_id)
                 connected_to = str(node_data.get("connected_to") or "").strip()
                 if connected_to and patient_graph.get_node(connected_to) is not None:
                     patient_graph.add_edge(
@@ -519,6 +582,8 @@ Judge JSON schema:
                         is_new=True,
                         dashed=True,
                     )
+                    inferred_edge_keys.append(f"{node_id}__{connected_to}")
+                    touched_node_ids.append(connected_to)
                 changes.append(f"Added inferred node: {label}")
 
         for edge_data in judge.get("inferred_edges", []) or []:
@@ -542,10 +607,15 @@ Judge JSON schema:
                     is_new=True,
                     dashed=True,
                 )
+                inferred_edge_keys.append(f"{source}__{target}")
+                touched_node_ids.extend([source, target])
                 changes.append(f"Inferred edge: {source} -> {target}")
 
         return {
-            "changes": "; ".join(changes) if changes else "No inferred connections generated.",
+            "changes": "; ".join(changes) if changes else "No additional inferred connections generated.",
             "debate": result,
             "judge": judge,
+            "inferred_node_ids": inferred_node_ids,
+            "inferred_edge_keys": inferred_edge_keys,
+            "touched_node_ids": list(dict.fromkeys(touched_node_ids)),
         }

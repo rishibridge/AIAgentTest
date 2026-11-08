@@ -226,22 +226,68 @@ const PREFIX = URL.includes('run.app') ? 'gcp_nu' : 'local_nu';
       `nodes=${postTurnsGraph.node_count}, edges=${postTurnsGraph.edge_count}, shinePills=${shineCount}, radialPositioned=${nonZeroRadialNodes}/${postTurnsGraph.node_count}, noRawLlmError=${noRawLlmError}`
     );
 
-    // TC-NU-07: End & Consolidate Session #1 -> Verify Consolidation Complete Card + Continuity & Feedback CTAs
+    // TC-NU-07: End & Consolidate Session #1 -> Verify Scanning Ritual HUD + Consolidation Complete Card + 5 Rich Step Cards + Replay Ritual
     const endConsolidateBtn = page.locator('[data-testid="end-consolidate-btn"]');
     await endConsolidateBtn.click();
-    await page.waitForSelector('[data-testid="consolidation-complete-card"]', { timeout: 60000 });
-    await page.waitForTimeout(1000);
+
+    // Capture the live scanning ritual state while consolidation is in flight
+    let scanningHudSeen = false;
+    let dynamicPatientHeaderSeen = false;
+    try {
+      await page.waitForSelector('[data-testid="consolidation-ritual-panel"]', { timeout: 5000 });
+      await page.waitForTimeout(1400);
+      const panelText = await page.locator('[data-testid="consolidation-ritual-panel"]').innerText();
+      dynamicPatientHeaderSeen = panelText.toUpperCase().includes(testName.toUpperCase()) && !panelText.includes('Daniel Ramirez');
+      scanningHudSeen = (await page.locator('[data-testid="ritual-scanning-hud"]').count()) >= 1;
+      await page.screenshot({ path: `${ARTIFACT_DIR}/${PREFIX}_04b_consolidation_scanning_ritual.png` });
+    } catch {
+      // If fast completion, we still verify post-consolidation ritual below
+    }
+
+    await page.waitForSelector('[data-testid="consolidation-complete-card"]', { timeout: 90000 });
+    await page.waitForTimeout(800);
+
+    // Open Advocate/Skeptic reasoning on Step 2 (index 1: Significance filtering) before taking screenshot
+    const debateToggle1 = page.locator('[data-testid="step-debate-toggle-1"]');
+    if ((await debateToggle1.count()) === 1) {
+      await debateToggle1.click();
+      await page.waitForTimeout(300);
+    }
 
     await page.screenshot({ path: `${ARTIFACT_DIR}/${PREFIX}_05_consolidation_complete.png` });
 
     const nextSessionBtn = page.locator('[data-testid="start-next-session-btn"]');
     const consolFeedbackBtn = page.locator('[data-testid="consolidation-feedback-btn"]');
+    const deltaSummary = page.locator('[data-testid="consolidation-delta-summary"]');
+    const integrationPill = page.locator('[data-testid="integration-summary-pill"]');
+    const replayBtn = page.locator('[data-testid="replay-ritual-btn"]');
+    const step0Changes = page.locator('[data-testid="step-changes-0"]');
+    const step4Changes = page.locator('[data-testid="step-changes-4"]');
+    const debateBody1 = page.locator('[data-testid="step-debate-body-1"]');
+
+    // Trigger Replay Ritual button to verify re-triggering cortical crystallization
+    if ((await replayBtn.count()) === 1) {
+      await replayBtn.click();
+      await page.waitForTimeout(300);
+    }
+
+    const ritualChecksPass =
+      scanningHudSeen &&
+      dynamicPatientHeaderSeen &&
+      (await nextSessionBtn.count()) === 1 &&
+      (await consolFeedbackBtn.count()) === 1 &&
+      (await deltaSummary.count()) === 1 &&
+      (await integrationPill.count()) === 1 &&
+      (await replayBtn.count()) === 1 &&
+      (await step0Changes.count()) === 1 &&
+      (await step4Changes.count()) === 1 &&
+      (await debateBody1.count()) === 1;
 
     record(
       'TC-NU-07',
-      'Session #1 Consolidation Complete + Start Next Session & Feedback Buttons',
-      (await nextSessionBtn.count()) === 1 && (await consolFeedbackBtn.count()) === 1,
-      `startNextSessionBtn=${await nextSessionBtn.count()}, consolFeedbackBtn=${await consolFeedbackBtn.count()}`
+      'Session #1 Memory Integration Ritual (Scanning HUD + Cortical Crystallization + 5 Rich Step Cards + Advocate/Skeptic Debate + Replay Ritual)',
+      ritualChecksPass,
+      `scanningHud=${scanningHudSeen}, dynamicHeader=${dynamicPatientHeaderSeen}, deltaSummary=${await deltaSummary.count()}, integrationPill=${await integrationPill.count()}, step0Changes=${await step0Changes.count()}, step4Changes=${await step4Changes.count()}, debateBody1=${await debateBody1.count()}`
     );
 
     // TC-NU-08: Click "Start Next Session (See What Ally Remembers)" -> Verify Session #2 "Welcome back, Alex" Continuity Greeting

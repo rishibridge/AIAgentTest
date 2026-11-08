@@ -1250,44 +1250,103 @@ function HandoffCard({ data, accent = '#D9B873' }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
- * CONSOLIDATION PANEL — 5-step viewer
+ * CONSOLIDATION PANEL — 5-step Short-Term -> Long-Term ritual viewer
  * ═══════════════════════════════════════════════════════════════════ */
 const CONSOLIDATION_STEPS = [
-  { title: 'Session ended', desc: 'Working memory holds the conversation. Long-term memory has not yet been updated.', accent: '#5FAEB0' },
-  { title: 'Significance filtering', desc: 'Surface content filtered out. High-significance disclosures encoded as new nodes with weighted prominence.', accent: '#D4A645' },
-  { title: 'Credibility weighting', desc: 'Inconsistencies between disclosures and prior knowledge are held as flagged divergence rather than collapsed. The bot does not naively overwrite.', accent: '#C84848' },
-  { title: 'Node merging & edge thickening', desc: 'Repeated content consolidates. Reinforced relationships strengthen. Graph becomes more compact and accurate.', accent: '#5FAEB0' },
-  { title: 'Inferred edges drawn', desc: 'Bot generates hypotheses connecting nodes the patient has not explicitly linked. These appear dashed for clinician review and possible confirmation.', accent: '#9E7E3A' },
+  { title: 'Session ended', desc: 'Short-term working memory buffer locked and pre-consolidation graph snapshot captured.', accent: '#5FAEB0', tag: 'SHORT-TERM BUFFER' },
+  { title: 'Significance filtering', desc: 'Advocate vs. Skeptic filters surface remarks; high-significance disclosures encoded with weighted prominence.', accent: '#D4A645', tag: 'SIGNIFICANCE GATE' },
+  { title: 'Credibility weighting', desc: 'Inconsistencies between disclosures and prior knowledge are held as flagged divergences rather than naively overwritten.', accent: '#C84848', tag: 'CREDIBILITY AUDIT' },
+  { title: 'Node merging & edge thickening', desc: 'Short-term session nodes crystallize into long-term cortical memory; reinforced synaptic edges thicken.', accent: '#5FAEB0', tag: 'CORTICAL ENCODING' },
+  { title: 'Inferred edges drawn', desc: 'Arbiter synthesizes dashed hypothesis nodes and links connecting previously unlinked concepts for review.', accent: '#9E7E3A', tag: 'HYPOTHESIS LINKS' },
 ];
 
-function ConsolidationPanel({ isElena }) {
+function ConsolidationPanel({ isElena, patientName, onStageChange }) {
   const [activeStep, setActiveStep] = useState(0);
+  const displayName = patientName || (isElena ? 'Elena Ramirez' : 'Daniel Ramirez');
+
   useEffect(() => {
-    const timer = setInterval(() => setActiveStep(s => s < 4 ? s + 1 : s), 3000);
+    if (onStageChange) onStageChange(0);
+    const timer = setInterval(() => {
+      setActiveStep(s => {
+        const next = s < 4 ? s + 1 : s;
+        if (onStageChange) onStageChange(next);
+        return next;
+      });
+    }, 1300);
     return () => clearInterval(timer);
-  }, []);
+  }, [onStageChange]);
+
+  const progressPct = Math.min(100, (activeStep + 1) * 20);
 
   return (
-    <div className="fade-enter-active" style={{ padding: '32px', overflowY: 'auto', height: '100%' }}>
-      <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '2rem', color: '#D4A645', marginBottom: '24px' }}>Memory Consolidation</h2>
-      <div style={{ fontSize: '0.8rem', color: '#9B9285', marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-        {isElena ? 'Elena Ramirez' : 'Daniel Ramirez'} • Post-session processing
+    <div data-testid="consolidation-ritual-panel" className="fade-enter-active" style={{ padding: '28px 26px', overflowY: 'auto', height: '100%' }}>
+      <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.95rem', color: '#D4A645', marginBottom: '6px' }}>
+        Memory Consolidation
+      </h2>
+      <div data-testid="consolidation-patient-subtitle" style={{ fontSize: '0.76rem', color: '#9B9285', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+        {displayName} • Short-Term → Long-Term Memory Integration
       </div>
-      {CONSOLIDATION_STEPS.map((step, i) => (
-        <div key={i} className={i <= activeStep ? 'fade-enter-active' : ''} style={{
-          marginBottom: '16px', padding: '16px', borderRadius: '8px',
-          background: i <= activeStep ? 'rgba(255,255,255,0.05)' : 'transparent',
-          borderLeft: `3px solid ${i <= activeStep ? step.accent : 'rgba(255,255,255,0.1)'}`,
-          opacity: i <= activeStep ? 1 : 0.3,
-          transition: 'all 0.5s ease',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
-            <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: i <= activeStep ? step.accent : 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 600, color: '#050608' }}>{i + 1}</div>
-            <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{step.title}</div>
-          </div>
-          {i <= activeStep && <div style={{ marginLeft: '36px', fontSize: '0.85rem', color: '#A8A39A', lineHeight: 1.6 }}>{step.desc}</div>}
+
+      {/* Synaptic Pipeline Progress Header */}
+      <div style={{
+        marginBottom: '20px', padding: '12px 14px', borderRadius: '10px',
+        background: 'linear-gradient(135deg, rgba(217,184,115,0.10), rgba(95,174,176,0.08))',
+        border: '1px solid rgba(217,184,115,0.28)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+          <span style={{ color: '#D9B873', fontWeight: 700 }}>Working Memory</span>
+          <span style={{ color: '#9B9285' }}>→ Advocate / Skeptic / Judge →</span>
+          <span style={{ color: '#5FAEB0', fontWeight: 700 }}>Long-Term Graph</span>
         </div>
-      ))}
+        <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+          <div style={{
+            width: `${progressPct}%`, height: '100%',
+            background: 'linear-gradient(90deg, #D9B873, #5FAEB0)',
+            transition: 'width 500ms ease',
+          }} />
+        </div>
+      </div>
+
+      {CONSOLIDATION_STEPS.map((step, i) => {
+        const isCurrent = i === activeStep;
+        const isDone = i < activeStep;
+        const isLit = i <= activeStep;
+        return (
+          <div key={i} className={isLit ? 'fade-enter-active' : ''} style={{
+            marginBottom: '14px', padding: '14px 16px', borderRadius: '8px',
+            background: isCurrent ? 'rgba(217,184,115,0.08)' : isLit ? 'rgba(255,255,255,0.04)' : 'transparent',
+            borderLeft: `3px solid ${isLit ? step.accent : 'rgba(255,255,255,0.1)'}`,
+            borderTop: isCurrent ? '1px solid rgba(217,184,115,0.25)' : '1px solid transparent',
+            borderRight: isCurrent ? '1px solid rgba(217,184,115,0.25)' : '1px solid transparent',
+            borderBottom: isCurrent ? '1px solid rgba(217,184,115,0.25)' : '1px solid transparent',
+            opacity: isLit ? 1 : 0.3,
+            transition: 'all 0.45s ease',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '24px', height: '24px', borderRadius: '50%',
+                  background: isLit ? step.accent : 'rgba(255,255,255,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '0.72rem', fontWeight: 700, color: '#050608', flexShrink: 0,
+                }}>
+                  {isDone ? '✓' : i + 1}
+                </div>
+                <div style={{ fontWeight: 600, fontSize: '0.92rem', color: isCurrent ? '#EDEAE3' : '#D5D0C8' }}>{step.title}</div>
+              </div>
+              <span style={{
+                fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em',
+                color: isCurrent ? '#D9B873' : isDone ? '#5FAEB0' : '#6B6560',
+                textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px',
+              }}>
+                {isCurrent && <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} />}
+                {isCurrent ? step.tag : isDone ? 'ENCODED' : 'PENDING'}
+              </span>
+            </div>
+            {isLit && <div style={{ marginLeft: '34px', fontSize: '0.82rem', color: '#A8A39A', lineHeight: 1.55 }}>{step.desc}</div>}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1455,6 +1514,17 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
   const [statusNotice, setStatusNotice] = useState(null);
   const [chatResetNonce, setChatResetNonce] = useState(0);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [ritualMode, setRitualMode] = useState('idle'); // 'idle' | 'scanning' | 'integrating'
+  const [ritualStage, setRitualStage] = useState(0);
+  const [expandedDebateStep, setExpandedDebateStep] = useState(null);
+  const [activeStepIndex, setActiveStepIndex] = useState(null);
+  const ritualTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (ritualTimerRef.current) clearTimeout(ritualTimerRef.current);
+    };
+  }, []);
 
   const nodeLabelMap = useMemo(() => {
     const map = {};
@@ -1471,10 +1541,13 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
           id: n.id, label: n.label || n.id.replace(/_/g, ' '),
           kind: n.kind || 'event', size: n.size || 30,
           is_new: n.is_new || false,
+          consolidated_new: n.consolidated_new || false,
         }));
         const edges = (graph.edges || []).map((e) => ({
           source: e.source, target: e.target,
           weight: e.weight || 1, dashed: e.dashed || e.inferred || false,
+          is_new: e.is_new || false,
+          consolidated_new: e.consolidated_new || false,
         }));
         setGraphData({ nodes, edges, positions: posData.positions || posData || {} });
       })
@@ -1483,23 +1556,25 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
 
   useEffect(() => { refreshGraph(); }, [patientId]);
 
-  const handleGraphUpdate = (currentGraph) => {
+  const handleGraphUpdate = (currentGraph, skipAutoHighlight = false) => {
     if (!currentGraph) return;
     const nodes = (currentGraph.nodes || []).map((n) => ({
       id: n.id, label: n.label || n.id.replace(/_/g, ' '),
       kind: n.kind || 'event', size: n.size || 30,
       is_new: n.is_new || false,
+      consolidated_new: n.consolidated_new || false,
     }));
     const edges = (currentGraph.edges || []).map((e) => ({
       source: e.source, target: e.target,
       weight: e.weight || 1, dashed: e.dashed || e.inferred || false,
       is_new: e.is_new || false,
+      consolidated_new: e.consolidated_new || false,
     }));
     setGraphData(prev => {
       const prevIds = new Set((prev.nodes || []).map(n => n.id));
       const trulyNewIds = nodes.filter(n => !prevIds.has(n.id)).map(n => n.id);
 
-      if (trulyNewIds.length > 0) {
+      if (!skipAutoHighlight && trulyNewIds.length > 0) {
         setHighlight(trulyNewIds);
         setTimeout(() => setHighlight([]), 4000);
       }
@@ -1516,18 +1591,49 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
     });
   };
 
+  const startIntegrationFinale = (resultObj) => {
+    if (!resultObj) return;
+    if (ritualTimerRef.current) clearTimeout(ritualTimerRef.current);
+    setRitualMode('integrating');
+    const delta = resultObj.integration_delta || {};
+    const allTouched = Array.from(new Set([
+      ...(delta.encoded_short_term_ids || []),
+      ...(delta.new_consolidation_node_ids || []),
+      ...(delta.significant_node_ids || []),
+      ...(delta.inferred_node_ids || []),
+      ...(delta.merged_or_thickened_ids || []),
+    ]));
+    if (allTouched.length > 0) {
+      setHighlight(allTouched);
+    }
+    ritualTimerRef.current = setTimeout(() => {
+      setRitualMode('idle');
+      setHighlight([]);
+    }, 4500);
+  };
+
   const runConsolidation = async (targetConvId) => {
     setConsolidating(true);
     setConsolidationError(null);
     setConsolidationResult(null);
+    setRitualMode('scanning');
+    setRitualStage(0);
+    setActiveStepIndex(null);
+    setExpandedDebateStep(null);
     try {
       const result = await api.triggerConsolidation(patientId, targetConvId);
       if (!result || result.status === 'error' || !Array.isArray(result.steps) || result.steps.length === 0) {
         throw new Error(result?.detail || 'Consolidation pipeline returned an incomplete state.');
       }
       setConsolidationResult(result);
+      if (result.final_graph) {
+        handleGraphUpdate(result.final_graph, true);
+      }
       refreshGraph();
-      api.generateHandoff(patientId, 'Dr. A. Patel', 'Clinician').catch(() => {});
+      startIntegrationFinale(result);
+      if (patientId.includes('elena') || patientId.includes('daniel')) {
+        api.generateHandoff(patientId, 'Dr. A. Patel', 'Clinician').catch(() => {});
+      }
     } catch (e) {
       console.error('Consolidation error:', e);
       // Reconcile against authoritative backend conversation status so UI and API never disagree
@@ -1540,7 +1646,7 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
         if (matchingConv && matchingConv.status === 'consolidated') {
           const fallbackSteps = await api.getConsolidationSteps(patientId).catch(() => ({ steps: [] }));
           const graphSnapshot = await api.getGraph(patientId).catch(() => ({}));
-          setConsolidationResult({
+          const reconciled = {
             status: 'completed',
             conversation_id: matchingConv.id,
             conversation_status: 'consolidated',
@@ -1551,13 +1657,16 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
               { id: 'consent_audit', title: '4. Consent Gate Audit', summary: 'Completed on server' },
             ],
             graph: graphSnapshot,
-          });
+          };
+          setConsolidationResult(reconciled);
           refreshGraph();
+          startIntegrationFinale(reconciled);
           return;
         }
       } catch {
         // Ignore reconciliation error and display primary consolidation failure
       }
+      setRitualMode('idle');
       setConsolidationError(e.message || 'Consolidation pipeline failed.');
     } finally {
       setConsolidating(false);
@@ -1623,6 +1732,9 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
       setConsolidationError(null);
       setSessionEnded(false);
       setConvId(null);
+      setRitualMode('idle');
+      setActiveStepIndex(null);
+      setExpandedDebateStep(null);
       setChatResetNonce(n => n + 1);
       setStatusNotice('Patient reset to seed state');
       setTimeout(() => setStatusNotice(null), 3000);
@@ -1775,6 +1887,10 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
             <VirtualBrain
               nodes={graphData.nodes} edges={graphData.edges} positions={graphData.positions}
               highlight={highlight} pulseIds={highlight} significancePulse={true} viewBox="0 0 1100 620" showFirewall={false} opacity={1}
+              ritualMode={ritualMode}
+              ritualStage={ritualStage}
+              integrationDelta={consolidationResult?.integration_delta}
+              onReplayRitual={consolidationResult ? () => startIntegrationFinale(consolidationResult) : undefined}
               onNodeClick={(n) => { setDetailKind('node'); setDetailTarget(n); }}
               onEdgeClick={(e) => { setDetailKind('edge'); setDetailTarget(e); }}
               onBackgroundClick={() => { setDetailKind(null); setDetailTarget(null); }}
@@ -1806,7 +1922,11 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
           style={{ width: '400px', borderLeft: '1px solid rgba(255,255,255,0.1)', flexShrink: 0, position: 'relative', minHeight: 0 }}
         >
           {consolidating && !consolidationResult && !consolidationError ? (
-            <ConsolidationPanel isElena={patientId.includes('elena')} />
+            <ConsolidationPanel
+              isElena={patientId.includes('elena')}
+              patientName={patientName}
+              onStageChange={setRitualStage}
+            />
           ) : sessionEnded && consolidationError ? (
             /* Explicit Error State on Consolidation Failure (H1) */
             <div data-testid="consolidation-error-card" className="fade-enter-active" style={{ padding: '32px', overflowY: 'auto', height: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1832,16 +1952,68 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
               </button>
             </div>
           ) : sessionEnded && consolidationResult ? (
-            <div data-testid="consolidation-complete-card" className="fade-enter-active" style={{ padding: '32px', overflowY: 'auto', height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '2rem', color: '#5FAEB0', marginBottom: '8px' }}>Consolidation Complete</h2>
-              <div style={{ fontSize: '0.8rem', color: '#9B9285', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                {patientName} • Long-term Memory Updated
+            <div data-testid="consolidation-complete-card" className="fade-enter-active" style={{ padding: '24px 22px', overflowY: 'auto', height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.95rem', color: '#5FAEB0', marginBottom: '4px' }}>Consolidation Complete</h2>
+              <div style={{ fontSize: '0.74rem', color: '#9B9285', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                {patientName} • Short-Term → Long-Term Memory Encoded
               </div>
-              <p style={{ color: '#EDEAE3', fontSize: '0.92rem', lineHeight: 1.6, marginBottom: '18px' }}>
-                The session has been processed through all 5 Advocate/Skeptic/Judge steps and persisted to the longitudinal store.
-              </p>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
+              {/* Memory Integration Delta Summary Banner */}
+              <div
+                data-testid="consolidation-delta-summary"
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, rgba(95,174,176,0.12), rgba(217,184,115,0.08))',
+                  border: '1px solid rgba(95,174,176,0.35)',
+                  marginBottom: '16px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.68rem', color: '#D9B873', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    ✦ Hippocampal → Cortical Transfer
+                  </span>
+                  <button
+                    data-testid="panel-replay-ritual-btn"
+                    onClick={() => startIntegrationFinale(consolidationResult)}
+                    style={{
+                      background: 'rgba(217,184,115,0.16)',
+                      border: '1px solid rgba(217,184,115,0.45)',
+                      color: '#D9B873',
+                      borderRadius: '5px',
+                      padding: '3px 8px',
+                      fontSize: '0.66rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontFamily: "'Work Sans', sans-serif",
+                    }}
+                  >
+                    ↻ Replay Ritual
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', textAlign: 'center' }}>
+                  <div style={{ background: 'rgba(5,6,8,0.55)', padding: '6px 4px', borderRadius: '6px' }}>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#5FAEB0' }}>
+                      {(consolidationResult.integration_delta?.encoded_short_term_ids?.length || 0) + (consolidationResult.integration_delta?.significant_node_ids?.length || 0)}
+                    </div>
+                    <div style={{ fontSize: '0.6rem', color: '#9B9285', textTransform: 'uppercase' }}>Encoded LTM</div>
+                  </div>
+                  <div style={{ background: 'rgba(5,6,8,0.55)', padding: '6px 4px', borderRadius: '6px' }}>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#D9B873' }}>
+                      {(consolidationResult.integration_delta?.new_consolidation_node_ids?.length || 0) + (consolidationResult.integration_delta?.inferred_node_ids?.length || 0)}
+                    </div>
+                    <div style={{ fontSize: '0.6rem', color: '#9B9285', textTransform: 'uppercase' }}>Synthesized</div>
+                  </div>
+                  <div style={{ background: 'rgba(5,6,8,0.55)', padding: '6px 4px', borderRadius: '6px' }}>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#EDEAE3' }}>
+                      {(consolidationResult.integration_delta?.new_consolidation_edge_keys?.length || 0) + (consolidationResult.integration_delta?.inferred_edge_keys?.length || 0)}
+                    </div>
+                    <div style={{ fontSize: '0.6rem', color: '#9B9285', textTransform: 'uppercase' }}>New Synapses</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '18px' }}>
                 <button
                   data-testid="start-next-session-btn"
                   onClick={() => {
@@ -1849,13 +2021,16 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
                     setConsolidationResult(null);
                     setConsolidationError(null);
                     setConvId(null);
+                    setRitualMode('idle');
+                    setActiveStepIndex(null);
+                    setExpandedDebateStep(null);
                     setChatResetNonce(n => n + 1);
                     refreshGraph();
                   }}
                   style={{
-                    width: '100%', padding: '12px 16px', borderRadius: '8px', border: 'none',
+                    width: '100%', padding: '11px 16px', borderRadius: '8px', border: 'none',
                     background: 'linear-gradient(135deg, #D9B873, #C4A35A)', color: '#050608',
-                    fontWeight: 700, fontSize: '0.82rem', fontFamily: "'Work Sans', sans-serif",
+                    fontWeight: 700, fontSize: '0.8rem', fontFamily: "'Work Sans', sans-serif",
                     textTransform: 'uppercase', letterSpacing: '0.06em', cursor: 'pointer',
                   }}
                 >
@@ -1865,9 +2040,9 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
                   data-testid="consolidation-feedback-btn"
                   onClick={() => setShowFeedbackModal(true)}
                   style={{
-                    width: '100%', padding: '10px 16px', borderRadius: '8px',
+                    width: '100%', padding: '9px 16px', borderRadius: '8px',
                     background: 'rgba(95,174,176,0.1)', border: '1px solid rgba(95,174,176,0.35)',
-                    color: '#5FAEB0', fontWeight: 600, fontSize: '0.8rem',
+                    color: '#5FAEB0', fontWeight: 600, fontSize: '0.78rem',
                     fontFamily: "'Work Sans', sans-serif", cursor: 'pointer',
                   }}
                 >
@@ -1875,35 +2050,220 @@ function StandaloneLiveChat({ patientId, patientName, onBack }) {
                 </button>
               </div>
 
-              {consolidationResult.steps && consolidationResult.steps.map((step, i) => (
-                <div key={i} style={{ marginBottom: '20px', padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', borderLeft: '2px solid rgba(255,255,255,0.1)' }}>
-                  <div style={{ fontWeight: 600, color: '#D9B873', marginBottom: '8px', fontSize: '0.9rem' }}>{step.title}</div>
-                  {step.judge && step.judge.significant_disclosures && step.judge.significant_disclosures.length > 0 && (
-                    <div style={{ fontSize: '0.85rem', color: '#EDEAE3' }}>
-                      <span style={{ color: '#9B9285', fontSize: '0.75rem', textTransform: 'uppercase' }}>Added Nodes:</span>
-                      <ul style={{ paddingLeft: '20px', margin: '4px 0 0 0' }}>
-                        {step.judge.significant_disclosures.map((d, j) => <li key={j}>{d.label}</li>)}
-                      </ul>
+              <div style={{ fontSize: '0.68rem', color: '#9B9285', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+                5-Stage Advocate / Skeptic / Judge Pipeline (Click Step to Highlight Graph)
+              </div>
+
+              {consolidationResult.steps && consolidationResult.steps.map((step, i) => {
+                const j = step.judge || {};
+                const changes = Array.isArray(step.changes)
+                  ? step.changes
+                  : (typeof step.changes === 'string' && step.changes.trim()
+                    ? step.changes.split('; ').map(s => s.trim()).filter(Boolean)
+                    : []);
+                const advArg = step.debate?.advocate?.argument || step.advocate?.argument || '';
+                const skepArg = step.debate?.skeptic?.argument || step.skeptic?.argument || '';
+                const touchedIds = Array.isArray(step.touched_node_ids) ? step.touched_node_ids : [];
+                const isSelected = activeStepIndex === i;
+                const isDebateOpen = expandedDebateStep === i;
+
+                return (
+                  <div
+                    key={i}
+                    data-testid={`consolidation-step-card-${i}`}
+                    onClick={() => {
+                      setActiveStepIndex(isSelected ? null : i);
+                      if (!isSelected && touchedIds.length > 0) {
+                        setHighlight(touchedIds);
+                      } else if (isSelected) {
+                        setHighlight([]);
+                      }
+                    }}
+                    onMouseEnter={() => {
+                      if (touchedIds.length > 0) setHighlight(touchedIds);
+                    }}
+                    style={{
+                      marginBottom: '12px',
+                      padding: '13px 14px',
+                      background: isSelected ? 'rgba(95,174,176,0.11)' : 'rgba(255,255,255,0.03)',
+                      borderRadius: '8px',
+                      border: `1px solid ${isSelected ? 'rgba(95,174,176,0.45)' : 'rgba(255,255,255,0.07)'}`,
+                      borderLeft: `3px solid ${isSelected ? '#5FAEB0' : '#D9B873'}`,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', gap: '8px' }}>
+                      <div style={{ fontWeight: 600, color: '#D9B873', fontSize: '0.86rem' }}>
+                        {step.step || (i + 1)}. {step.title}
+                      </div>
+                      {touchedIds.length > 0 && (
+                        <span style={{
+                          fontSize: '0.62rem', color: '#5FAEB0',
+                          background: 'rgba(95,174,176,0.14)',
+                          border: '1px solid rgba(95,174,176,0.3)',
+                          padding: '2px 6px', borderRadius: '999px', whiteSpace: 'nowrap',
+                        }}>
+                          {touchedIds.length} node{touchedIds.length === 1 ? '' : 's'}
+                        </span>
+                      )}
                     </div>
-                  )}
-                  {step.judge && step.judge.divergences && step.judge.divergences.length > 0 && (
-                    <div style={{ fontSize: '0.85rem', color: '#E85D5D', marginTop: '8px' }}>
-                      <span style={{ color: '#9B9285', fontSize: '0.75rem', textTransform: 'uppercase' }}>Flagged Divergences:</span>
-                      <ul style={{ paddingLeft: '20px', margin: '4px 0 0 0' }}>
-                        {step.judge.divergences.map((d, j) => <li key={j}>{d.topic}</li>)}
+
+                    {/* Step Changes Summary (Always Present) */}
+                    {changes.length > 0 && (
+                      <ul data-testid={`step-changes-${i}`} style={{ paddingLeft: '18px', margin: '4px 0 6px 0', fontSize: '0.78rem', color: '#D5D0C6', lineHeight: 1.45 }}>
+                        {changes.map((c, idx) => (
+                          <li key={idx}>{humanizeGraphRef(String(c), nodeLabelMap)}</li>
+                        ))}
                       </ul>
-                    </div>
-                  )}
-                  {step.judge && step.judge.inferred_edges && step.judge.inferred_edges.length > 0 && (
-                    <div style={{ fontSize: '0.85rem', color: '#4DB8B8', marginTop: '8px' }}>
-                      <span style={{ color: '#9B9285', fontSize: '0.75rem', textTransform: 'uppercase' }}>Inferred Connections:</span>
-                      <ul style={{ paddingLeft: '20px', margin: '4px 0 0 0' }}>
-                        {step.judge.inferred_edges.map((e, j) => <li key={j}>{humanizeGraphRef(e.source, nodeLabelMap)} ↔ {humanizeGraphRef(e.target, nodeLabelMap)}</li>)}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+
+                    {/* Step 1: Significant Disclosures & Size Adjustments */}
+                    {Array.isArray(j.significant_disclosures) && j.significant_disclosures.length > 0 && (
+                      <div style={{ fontSize: '0.78rem', color: '#EDEAE3', marginTop: '6px' }}>
+                        <span style={{ color: '#9B9285', fontSize: '0.68rem', textTransform: 'uppercase' }}>Added / Promoted Nodes:</span>
+                        <ul style={{ paddingLeft: '18px', margin: '3px 0 0 0' }}>
+                          {j.significant_disclosures.map((d, idx) => (
+                            <li key={idx}>
+                              <strong>{d.label || humanizeGraphRef(d.node_id, nodeLabelMap)}</strong>
+                              {d.reason ? ` — ${d.reason}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {Array.isArray(j.size_adjustments) && j.size_adjustments.length > 0 && (
+                      <div style={{ fontSize: '0.78rem', color: '#5FAEB0', marginTop: '6px' }}>
+                        <span style={{ color: '#9B9285', fontSize: '0.68rem', textTransform: 'uppercase' }}>Salience Weight Updates:</span>
+                        <ul style={{ paddingLeft: '18px', margin: '3px 0 0 0' }}>
+                          {j.size_adjustments.map((s, idx) => (
+                            <li key={idx}>
+                              {humanizeGraphRef(s.node_id, nodeLabelMap)} → weight {s.new_size}
+                              {s.reason ? ` (${s.reason})` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Step 2: Flagged Divergences */}
+                    {Array.isArray(j.divergences) && j.divergences.length > 0 && (
+                      <div style={{ fontSize: '0.78rem', color: '#E85D5D', marginTop: '6px' }}>
+                        <span style={{ color: '#9B9285', fontSize: '0.68rem', textTransform: 'uppercase' }}>Flagged Divergences:</span>
+                        <ul style={{ paddingLeft: '18px', margin: '3px 0 0 0' }}>
+                          {j.divergences.map((d, idx) => (
+                            <li key={idx}>
+                              <strong>{d.topic}</strong>
+                              {d.severity ? ` [${d.severity}]` : ''}
+                              {d.clinical_question ? ` — ${d.clinical_question}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Step 3: Merge Candidates */}
+                    {Array.isArray(j.merge_candidates) && j.merge_candidates.length > 0 && (
+                      <div style={{ fontSize: '0.78rem', color: '#D9B873', marginTop: '6px' }}>
+                        <span style={{ color: '#9B9285', fontSize: '0.68rem', textTransform: 'uppercase' }}>Consolidated Clusters:</span>
+                        <ul style={{ paddingLeft: '18px', margin: '3px 0 0 0' }}>
+                          {j.merge_candidates.map((m, idx) => (
+                            <li key={idx}>
+                              {m.remove_id && m.keep_id
+                                ? <>{humanizeGraphRef(m.remove_id, nodeLabelMap)} → <strong>{humanizeGraphRef(m.keep_id, nodeLabelMap)}</strong></>
+                                : <>{(m.nodes || []).map(id => humanizeGraphRef(id, nodeLabelMap)).join(' + ')} → <strong>{m.merged_label}</strong></>
+                              }
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Step 4: Edge Thickening */}
+                    {Array.isArray(j.edge_thickening) && j.edge_thickening.length > 0 && (
+                      <div style={{ fontSize: '0.78rem', color: '#5FAEB0', marginTop: '6px' }}>
+                        <span style={{ color: '#9B9285', fontSize: '0.68rem', textTransform: 'uppercase' }}>Reinforced Synaptic Pathways:</span>
+                        <ul style={{ paddingLeft: '18px', margin: '3px 0 0 0' }}>
+                          {j.edge_thickening.map((et, idx) => (
+                            <li key={idx}>
+                              {humanizeGraphRef(et.source, nodeLabelMap)} ↔ {humanizeGraphRef(et.target, nodeLabelMap)} (w={et.new_weight})
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Step 5: Inferred Nodes & Inferred Edges */}
+                    {Array.isArray(j.inferred_nodes) && j.inferred_nodes.length > 0 && (
+                      <div style={{ fontSize: '0.78rem', color: '#D9B873', marginTop: '6px' }}>
+                        <span style={{ color: '#9B9285', fontSize: '0.68rem', textTransform: 'uppercase' }}>Latent Pattern Nodes:</span>
+                        <ul style={{ paddingLeft: '18px', margin: '3px 0 0 0' }}>
+                          {j.inferred_nodes.map((n, idx) => (
+                            <li key={idx}>
+                              <strong>{n.label}</strong>
+                              {n.connected_to ? ` (linked to ${humanizeGraphRef(n.connected_to, nodeLabelMap)})` : ''}
+                              {n.evidence ? ` — ${n.evidence}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {Array.isArray(j.inferred_edges) && j.inferred_edges.length > 0 && (
+                      <div style={{ fontSize: '0.78rem', color: '#4DB8B8', marginTop: '6px' }}>
+                        <span style={{ color: '#9B9285', fontSize: '0.68rem', textTransform: 'uppercase' }}>Inferred Connections:</span>
+                        <ul style={{ paddingLeft: '18px', margin: '3px 0 0 0' }}>
+                          {j.inferred_edges.map((e, idx) => (
+                            <li key={idx}>
+                              {humanizeGraphRef(e.source, nodeLabelMap)} ↔ {humanizeGraphRef(e.target, nodeLabelMap)}
+                              {(e.label || e.reason) ? ` (${e.label || e.reason})` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Advocate / Skeptic Reasoning Toggle */}
+                    {(advArg || skepArg) && (
+                      <div style={{ marginTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '6px' }}>
+                        <button
+                          data-testid={`step-debate-toggle-${i}`}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            setExpandedDebateStep(isDebateOpen ? null : i);
+                          }}
+                          style={{
+                            background: 'none', border: 'none', padding: 0,
+                            color: '#9B9285', fontSize: '0.7rem', cursor: 'pointer',
+                            fontFamily: "'Work Sans', sans-serif", display: 'flex', alignItems: 'center', gap: '4px',
+                          }}
+                        >
+                          ⚖ {isDebateOpen ? 'Hide' : 'View'} Advocate / Skeptic Reasoning
+                        </button>
+                        {isDebateOpen && (
+                          <div
+                            data-testid={`step-debate-body-${i}`}
+                            onClick={(ev) => ev.stopPropagation()}
+                            style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.74rem', lineHeight: 1.45 }}
+                          >
+                            {advArg && (
+                              <div style={{ padding: '7px 9px', borderRadius: '6px', background: 'rgba(95,174,176,0.08)', borderLeft: '2px solid #5FAEB0', color: '#D5D0C6' }}>
+                                <strong style={{ color: '#5FAEB0', textTransform: 'uppercase', fontSize: '0.64rem', letterSpacing: '0.06em' }}>Advocate: </strong>
+                                {advArg}
+                              </div>
+                            )}
+                            {skepArg && (
+                              <div style={{ padding: '7px 9px', borderRadius: '6px', background: 'rgba(217,184,115,0.08)', borderLeft: '2px solid #D9B873', color: '#D5D0C6' }}>
+                                <strong style={{ color: '#D9B873', textTransform: 'uppercase', fontSize: '0.64rem', letterSpacing: '0.06em' }}>Skeptic: </strong>
+                                {skepArg}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <LiveChat

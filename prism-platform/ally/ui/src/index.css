@@ -10,6 +10,11 @@ body { font-family: 'Work Sans', system-ui, sans-serif; background: #050608; col
 @keyframes pulseGlow { 0%, 100% { filter: drop-shadow(0 0 4px rgba(212,166,69,0.3)); } 50% { filter: drop-shadow(0 0 12px rgba(212,166,69,0.6)); } }
 @keyframes subtlePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
 @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.65; } }
+@keyframes synapticRipple { 0% { transform: scale(0.85); opacity: 0.75; } 100% { transform: scale(1.45); opacity: 0; } }
+@keyframes edgeDrawIn { from { stroke-dashoffset: 240; opacity: 0.2; } to { stroke-dashoffset: 0; opacity: 0.85; } }
+@keyframes shimmerBar { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
 .fade-enter-active { animation: fadeIn 0.4s ease-out both; }
 .slide-in-right { animation: slideInRight 0.3s ease-out both; }
